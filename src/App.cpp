@@ -199,8 +199,6 @@ void App::SetupImGui() {
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     
-    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-    
     // Setup platform/renderer backends
     ImGui_ImplSDL3_InitForOpenGL(m_window, m_glContext);
     ImGui_ImplOpenGL3_Init("#version 330");

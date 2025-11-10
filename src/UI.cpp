@@ -12,9 +12,7 @@ UI::UI() {
 }
 
 void UI::SetupDockspace() {
-    // Enable docking
-    ImGuiIO& io = ImGui::GetIO();
-    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    // No docking setup needed
 }
 
 void UI::Render(
@@ -24,30 +22,24 @@ void UI::Render(
     IconManager& icons,
     float deltaTime
 ) {
-    // Create fullscreen dockspace
+    // Create fullscreen window for menu bar
     ImGuiViewport* viewport = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos(viewport->WorkPos);
     ImGui::SetNextWindowSize(viewport->WorkSize);
-    ImGui::SetNextWindowViewport(viewport->ID);
     
     ImGuiWindowFlags window_flags = 
         ImGuiWindowFlags_MenuBar | 
-        ImGuiWindowFlags_NoDocking |
         ImGuiWindowFlags_NoTitleBar | 
         ImGuiWindowFlags_NoCollapse |
         ImGuiWindowFlags_NoResize | 
         ImGuiWindowFlags_NoMove |
         ImGuiWindowFlags_NoBringToFrontOnFocus | 
-        ImGuiWindowFlags_NoNavFocus;
+        ImGuiWindowFlags_NoNavFocus |
+        ImGuiWindowFlags_NoBackground;
     
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-    ImGui::Begin("DockSpace", nullptr, window_flags);
+    ImGui::Begin("MainWindow", nullptr, window_flags);
     ImGui::PopStyleVar();
-    
-    // Create dockspace
-    ImGuiID dockspace_id = ImGui::GetID("MainDockspace");
-    ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), 
-        ImGuiDockNodeFlags_PassthruCentralNode);
     
     // Render menu bar
     RenderMenuBar(model, canvas, history);
