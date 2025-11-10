@@ -5,9 +5,8 @@
 #include <nlohmann/json.hpp>
 
 // minizip-ng compatibility layer provides zip.h and unzip.h
-#include "mz.h"
-#include "mz_zip.h"
-#include "mz_compat.h"
+#include "zip.h"
+#include "unzip.h"
 
 using json = nlohmann::json;
 

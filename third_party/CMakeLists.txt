@@ -30,12 +30,13 @@ target_include_directories(imgui PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/imgui/backends
 )
 
-target_compile_definitions(imgui PUBLIC
-    IMGUI_IMPL_OPENGL_LOADER_CUSTOM
-)
+# Don't use IMGUI_IMPL_OPENGL_LOADER_CUSTOM - let ImGui use its default loader
+# which works with SDL3's OpenGL headers
 
-target_link_libraries(imgui PUBLIC SDL3::SDL3)
+# Link to vendored SDL3-static (not SDL3::SDL3)
+target_link_libraries(imgui PUBLIC SDL3-static)
 
+# Link OpenGL framework/library
 if(APPLE)
     target_link_libraries(imgui PUBLIC "-framework OpenGL")
 elseif(WIN32)

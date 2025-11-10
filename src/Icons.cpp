@@ -12,7 +12,7 @@ namespace fs = std::filesystem;
 namespace Cartograph {
 
 IconManager::IconManager()
-    : m_atlasTexture(nullptr)
+    : m_atlasTexture(0)
     , m_atlasWidth(0)
     , m_atlasHeight(0)
     , m_atlasDirty(false)
@@ -30,12 +30,9 @@ int IconManager::LoadFromDirectory(const std::string& dir, bool recursive) {
     
     int count = 0;
     
-    auto iterator = recursive 
-        ? fs::recursive_directory_iterator(dir)
-        : fs::directory_iterator(dir);
-    
-    for (const auto& entry : iterator) {
-        if (!entry.is_regular_file()) continue;
+    // Helper lambda to process entries
+    auto processEntry = [&](const fs::directory_entry& entry) {
+        if (!entry.is_regular_file()) return;
         
         std::string ext = entry.path().extension().string();
         std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
@@ -45,6 +42,17 @@ int IconManager::LoadFromDirectory(const std::string& dir, bool recursive) {
             if (LoadIcon(entry.path().string(), name)) {
                 count++;
             }
+        }
+    };
+    
+    // Use different iterator types based on recursive flag
+    if (recursive) {
+        for (const auto& entry : fs::recursive_directory_iterator(dir)) {
+            processEntry(entry);
+        }
+    } else {
+        for (const auto& entry : fs::directory_iterator(dir)) {
+            processEntry(entry);
         }
     }
     
@@ -182,7 +190,7 @@ void IconManager::Clear() {
     m_pendingIcons.clear();
     
     // TODO: Destroy GL texture
-    m_atlasTexture = nullptr;
+    m_atlasTexture = 0;
     m_atlasDirty = false;
 }
 

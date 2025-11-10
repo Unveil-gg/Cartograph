@@ -81,6 +81,11 @@ target_link_libraries(Cartograph PRIVATE
 # Link minizip if available (minizip-ng creates a target called "minizip")
 if(TARGET minizip)
     target_link_libraries(Cartograph PRIVATE minizip)
+    # Add minizip-ng include directories explicitly (compat layer for old API)
+    target_include_directories(Cartograph PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/third_party/minizip-ng
+        ${CMAKE_CURRENT_SOURCE_DIR}/third_party/minizip-ng/compat
+    )
 endif()
 
 if(USE_SVG_ICONS)

@@ -27,8 +27,8 @@ App::~App() {
 }
 
 bool App::Init(const std::string& title, int width, int height) {
-    // Initialize SDL
-    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+    // Initialize SDL (SDL3 returns bool, not int)
+    if (!SDL_Init(SDL_INIT_VIDEO)) {
         return false;
     }
     
@@ -118,7 +118,7 @@ void App::Shutdown() {
     ShutdownImGui();
     
     if (m_glContext) {
-        SDL_GL_DeleteContext(m_glContext);
+        SDL_GL_DestroyContext(m_glContext);  // SDL3 renamed this from DeleteContext
         m_glContext = nullptr;
     }
     
@@ -263,8 +263,8 @@ void App::OpenProject(const std::string& path) {
     Model newModel;
     bool success = false;
     
-    // Try to load as .cart package
-    if (path.ends_with(".cart")) {
+    // Try to load as .cart package (C++17 compatible check)
+    if (path.size() >= 5 && path.substr(path.size() - 5) == ".cart") {
         success = Package::Load(path, newModel);
     } else {
         // Load as raw JSON
@@ -293,7 +293,8 @@ void App::SaveProject() {
 void App::SaveProjectAs(const std::string& path) {
     bool success = false;
     
-    if (path.ends_with(".cart")) {
+    // C++17 compatible check
+    if (path.size() >= 5 && path.substr(path.size() - 5) == ".cart") {
         success = Package::Save(m_model, path);
     } else {
         success = IOJson::SaveToFile(m_model, path);

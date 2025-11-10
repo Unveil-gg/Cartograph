@@ -79,7 +79,7 @@ private:
     
     std::thread m_worker;
     std::atomic<bool> m_running;
-    std::mutex m_mutex;
+    mutable std::mutex m_mutex;  // mutable allows locking in const methods
     std::condition_variable m_condition;
     std::queue<Job> m_pendingJobs;
     std::queue<Job> m_completedJobs;

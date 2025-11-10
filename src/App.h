@@ -12,7 +12,10 @@
 
 // Forward declarations
 struct SDL_Window;
-typedef void* SDL_GLContext;
+
+// SDL_GLContext is defined by SDL3, just forward declare the struct
+struct SDL_GLContextState;
+typedef struct SDL_GLContextState* SDL_GLContext;
 
 namespace Cartograph {
 

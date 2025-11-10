@@ -34,20 +34,20 @@ std::string GetAutosaveDir() {
 std::string GetAssetsDir() {
 #ifdef __APPLE__
     // When running as .app bundle, assets are in Resources/
-    char* base = SDL_GetBasePath();
+    const char* base = SDL_GetBasePath();
     if (base) {
         std::string path = std::string(base) + "../Resources/assets/";
-        SDL_free(base);
+        SDL_free(const_cast<char*>(base));
         if (fs::exists(path)) {
             return path;
         }
     }
 #endif
     // Fallback: relative to executable
-    char* base = SDL_GetBasePath();
-    if (base) {
-        std::string path = std::string(base) + "assets/";
-        SDL_free(base);
+    const char* basePath = SDL_GetBasePath();
+    if (basePath) {
+        std::string path = std::string(basePath) + "assets/";
+        SDL_free(const_cast<char*>(basePath));
         return path;
     }
     return "./assets/";

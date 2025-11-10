@@ -5,8 +5,9 @@
 #include <vector>
 #include <cstdint>
 
-// Forward declarations
-struct ImTextureID;
+// Forward declare ImTextureID - actual definition in imgui.h
+// ImGui defines it as ImU64 (unsigned long long)
+using ImTextureID = unsigned long long;
 
 namespace Cartograph {
 
