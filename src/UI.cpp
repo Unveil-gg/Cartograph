@@ -1,0 +1,361 @@
+#include "UI.h"
+#include "Canvas.h"
+#include "History.h"
+#include "Icons.h"
+#include "render/Renderer.h"
+#include <imgui.h>
+#include <algorithm>
+
+namespace Cartograph {
+
+UI::UI() {
+}
+
+void UI::SetupDockspace() {
+    // Enable docking
+    ImGuiIO& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+}
+
+void UI::Render(
+    Model& model,
+    Canvas& canvas,
+    History& history,
+    IconManager& icons,
+    float deltaTime
+) {
+    // Create fullscreen dockspace
+    ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(viewport->WorkPos);
+    ImGui::SetNextWindowSize(viewport->WorkSize);
+    ImGui::SetNextWindowViewport(viewport->ID);
+    
+    ImGuiWindowFlags window_flags = 
+        ImGuiWindowFlags_MenuBar | 
+        ImGuiWindowFlags_NoDocking |
+        ImGuiWindowFlags_NoTitleBar | 
+        ImGuiWindowFlags_NoCollapse |
+        ImGuiWindowFlags_NoResize | 
+        ImGuiWindowFlags_NoMove |
+        ImGuiWindowFlags_NoBringToFrontOnFocus | 
+        ImGuiWindowFlags_NoNavFocus;
+    
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+    ImGui::Begin("DockSpace", nullptr, window_flags);
+    ImGui::PopStyleVar();
+    
+    // Create dockspace
+    ImGuiID dockspace_id = ImGui::GetID("MainDockspace");
+    ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), 
+        ImGuiDockNodeFlags_PassthruCentralNode);
+    
+    // Render menu bar
+    RenderMenuBar(model, canvas, history);
+    
+    ImGui::End();
+    
+    // Render panels
+    RenderPalettePanel(model);
+    RenderToolsPanel();
+    RenderPropertiesPanel(model);
+    RenderCanvasPanel(model, canvas);
+    RenderStatusBar(model, canvas);
+    
+    // Render toasts
+    RenderToasts(deltaTime);
+    
+    // Render modal dialogs
+    if (showExportModal) {
+        RenderExportModal(model, canvas);
+    }
+}
+
+void UI::ShowToast(
+    const std::string& message, 
+    Toast::Type type,
+    float duration
+) {
+    Toast toast;
+    toast.message = message;
+    toast.type = type;
+    toast.remainingTime = duration;
+    m_toasts.push_back(toast);
+}
+
+void UI::RenderMenuBar(Model& model, Canvas& canvas, History& history) {
+    if (ImGui::BeginMenuBar()) {
+        if (ImGui::BeginMenu("File")) {
+            if (ImGui::MenuItem("New", "Cmd+N")) {
+                // TODO: New project
+            }
+            if (ImGui::MenuItem("Open...", "Cmd+O")) {
+                // TODO: Open project
+            }
+            if (ImGui::MenuItem("Save", "Cmd+S")) {
+                // TODO: Save project
+            }
+            if (ImGui::MenuItem("Save As...")) {
+                // TODO: Save As
+            }
+            ImGui::Separator();
+            if (ImGui::MenuItem("Export PNG...", "Cmd+E")) {
+                showExportModal = true;
+            }
+            ImGui::Separator();
+            if (ImGui::MenuItem("Quit", "Cmd+Q")) {
+                // TODO: Quit
+            }
+            ImGui::EndMenu();
+        }
+        
+        if (ImGui::BeginMenu("Edit")) {
+            bool canUndo = history.CanUndo();
+            bool canRedo = history.CanRedo();
+            
+            if (ImGui::MenuItem("Undo", "Cmd+Z", false, canUndo)) {
+                history.Undo(model);
+            }
+            if (ImGui::MenuItem("Redo", "Cmd+Y", false, canRedo)) {
+                history.Redo(model);
+            }
+            ImGui::EndMenu();
+        }
+        
+        if (ImGui::BeginMenu("View")) {
+            ImGui::MenuItem("Show Grid", "G", &canvas.showGrid);
+            ImGui::Separator();
+            if (ImGui::MenuItem("Zoom In", "=")) {
+                canvas.SetZoom(canvas.zoom * 1.2f);
+            }
+            if (ImGui::MenuItem("Zoom Out", "-")) {
+                canvas.SetZoom(canvas.zoom / 1.2f);
+            }
+            if (ImGui::MenuItem("Reset Zoom", "0")) {
+                canvas.SetZoom(1.0f);
+            }
+            ImGui::EndMenu();
+        }
+        
+        ImGui::EndMenuBar();
+    }
+}
+
+void UI::RenderPalettePanel(Model& model) {
+    ImGui::Begin("Palette");
+    
+    ImGui::Text("Tile Types");
+    ImGui::Separator();
+    
+    for (const auto& tile : model.palette) {
+        ImGui::PushID(tile.id);
+        
+        bool selected = (selectedTileId == tile.id);
+        ImVec4 color = tile.color.ToImVec4();
+        
+        // Color button
+        if (ImGui::ColorButton("##color", color, 0, ImVec2(24, 24))) {
+            selectedTileId = tile.id;
+        }
+        
+        ImGui::SameLine();
+        
+        // Selectable name
+        if (ImGui::Selectable(tile.name.c_str(), selected)) {
+            selectedTileId = tile.id;
+        }
+        
+        ImGui::PopID();
+    }
+    
+    ImGui::End();
+}
+
+void UI::RenderToolsPanel() {
+    ImGui::Begin("Tools");
+    
+    const char* toolNames[] = {
+        "Paint", "Erase", "Fill", "Rectangle", "Door", "Marker", "Eyedropper"
+    };
+    
+    for (int i = 0; i < 7; ++i) {
+        bool selected = (static_cast<int>(currentTool) == i);
+        if (ImGui::Selectable(toolNames[i], selected)) {
+            currentTool = static_cast<Tool>(i);
+        }
+    }
+    
+    ImGui::End();
+}
+
+void UI::RenderPropertiesPanel(Model& model) {
+    ImGui::Begin("Properties");
+    
+    ImGui::Text("Project");
+    ImGui::Separator();
+    
+    char titleBuf[256];
+    strncpy(titleBuf, model.meta.title.c_str(), sizeof(titleBuf) - 1);
+    if (ImGui::InputText("Title", titleBuf, sizeof(titleBuf))) {
+        model.meta.title = titleBuf;
+        model.MarkDirty();
+    }
+    
+    char authorBuf[256];
+    strncpy(authorBuf, model.meta.author.c_str(), sizeof(authorBuf) - 1);
+    if (ImGui::InputText("Author", authorBuf, sizeof(authorBuf))) {
+        model.meta.author = authorBuf;
+        model.MarkDirty();
+    }
+    
+    ImGui::End();
+}
+
+void UI::RenderCanvasPanel(Model& model, Canvas& canvas) {
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+    ImGui::Begin("Canvas", nullptr, ImGuiWindowFlags_NoScrollbar);
+    ImGui::PopStyleVar();
+    
+    ImVec2 canvasPos = ImGui::GetCursorScreenPos();
+    ImVec2 canvasSize = ImGui::GetContentRegionAvail();
+    
+    // Reserve space for canvas
+    ImGui::InvisibleButton("canvas", canvasSize);
+    
+    // Handle input
+    if (ImGui::IsItemHovered()) {
+        // Mouse wheel zoom
+        float wheel = ImGui::GetIO().MouseWheel;
+        if (wheel != 0.0f) {
+            float zoomFactor = (wheel > 0) ? 1.1f : 0.9f;
+            canvas.SetZoom(canvas.zoom * zoomFactor);
+        }
+        
+        // Space + drag to pan
+        if (ImGui::IsMouseDragging(ImGuiMouseButton_Middle)) {
+            ImVec2 delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Middle);
+            canvas.Pan(-delta.x, -delta.y);
+            ImGui::ResetMouseDragDelta(ImGuiMouseButton_Middle);
+        }
+    }
+    
+    // TODO: Render canvas content
+    // This would typically be done by the Canvas::Render() call
+    // from the main render loop, not here
+    
+    ImGui::End();
+}
+
+void UI::RenderStatusBar(Model& model, Canvas& canvas) {
+    ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImVec2 workPos = viewport->WorkPos;
+    ImVec2 workSize = viewport->WorkSize;
+    
+    ImGui::SetNextWindowPos(
+        ImVec2(workPos.x, workPos.y + workSize.y - m_statusBarHeight)
+    );
+    ImGui::SetNextWindowSize(ImVec2(workSize.x, m_statusBarHeight));
+    
+    ImGuiWindowFlags flags = 
+        ImGuiWindowFlags_NoTitleBar | 
+        ImGuiWindowFlags_NoResize |
+        ImGuiWindowFlags_NoMove | 
+        ImGuiWindowFlags_NoScrollbar;
+    
+    ImGui::Begin("StatusBar", nullptr, flags);
+    
+    ImGui::Text("Zoom: %.0f%%", canvas.zoom * 100.0f);
+    ImGui::SameLine(200);
+    if (model.dirty) {
+        ImGui::Text("Modified");
+    }
+    
+    ImGui::End();
+}
+
+void UI::RenderToasts(float deltaTime) {
+    // Update and render toasts
+    float yOffset = 100.0f;
+    
+    for (auto it = m_toasts.begin(); it != m_toasts.end(); ) {
+        it->remainingTime -= deltaTime;
+        
+        if (it->remainingTime <= 0.0f) {
+            it = m_toasts.erase(it);
+            continue;
+        }
+        
+        // Render toast
+        ImGuiViewport* viewport = ImGui::GetMainViewport();
+        ImVec2 workPos = viewport->WorkPos;
+        ImVec2 workSize = viewport->WorkSize;
+        
+        ImGui::SetNextWindowPos(
+            ImVec2(workPos.x + workSize.x - 320, workPos.y + yOffset)
+        );
+        ImGui::SetNextWindowSize(ImVec2(300, 0));
+        
+        ImGuiWindowFlags flags = 
+            ImGuiWindowFlags_NoTitleBar | 
+            ImGuiWindowFlags_NoResize |
+            ImGuiWindowFlags_NoMove | 
+            ImGuiWindowFlags_NoScrollbar |
+            ImGuiWindowFlags_NoInputs;
+        
+        ImGui::Begin(("##toast" + std::to_string((size_t)&(*it))).c_str(), 
+            nullptr, flags);
+        ImGui::Text("%s", it->message.c_str());
+        ImGui::End();
+        
+        yOffset += 60.0f;
+        ++it;
+    }
+}
+
+void UI::RenderExportModal(Model& model, Canvas& canvas) {
+    ImGui::OpenPopup("Export PNG");
+    
+    ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    
+    if (ImGui::BeginPopupModal("Export PNG", nullptr, 
+        ImGuiWindowFlags_AlwaysAutoResize)) {
+        
+        ImGui::Text("Export Options");
+        ImGui::Separator();
+        
+        ImGui::SliderInt("Scale", &exportOptions.scale, 1, 4);
+        ImGui::Checkbox("Transparency", &exportOptions.transparency);
+        
+        if (!exportOptions.transparency) {
+            ImGui::ColorEdit3("Background", &exportOptions.bgColorR);
+        }
+        
+        ImGui::Separator();
+        ImGui::Text("Layers");
+        ImGui::Checkbox("Grid", &exportOptions.layerGrid);
+        ImGui::Checkbox("Room Outlines", &exportOptions.layerRoomOutlines);
+        ImGui::Checkbox("Tiles", &exportOptions.layerTiles);
+        ImGui::Checkbox("Doors", &exportOptions.layerDoors);
+        ImGui::Checkbox("Markers", &exportOptions.layerMarkers);
+        
+        ImGui::Separator();
+        
+        if (ImGui::Button("Export", ImVec2(120, 0))) {
+            // TODO: Trigger export
+            showExportModal = false;
+            ImGui::CloseCurrentPopup();
+        }
+        
+        ImGui::SameLine();
+        
+        if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+            showExportModal = false;
+            ImGui::CloseCurrentPopup();
+        }
+        
+        ImGui::EndPopup();
+    }
+}
+
+} // namespace Cartograph
+

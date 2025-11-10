@@ -1,0 +1,54 @@
+# Clang-Format Style for Cartograph
+# Based on Google Style Guide with modifications
+
+BasedOnStyle: Google
+
+Language: Cpp
+Standard: c++17
+
+# Line length
+ColumnLimit: 80
+TabWidth: 4
+IndentWidth: 4
+UseTab: Never
+
+# Braces
+BreakBeforeBraces: Attach
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+
+# Spacing
+SpaceAfterCStyleCast: false
+SpaceBeforeParens: ControlStatements
+SpacesInAngles: false
+SpacesInContainerLiterals: false
+
+# Alignment
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+AlignOperands: true
+AlignTrailingComments: true
+
+# Pointers and references
+DerivePointerAlignment: false
+PointerAlignment: Left
+
+# Includes
+SortIncludes: true
+IncludeBlocks: Regroup
+IncludeCategories:
+  - Regex:           '^"'
+    Priority:        1
+  - Regex:           '^<[^/]+/'
+    Priority:        2
+  - Regex:           '^<'
+    Priority:        3
+
+# Namespaces
+NamespaceIndentation: None
+CompactNamespaces: false
+
+# Comments
+ReflowComments: true
+
