@@ -37,16 +37,12 @@ else
     echo "stb libraries already exist, skipping..."
 fi
 
-# minizip
-if [ ! -d "minizip" ]; then
-    echo "Setting up minizip..."
-    if [ ! -d "minizip-src" ]; then
-        git clone https://github.com/zlib-contrib/minizip.git minizip-src
-    fi
-    mkdir -p minizip
-    cp minizip-src/*.c minizip-src/*.h minizip/ 2>/dev/null || true
+# minizip-ng (modern, maintained fork)
+if [ ! -d "minizip-ng" ]; then
+    echo "Cloning minizip-ng..."
+    git clone https://github.com/zlib-ng/minizip-ng.git minizip-ng
 else
-    echo "minizip already exists, skipping..."
+    echo "minizip-ng already exists, skipping..."
 fi
 
 # NanoSVG (optional)

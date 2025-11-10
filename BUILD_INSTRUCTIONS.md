@@ -121,7 +121,7 @@ If the script doesn't work, manually download:
 1. **ImGui**: Clone https://github.com/ocornut/imgui (docking branch) into `third_party/imgui`
 2. **nlohmann/json**: Download `json.hpp` into `third_party/nlohmann/`
 3. **stb**: Download `stb_image.h` and `stb_image_write.h` into `third_party/stb/`
-4. **minizip**: Clone https://github.com/zlib-contrib/minizip and copy source files to `third_party/minizip/`
+4. **minizip-ng**: Clone https://github.com/zlib-ng/minizip-ng into `third_party/minizip-ng/`
 
 ## Common Issues
 

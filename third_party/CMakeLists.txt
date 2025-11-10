@@ -52,20 +52,28 @@ target_include_directories(stb INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/stb
 )
 
-# minizip for .cart ZIP handling
-add_library(minizip STATIC
-    minizip/zip.c
-    minizip/unzip.c
-    minizip/ioapi.c
-)
+# minizip-ng for .cart ZIP handling
+# Configure minizip-ng to only build what we need
+set(MZ_COMPAT ON CACHE BOOL "Enable compatibility layer" FORCE)
+set(MZ_ZLIB ON CACHE BOOL "Enable ZLIB compression" FORCE)
+set(MZ_BZIP2 OFF CACHE BOOL "Disable BZIP2 compression" FORCE)
+set(MZ_LZMA OFF CACHE BOOL "Disable LZMA compression" FORCE)
+set(MZ_ZSTD OFF CACHE BOOL "Disable ZSTD compression" FORCE)
+set(MZ_OPENSSL OFF CACHE BOOL "Disable OpenSSL encryption" FORCE)
+set(MZ_BUILD_TESTS OFF CACHE BOOL "Disable minizip tests" FORCE)
+set(MZ_BUILD_UNIT_TESTS OFF CACHE BOOL "Disable minizip unit tests" FORCE)
+set(MZ_FETCH_LIBS OFF CACHE BOOL "Don't fetch libs automatically" FORCE)
 
-target_include_directories(minizip PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/minizip
-)
-
-# Find zlib
-find_package(ZLIB REQUIRED)
-target_link_libraries(minizip PUBLIC ZLIB::ZLIB)
+# Add minizip-ng as subdirectory
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/minizip-ng/CMakeLists.txt)
+    add_subdirectory(minizip-ng EXCLUDE_FROM_ALL)
+    # Create an alias for easier linking
+    add_library(minizip ALIAS minizip-ng)
+else()
+    message(WARNING "minizip-ng not found. Run ./setup_deps.sh to download it.")
+    # Create a dummy target to prevent build errors
+    add_library(minizip INTERFACE)
+endif()
 
 # NanoSVG (optional, header-only)
 if(USE_SVG_ICONS)

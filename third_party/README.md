@@ -29,11 +29,12 @@ wget https://raw.githubusercontent.com/nothings/stb/master/stb_image.h -P third_
 wget https://raw.githubusercontent.com/nothings/stb/master/stb_image_write.h -P third_party/stb/
 ```
 
-### minizip
+### minizip-ng
 ```bash
-git clone https://github.com/zlib-contrib/minizip.git third_party/minizip-src
-cp third_party/minizip-src/*.c third_party/minizip-src/*.h third_party/minizip/
+git clone https://github.com/zlib-ng/minizip-ng.git third_party/minizip-ng
 ```
+
+Modern, actively maintained fork of minizip with enhanced features and bug fixes.
 
 ### NanoSVG (optional)
 ```bash
@@ -49,7 +50,7 @@ You can also set these up as git submodules:
 git submodule add --branch docking https://github.com/ocornut/imgui.git third_party/imgui
 git submodule add https://github.com/nlohmann/json.git third_party/nlohmann-json
 git submodule add https://github.com/nothings/stb.git third_party/stb-src
-git submodule add https://github.com/zlib-contrib/minizip.git third_party/minizip-src
+git submodule add https://github.com/zlib-ng/minizip-ng.git third_party/minizip-ng
 ```
 
 Then copy the needed files to the expected locations.

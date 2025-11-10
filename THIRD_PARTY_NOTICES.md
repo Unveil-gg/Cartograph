@@ -22,10 +22,10 @@ This project uses the following third-party libraries:
 - **Source:** https://github.com/nothings/stb
 - **Author:** Sean Barrett
 
-## minizip
+## minizip-ng
 - **License:** Zlib License
-- **Source:** https://github.com/zlib-contrib/minizip
-- **Copyright:** Copyright (C) 1998-2010 Gilles Vollant
+- **Source:** https://github.com/zlib-ng/minizip-ng
+- **Copyright:** Copyright (C) 1998-2010 Gilles Vollant (original), Fork maintained by Nathan Moinvaziri and contributors
 
 ## NanoSVG (optional)
 - **License:** Zlib License

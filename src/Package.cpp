@@ -3,8 +3,11 @@
 #include "IOJson.h"
 #include "platform/Fs.h"
 #include <nlohmann/json.hpp>
-#include <zip.h>
-#include <unzip.h>
+
+// minizip-ng compatibility layer provides zip.h and unzip.h
+#include "mz.h"
+#include "mz_zip.h"
+#include "mz_compat.h"
 
 using json = nlohmann::json;
 
