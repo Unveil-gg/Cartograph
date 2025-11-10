@@ -108,12 +108,18 @@
 - Pan/zoom transformations
 - Coordinate conversions (screen/world/tile)
 - Rendering passes:
-  - Grid
-  - Rooms (outlines, fills, labels)
-  - Tiles (from palette)
-  - Doors (endpoints)
-  - Markers (icons, labels)
+  - Grid (optional overlay)
+  - Rooms (solid outlines, fills, labels)
+  - Tiles (from palette, painted within rooms)
+  - Doors (dotted lines on room walls where connections exist)
+  - Markers (icon-based points: save, boss, treasure, etc.)
 - Visibility culling
+
+**Visual Design Philosophy**:
+- Rooms: Solid rectangular borders
+- Doors: Dotted line segments on walls (not separate marker icons)
+- Markers: Icon + label for points of interest
+- Grid: Tile-level precision for editing
 
 **Dependencies**: Model, Renderer
 

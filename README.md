@@ -98,9 +98,16 @@ cmake --build . --config Release
 - **Erase (Mouse2)**: Remove tiles
 - **Fill (F)**: Flood fill
 - **Rectangle (R)**: Draw filled rectangles
-- **Door (D)**: Place door connections
-- **Marker (M)**: Place markers/items
+- **Door (D)**: Connect rooms with doors (rendered as dotted lines on walls)
+- **Marker (M)**: Place markers/items with custom icons
 - **Eyedropper (Alt+Mouse1)**: Pick tile type
+
+### Visual Design
+
+- **Rooms**: Solid rectangular outlines with fills
+- **Doors**: Dotted lines on room walls where connections exist
+- **Markers**: Icon-based points of interest (save points, bosses, treasure, etc.)
+- **Grid**: Optional tile grid overlay for precise editing
 
 ### File Format
 

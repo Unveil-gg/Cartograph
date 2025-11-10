@@ -83,6 +83,8 @@
   - Texture atlas building
   - Icon lookup by name
   - SVG support scaffolding (NanoSVG optional)
+  - Ships with 4 default icons: bench (save), chest (treasure), skull (boss), dot (generic)
+  - Users can add custom icons to `assets/icons/` or bundle in `.cart` projects
 - [x] **Jobs.h/.cpp** - Background task queue:
   - Worker thread for async operations
   - Callback system for completion

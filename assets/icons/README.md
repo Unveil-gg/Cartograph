@@ -1,25 +1,48 @@
 # Default Icons
 
-Place default PNG icons here. Recommended size: 32x32 or 64x64 pixels.
+PNG icons for map markers. Recommended size: 32×32 or 64×64 pixels.
 
-## Suggested Icons (Kenney CC0)
+## Included Icons
 
-You can download free game icons from:
-https://kenney.nl/assets/game-icons
+The app ships with 4 essential icons:
 
-Suggested icons for Metroidvania maps:
-- `save_point.png` - Save stations
-- `item.png` - Generic collectible
-- `boss.png` - Boss encounters
-- `upgrade.png` - Ability upgrades
-- `health.png` - Health refill
-- `energy.png` - Energy refill
-- `door.png` - Door/gate
-- `teleporter.png` - Fast travel
-- `checkpoint.png` - Checkpoints
-- `secret.png` - Hidden areas
+- **`bench.png`** - Save points / rest areas
+- **`chest.png`** - Treasure / item pickups
+- **`skull.png`** - Boss encounters / major enemies
+- **`dot.png`** - Generic marker (auto-generated circle)
 
-## Custom Icons
+## Adding More Icons
 
-Projects can include custom icons in their `.cart` file under `/icons/`.
+### App-Wide Icons
+Place PNG (or SVG if built with `-DUSE_SVG_ICONS=ON`) files in this directory:
+```
+assets/icons/your_icon.png
+```
+
+These will be available in all projects.
+
+### Per-Project Icons
+Projects can include custom icons in their `.cart` file under `/icons/`:
+```
+my_map.cart
+  ├── /icons/
+  │   ├── custom_item.png
+  │   └── special_marker.png
+  └── ...
+```
+
+These icons are bundled with the project and travel with the `.cart` file.
+
+## Icon Requirements
+
+- **Format**: PNG (always supported), SVG (requires compile flag)
+- **Size**: Any size works, but 32×32 or 64×64 recommended for clarity
+- **Transparency**: Alpha channel supported
+- **Naming**: Use lowercase with underscores (e.g., `save_point.png`)
+
+## Free Icon Resources
+
+- **Kenney Game Icons**: https://kenney.nl/assets/game-icons (CC0 Public Domain)
+- **Game-icons.net**: https://game-icons.net/ (CC BY 3.0)
+- **OpenGameArt**: https://opengameart.org/
 
