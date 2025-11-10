@@ -14,7 +14,7 @@ else()
     message(FATAL_ERROR "SDL not found. Run ./setup_deps.sh to download it.")
 endif()
 
-# Dear ImGui (docking branch)
+# Dear ImGui
 add_library(imgui STATIC
     imgui/imgui.cpp
     imgui/imgui_demo.cpp
