@@ -1,12 +1,17 @@
 # Third-party dependencies for Cartograph
 
-# SDL3
-find_package(SDL3 QUIET)
-if(NOT SDL3_FOUND)
-    message(STATUS "SDL3 not found, will need to be vendored or installed")
-    # For now, assume SDL3 is installed via Homebrew or system package manager
-    # On macOS: brew install sdl3
-    find_package(SDL3 REQUIRED)
+# SDL3 (vendored)
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/SDL/CMakeLists.txt)
+    # Configure SDL3 options
+    set(SDL_SHARED OFF CACHE BOOL "Build SDL3 as static library" FORCE)
+    set(SDL_STATIC ON CACHE BOOL "Build SDL3 as static library" FORCE)
+    set(SDL_TEST OFF CACHE BOOL "Disable SDL3 tests" FORCE)
+    set(SDL_TESTS OFF CACHE BOOL "Disable SDL3 tests" FORCE)
+    
+    # Add SDL3 subdirectory
+    add_subdirectory(SDL EXCLUDE_FROM_ALL)
+else()
+    message(FATAL_ERROR "SDL not found. Run ./setup_deps.sh to download it.")
 endif()
 
 # Dear ImGui (docking branch)
@@ -65,10 +70,11 @@ set(MZ_BUILD_UNIT_TESTS OFF CACHE BOOL "Disable minizip unit tests" FORCE)
 set(MZ_FETCH_LIBS OFF CACHE BOOL "Don't fetch libs automatically" FORCE)
 
 # Add minizip-ng as subdirectory
+# Note: minizip-ng creates a target called "minizip"
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/minizip-ng/CMakeLists.txt)
     add_subdirectory(minizip-ng EXCLUDE_FROM_ALL)
-    # Create an alias for easier linking
-    add_library(minizip ALIAS minizip-ng)
+    # Target "minizip" is created by minizip-ng's CMakeLists.txt
+    # Also available as MINIZIP::minizip alias
 else()
     message(WARNING "minizip-ng not found. Run ./setup_deps.sh to download it.")
     # Create a dummy target to prevent build errors

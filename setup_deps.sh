@@ -7,6 +7,14 @@ echo "Setting up Cartograph dependencies..."
 
 cd third_party
 
+# SDL3
+if [ ! -d "SDL" ]; then
+    echo "Cloning SDL3..."
+    git clone --branch main --depth 1 https://github.com/libsdl-org/SDL.git SDL
+else
+    echo "SDL already exists, skipping..."
+fi
+
 # ImGui (docking branch)
 if [ ! -d "imgui" ]; then
     echo "Cloning Dear ImGui (docking branch)..."
@@ -63,7 +71,8 @@ echo ""
 echo "✓ Dependencies setup complete!"
 echo ""
 echo "Next steps:"
-echo "1. Install SDL3: brew install sdl3"
-echo "2. Build: mkdir build && cd build && cmake .. && make"
-echo "3. Run: ./Cartograph.app/Contents/MacOS/Cartograph"
+echo "1. Build: mkdir build && cd build && cmake .. && make"
+echo "2. Run: ./Cartograph.app/Contents/MacOS/Cartograph"
+echo ""
+echo "Note: All dependencies are vendored, no system packages needed!"
 

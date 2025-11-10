@@ -4,6 +4,8 @@
 
 Before building, you must populate the `third_party/` directory with third-party dependencies.
 
+**All dependencies are vendored** - no system packages required!
+
 ### Quick Setup (Recommended)
 
 Run this script to download all required dependencies:
@@ -69,9 +71,6 @@ chmod +x setup_deps.sh
 ## macOS Build
 
 ```bash
-# Install SDL3 via Homebrew
-brew install sdl3
-
 # Setup dependencies (if not done already)
 ./setup_deps.sh
 
@@ -118,16 +117,17 @@ open Cartograph.app
 
 If the script doesn't work, manually download:
 
-1. **ImGui**: Clone https://github.com/ocornut/imgui (docking branch) into `third_party/imgui`
-2. **nlohmann/json**: Download `json.hpp` into `third_party/nlohmann/`
-3. **stb**: Download `stb_image.h` and `stb_image_write.h` into `third_party/stb/`
-4. **minizip-ng**: Clone https://github.com/zlib-ng/minizip-ng into `third_party/minizip-ng/`
+1. **SDL3**: Clone https://github.com/libsdl-org/SDL into `third_party/SDL`
+2. **ImGui**: Clone https://github.com/ocornut/imgui (docking branch) into `third_party/imgui`
+3. **nlohmann/json**: Download `json.hpp` into `third_party/nlohmann/`
+4. **stb**: Download `stb_image.h` and `stb_image_write.h` into `third_party/stb/`
+5. **minizip-ng**: Clone https://github.com/zlib-ng/minizip-ng into `third_party/minizip-ng/`
 
 ## Common Issues
 
-### SDL3 not found
-- **macOS**: `brew install sdl3`
-- **Windows**: Download from https://github.com/libsdl-org/SDL/releases and set `SDL3_DIR`
+### SDL not found
+- **Solution**: Run `./setup_deps.sh` to clone SDL3 into `third_party/SDL`
+- SDL3 is vendored, no system installation needed
 
 ### OpenGL headers missing
 - **macOS**: Included with Xcode Command Line Tools

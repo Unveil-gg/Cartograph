@@ -75,12 +75,12 @@ target_include_directories(Cartograph PRIVATE
 target_link_libraries(Cartograph PRIVATE
     imgui
     nlohmann_json::nlohmann_json
-    SDL3::SDL3
+    SDL3-static
 )
 
-# Link minizip-ng if available
-if(TARGET minizip-ng)
-    target_link_libraries(Cartograph PRIVATE minizip-ng)
+# Link minizip if available (minizip-ng creates a target called "minizip")
+if(TARGET minizip)
+    target_link_libraries(Cartograph PRIVATE minizip)
 endif()
 
 if(USE_SVG_ICONS)

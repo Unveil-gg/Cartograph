@@ -6,6 +6,13 @@ This directory contains vendored third-party libraries.
 
 Before building, you need to populate this directory with the following libraries:
 
+### SDL3
+```bash
+git clone --branch main --depth 1 https://github.com/libsdl-org/SDL.git third_party/SDL
+```
+
+Low-level access to audio, keyboard, mouse, joystick, and graphics.
+
 ### Dear ImGui (docking branch)
 ```bash
 git clone --branch docking https://github.com/ocornut/imgui.git third_party/imgui
