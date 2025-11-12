@@ -6,6 +6,7 @@
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <algorithm>
+#include <cmath>
 
 namespace Cartograph {
 
@@ -278,9 +279,47 @@ void UI::RenderCanvasPanel(Model& model, Canvas& canvas) {
         }
     }
     
-    // TODO: Render canvas content
-    // This would typically be done by the Canvas::Render() call
-    // from the main render loop, not here
+    // Draw canvas content using ImGui DrawList
+    ImDrawList* drawList = ImGui::GetWindowDrawList();
+    
+    // Draw background
+    ImU32 bgColor = ImGui::GetColorU32(ImVec4(0.15f, 0.15f, 0.15f, 1.0f));
+    drawList->AddRectFilled(canvasPos, 
+        ImVec2(canvasPos.x + canvasSize.x, canvasPos.y + canvasSize.y), 
+        bgColor);
+    
+    // Draw grid if enabled
+    if (canvas.showGrid) {
+        int tileSize = model.grid.tileSize;
+        float scaledTileSize = tileSize * canvas.zoom;
+        
+        // Calculate visible grid range
+        float startX = canvasPos.x - fmod(canvas.offsetX * canvas.zoom, scaledTileSize);
+        float startY = canvasPos.y - fmod(canvas.offsetY * canvas.zoom, scaledTileSize);
+        
+        ImU32 gridColor = ImGui::GetColorU32(ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
+        
+        // Draw vertical lines
+        for (float x = startX; x < canvasPos.x + canvasSize.x; x += scaledTileSize) {
+            drawList->AddLine(
+                ImVec2(x, canvasPos.y),
+                ImVec2(x, canvasPos.y + canvasSize.y),
+                gridColor
+            );
+        }
+        
+        // Draw horizontal lines
+        for (float y = startY; y < canvasPos.y + canvasSize.y; y += scaledTileSize) {
+            drawList->AddLine(
+                ImVec2(canvasPos.x, y),
+                ImVec2(canvasPos.x + canvasSize.x, y),
+                gridColor
+            );
+        }
+    }
+    
+    // TODO: Draw rooms, tiles, doors, markers
+    // For now, just show the grid
     
     ImGui::End();
 }

@@ -171,21 +171,13 @@ void App::Render() {
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
     
-    // Render UI
-    m_ui.Render(m_model, m_canvas, m_history, m_icons, 0.016f);
-    
-    // Render canvas to main window
-    int winW, winH;
-    SDL_GetWindowSize(m_window, &winW, &winH);
-    
-    // Clear
+    // Clear background
     m_renderer->SetRenderTarget(nullptr);
     Color bgColor = m_model.theme.background;
     m_renderer->Clear(bgColor);
     
-    // Render canvas
-    // TODO: Get actual canvas viewport from UI
-    m_canvas.Render(*m_renderer, m_model, 0, 0, winW, winH);
+    // Render UI (includes canvas panel with grid)
+    m_ui.Render(m_model, m_canvas, m_history, m_icons, 0.016f);
     
     // Render ImGui
     ImGui::Render();
