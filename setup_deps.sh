@@ -15,10 +15,11 @@ else
     echo "SDL already exists, skipping..."
 fi
 
-# ImGui
+# ImGui (docking branch)
 if [ ! -d "imgui" ]; then
-    echo "Cloning Dear ImGui..."
-    git clone --branch v1.91.5 --depth 1 https://github.com/ocornut/imgui.git imgui
+    echo "Cloning Dear ImGui (docking branch)..."
+    git clone --branch docking --depth 1 \
+        https://github.com/ocornut/imgui.git imgui
 else
     echo "ImGui already exists, skipping..."
 fi

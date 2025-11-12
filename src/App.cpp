@@ -118,7 +118,8 @@ void App::Shutdown() {
     ShutdownImGui();
     
     if (m_glContext) {
-        SDL_GL_DestroyContext(m_glContext);  // SDL3 renamed this from DeleteContext
+        // SDL3 renamed DeleteContext to DestroyContext
+        SDL_GL_DestroyContext(m_glContext);
         m_glContext = nullptr;
     }
     
@@ -198,6 +199,9 @@ void App::SetupImGui() {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
+    
+    // Enable docking (but we'll lock the layout)
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     
     // Setup platform/renderer backends
     ImGui_ImplSDL3_InitForOpenGL(m_window, m_glContext);

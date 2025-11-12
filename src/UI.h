@@ -5,6 +5,9 @@
 #include <string>
 #include <vector>
 
+// Forward declarations
+typedef unsigned int ImGuiID;
+
 namespace Cartograph {
 
 class Canvas;
@@ -85,8 +88,15 @@ private:
     void RenderToasts(float deltaTime);
     void RenderExportModal(Model& model, Canvas& canvas);
     
+    /**
+     * Build the fixed docking layout (called once at startup).
+     * @param dockspaceId ImGui dockspace ID
+     */
+    void BuildFixedLayout(ImGuiID dockspaceId);
+    
     std::vector<Toast> m_toasts;
     float m_statusBarHeight = 24.0f;
+    bool m_layoutInitialized = false;
 };
 
 } // namespace Cartograph

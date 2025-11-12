@@ -4,6 +4,7 @@
 #include "Icons.h"
 #include "render/Renderer.h"
 #include <imgui.h>
+#include <imgui_internal.h>
 #include <algorithm>
 
 namespace Cartograph {
@@ -12,7 +13,7 @@ UI::UI() {
 }
 
 void UI::SetupDockspace() {
-    // No docking setup needed
+    // Docking setup happens in first frame of Render()
 }
 
 void UI::Render(
@@ -22,35 +23,51 @@ void UI::Render(
     IconManager& icons,
     float deltaTime
 ) {
-    // Create fullscreen window for menu bar
+    // Create fullscreen dockspace window
     ImGuiViewport* viewport = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos(viewport->WorkPos);
     ImGui::SetNextWindowSize(viewport->WorkSize);
+    ImGui::SetNextWindowViewport(viewport->ID);
     
-    ImGuiWindowFlags window_flags = 
-        ImGuiWindowFlags_MenuBar | 
-        ImGuiWindowFlags_NoTitleBar | 
+    ImGuiWindowFlags windowFlags = 
+        ImGuiWindowFlags_MenuBar |
+        ImGuiWindowFlags_NoDocking |
+        ImGuiWindowFlags_NoTitleBar |
         ImGuiWindowFlags_NoCollapse |
-        ImGuiWindowFlags_NoResize | 
+        ImGuiWindowFlags_NoResize |
         ImGuiWindowFlags_NoMove |
-        ImGuiWindowFlags_NoBringToFrontOnFocus | 
+        ImGuiWindowFlags_NoBringToFrontOnFocus |
         ImGuiWindowFlags_NoNavFocus |
         ImGuiWindowFlags_NoBackground;
     
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-    ImGui::Begin("MainWindow", nullptr, window_flags);
-    ImGui::PopStyleVar();
+    
+    ImGui::Begin("CartographDockSpace", nullptr, windowFlags);
+    ImGui::PopStyleVar(3);
     
     // Render menu bar
     RenderMenuBar(model, canvas, history);
     
+    // Create dockspace
+    ImGuiID dockspaceId = ImGui::GetID("CartographDockSpaceID");
+    ImGuiDockNodeFlags dockspaceFlags = ImGuiDockNodeFlags_None;
+    
+    ImGui::DockSpace(dockspaceId, ImVec2(0.0f, 0.0f), dockspaceFlags);
+    
+    // Build fixed layout on first run
+    if (!m_layoutInitialized) {
+        BuildFixedLayout(dockspaceId);
+        m_layoutInitialized = true;
+    }
+    
     ImGui::End();
     
-    // Render panels
-    RenderPalettePanel(model);
+    // Render all panels (they will dock into the dockspace)
     RenderToolsPanel();
-    RenderPropertiesPanel(model);
     RenderCanvasPanel(model, canvas);
+    RenderPropertiesPanel(model);
     RenderStatusBar(model, canvas);
     
     // Render toasts
@@ -133,7 +150,12 @@ void UI::RenderMenuBar(Model& model, Canvas& canvas, History& history) {
 }
 
 void UI::RenderPalettePanel(Model& model) {
-    ImGui::Begin("Palette");
+    ImGuiWindowFlags flags = 
+        ImGuiWindowFlags_NoMove | 
+        ImGuiWindowFlags_NoCollapse |
+        ImGuiWindowFlags_NoDocking;
+    
+    ImGui::Begin("Cartograph/Palette", nullptr, flags);
     
     ImGui::Text("Tile Types");
     ImGui::Separator();
@@ -163,7 +185,14 @@ void UI::RenderPalettePanel(Model& model) {
 }
 
 void UI::RenderToolsPanel() {
-    ImGui::Begin("Tools");
+    ImGuiWindowFlags flags = 
+        ImGuiWindowFlags_NoMove | 
+        ImGuiWindowFlags_NoCollapse;
+    
+    ImGui::Begin("Cartograph/Tools", nullptr, flags);
+    
+    ImGui::Text("Tools");
+    ImGui::Separator();
     
     const char* toolNames[] = {
         "Paint", "Erase", "Fill", "Rectangle", "Door", "Marker", "Eyedropper"
@@ -176,12 +205,24 @@ void UI::RenderToolsPanel() {
         }
     }
     
+    // TODO: Add palette section here
+    // TODO: Add icons palette section here
+    // TODO: Add layers toggles here
+    
     ImGui::End();
 }
 
 void UI::RenderPropertiesPanel(Model& model) {
-    ImGui::Begin("Properties");
+    ImGuiWindowFlags flags = 
+        ImGuiWindowFlags_NoMove | 
+        ImGuiWindowFlags_NoCollapse;
     
+    ImGui::Begin("Cartograph/Inspector", nullptr, flags);
+    
+    ImGui::Text("Inspector");
+    ImGui::Separator();
+    
+    // Project metadata
     ImGui::Text("Project");
     ImGui::Separator();
     
@@ -199,12 +240,19 @@ void UI::RenderPropertiesPanel(Model& model) {
         model.MarkDirty();
     }
     
+    // TODO: Context-sensitive properties for selected room/door/marker/tile
+    
     ImGui::End();
 }
 
 void UI::RenderCanvasPanel(Model& model, Canvas& canvas) {
+    ImGuiWindowFlags flags = 
+        ImGuiWindowFlags_NoMove | 
+        ImGuiWindowFlags_NoCollapse |
+        ImGuiWindowFlags_NoScrollbar;
+    
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-    ImGui::Begin("Canvas", nullptr, ImGuiWindowFlags_NoScrollbar);
+    ImGui::Begin("Cartograph/Canvas", nullptr, flags);
     ImGui::PopStyleVar();
     
     ImVec2 canvasPos = ImGui::GetCursorScreenPos();
@@ -238,28 +286,25 @@ void UI::RenderCanvasPanel(Model& model, Canvas& canvas) {
 }
 
 void UI::RenderStatusBar(Model& model, Canvas& canvas) {
-    ImGuiViewport* viewport = ImGui::GetMainViewport();
-    ImVec2 workPos = viewport->WorkPos;
-    ImVec2 workSize = viewport->WorkSize;
-    
-    ImGui::SetNextWindowPos(
-        ImVec2(workPos.x, workPos.y + workSize.y - m_statusBarHeight)
-    );
-    ImGui::SetNextWindowSize(ImVec2(workSize.x, m_statusBarHeight));
-    
     ImGuiWindowFlags flags = 
-        ImGuiWindowFlags_NoTitleBar | 
-        ImGuiWindowFlags_NoResize |
         ImGuiWindowFlags_NoMove | 
+        ImGuiWindowFlags_NoCollapse |
         ImGuiWindowFlags_NoScrollbar;
     
-    ImGui::Begin("StatusBar", nullptr, flags);
+    ImGui::Begin("Cartograph/Console", nullptr, flags);
     
+    // TODO: Add error banner area (pinned at top)
+    // TODO: Add console ring buffer with severity filtering
+    
+    // Status line at bottom
+    ImGui::Separator();
     ImGui::Text("Zoom: %.0f%%", canvas.zoom * 100.0f);
     ImGui::SameLine(200);
     if (model.dirty) {
-        ImGui::Text("Modified");
+        ImGui::Text("✱ Modified");
     }
+    
+    // TODO: Add cursor position, autosave countdown, last save result
     
     ImGui::End();
 }
@@ -347,6 +392,91 @@ void UI::RenderExportModal(Model& model, Canvas& canvas) {
         
         ImGui::EndPopup();
     }
+}
+
+void UI::BuildFixedLayout(ImGuiID dockspaceId) {
+    // Clear any existing layout
+    ImGui::DockBuilderRemoveNode(dockspaceId);
+    ImGui::DockBuilderAddNode(dockspaceId, 
+        ImGuiDockNodeFlags_DockSpace);
+    
+    // Set dockspace size to fill the window
+    ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImGui::DockBuilderSetNodeSize(dockspaceId, viewport->WorkSize);
+    
+    // Split the dockspace into fixed regions
+    // Layout structure:
+    //   TopRest
+    //   ├─ Left (300px)
+    //   └─ RightRest
+    //      ├─ Center (remaining)
+    //      └─ Right (360px)
+    //   Bottom (140px)
+    
+    // Split bottom: 140px from bottom
+    ImGuiID bottomId = 0;
+    ImGuiID topRestId = 0;
+    ImGui::DockBuilderSplitNode(
+        dockspaceId, ImGuiDir_Down, 140.0f / viewport->WorkSize.y, 
+        &bottomId, &topRestId
+    );
+    
+    // Split left: 300px from left
+    ImGuiID leftId = 0;
+    ImGuiID rightRestId = 0;
+    ImGui::DockBuilderSplitNode(
+        topRestId, ImGuiDir_Left, 300.0f / viewport->WorkSize.x, 
+        &leftId, &rightRestId
+    );
+    
+    // Split right: 360px from right
+    ImGuiID rightId = 0;
+    ImGuiID centerId = 0;
+    float rightWidth = 360.0f / (viewport->WorkSize.x - 300.0f);
+    ImGui::DockBuilderSplitNode(
+        rightRestId, ImGuiDir_Right, rightWidth,
+        &rightId, &centerId
+    );
+    
+    // Dock windows into their respective nodes
+    ImGui::DockBuilderDockWindow("Cartograph/Tools", leftId);
+    ImGui::DockBuilderDockWindow("Cartograph/Canvas", centerId);
+    ImGui::DockBuilderDockWindow("Cartograph/Inspector", rightId);
+    ImGui::DockBuilderDockWindow("Cartograph/Console", bottomId);
+    
+    // Configure node flags to prevent user modifications
+    // Note: These flags limit what users can do with the docked windows
+    ImGuiDockNode* leftNode = ImGui::DockBuilderGetNode(leftId);
+    ImGuiDockNode* centerNode = ImGui::DockBuilderGetNode(centerId);
+    ImGuiDockNode* rightNode = ImGui::DockBuilderGetNode(rightId);
+    ImGuiDockNode* bottomNode = ImGui::DockBuilderGetNode(bottomId);
+    
+    if (leftNode) {
+        leftNode->LocalFlags |= ImGuiDockNodeFlags_NoTabBar;
+        leftNode->LocalFlags |= ImGuiDockNodeFlags_NoWindowMenuButton;
+        leftNode->LocalFlags |= ImGuiDockNodeFlags_NoCloseButton;
+    }
+    
+    if (centerNode) {
+        centerNode->LocalFlags |= ImGuiDockNodeFlags_NoTabBar;
+        centerNode->LocalFlags |= ImGuiDockNodeFlags_NoWindowMenuButton;
+        centerNode->LocalFlags |= ImGuiDockNodeFlags_NoCloseButton;
+    }
+    
+    if (rightNode) {
+        rightNode->LocalFlags |= ImGuiDockNodeFlags_NoTabBar;
+        rightNode->LocalFlags |= ImGuiDockNodeFlags_NoWindowMenuButton;
+        rightNode->LocalFlags |= ImGuiDockNodeFlags_NoCloseButton;
+    }
+    
+    if (bottomNode) {
+        bottomNode->LocalFlags |= ImGuiDockNodeFlags_NoTabBar;
+        bottomNode->LocalFlags |= ImGuiDockNodeFlags_NoWindowMenuButton;
+        bottomNode->LocalFlags |= ImGuiDockNodeFlags_NoCloseButton;
+    }
+    
+    // Finish building
+    ImGui::DockBuilderFinish(dockspaceId);
 }
 
 } // namespace Cartograph
