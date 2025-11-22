@@ -56,10 +56,13 @@ public:
     
     /**
      * Add a command to the history.
-     * Command is executed immediately.
      * @param cmd Command to add (takes ownership)
+     * @param model Model to operate on
+     * @param execute If true, executes the command; if false, assumes 
+     *                already applied
      */
-    void AddCommand(std::unique_ptr<ICommand> cmd, Model& model);
+    void AddCommand(std::unique_ptr<ICommand> cmd, Model& model, 
+                    bool execute = true);
     
     /**
      * Undo the last command.

@@ -13,22 +13,28 @@ History::History()
 {
 }
 
-void History::AddCommand(std::unique_ptr<ICommand> cmd, Model& model) {
+void History::AddCommand(std::unique_ptr<ICommand> cmd, Model& model, 
+                         bool execute) {
     uint64_t now = Platform::GetTimestampMs();
     uint64_t timeDelta = now - m_lastCommandTime;
     m_lastCommandTime = now;
     
     // Try to coalesce with the last command
     if (!m_undoStack.empty() && timeDelta < COALESCE_TIME_MS) {
-        if (m_undoStack.back()->TryCoalesce(cmd.get(), timeDelta, COALESCE_DIST_SQ)) {
-            // Coalesced successfully, re-execute the merged command
-            m_undoStack.back()->Execute(model);
+        if (m_undoStack.back()->TryCoalesce(cmd.get(), timeDelta, 
+                                            COALESCE_DIST_SQ)) {
+            // Coalesced successfully, re-execute if needed
+            if (execute) {
+                m_undoStack.back()->Execute(model);
+            }
             return;
         }
     }
     
-    // Execute the command
-    cmd->Execute(model);
+    // Execute the command if requested
+    if (execute) {
+        cmd->Execute(model);
+    }
     
     // Add to undo stack
     m_undoStack.push_back(std::move(cmd));

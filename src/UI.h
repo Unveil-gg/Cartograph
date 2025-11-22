@@ -140,6 +140,7 @@ public:
     int lastPaintedTileX = -1;
     int lastPaintedTileY = -1;
     std::vector<PaintTilesCommand::TileChange> currentPaintChanges;
+    bool twoFingerEraseActive = false;
     
 private:
     void RenderMenuBar(Model& model, Canvas& canvas, History& history);

@@ -28,8 +28,16 @@ void Canvas::Render(
     m_vpW = viewportW;
     m_vpH = viewportH;
     
-    // Enable scissor clipping to prevent drawing outside canvas bounds
-    renderer.SetScissor(viewportX, viewportY, viewportW, viewportH);
+    // Use ImGui's clip rect to prevent drawing outside canvas bounds
+    // This works with GetForegroundDrawList()
+    ImDrawList* dl = ImGui::GetForegroundDrawList();
+    dl->PushClipRect(
+        ImVec2(static_cast<float>(viewportX), 
+               static_cast<float>(viewportY)),
+        ImVec2(static_cast<float>(viewportX + viewportW), 
+               static_cast<float>(viewportY + viewportH)),
+        true  // Intersect with current clip rect
+    );
     
     // Render in order: grid, rooms, tiles, doors, markers
     if (showGrid) {
@@ -40,8 +48,8 @@ void Canvas::Render(
     RenderDoors(renderer, model);
     RenderMarkers(renderer, model);
     
-    // Disable scissor clipping
-    renderer.SetScissor(0, 0, 0, 0);
+    // Pop clip rect
+    dl->PopClipRect();
 }
 
 void Canvas::ScreenToWorld(float sx, float sy, float* wx, float* wy) const {

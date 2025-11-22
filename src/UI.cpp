@@ -643,12 +643,19 @@ void UI::RenderCanvasPanel(
         else if (currentTool == Tool::Paint) {
             // Paint tool: Left mouse to paint with selected tile
             // Hold E key + left mouse to erase (alternative to right-click)
+            // Two-finger touch also erases
             bool shouldPaint = false;
             bool shouldErase = false;
             
+            // Check for two-finger gesture (acts as erase)
+            // Right-click is often mapped from two-finger tap
+            if (ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
+                shouldErase = true;
+                twoFingerEraseActive = true;
+            }
             // Check for E key + left mouse (erase modifier)
-            if (ImGui::IsMouseDown(ImGuiMouseButton_Left) && 
-                ImGui::IsKeyDown(ImGuiKey_E)) {
+            else if (ImGui::IsMouseDown(ImGuiMouseButton_Left) && 
+                     ImGui::IsKeyDown(ImGuiKey_E)) {
                 shouldErase = true;
             }
             // Check for left mouse button (primary paint input)
@@ -701,9 +708,10 @@ void UI::RenderCanvasPanel(
                             
                             currentPaintChanges.push_back(change);
                             
-                            // Don't apply immediately - let History execute it
-                            // This prevents double-execution and run-length 
-                            // encoding issues
+                            // Apply immediately for visual feedback
+                            model.SetTileAt(
+                                targetRoom->id, roomX, roomY, selectedTileId
+                            );
                         }
                         
                         lastPaintedTileX = tx;
@@ -714,7 +722,7 @@ void UI::RenderCanvasPanel(
             }
             
             
-            // Handle erase with E+Mouse1 modifier
+            // Handle erase with E+Mouse1 or right-click/two-finger
             if (shouldErase) {
                 ImVec2 mousePos = ImGui::GetMousePos();
                 
@@ -760,7 +768,8 @@ void UI::RenderCanvasPanel(
                             
                             currentPaintChanges.push_back(change);
                             
-                            // Don't apply immediately - let History execute it
+                            // Apply immediately for visual feedback
+                            model.SetTileAt(targetRoom->id, roomX, roomY, 0);
                         }
                         
                         lastPaintedTileX = tx;
@@ -771,18 +780,24 @@ void UI::RenderCanvasPanel(
             }
             
             // When mouse is released, commit the paint command
-            if (isPainting && ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+            // Check both left and right mouse for release (right = two-finger)
+            bool mouseReleased = ImGui::IsMouseReleased(ImGuiMouseButton_Left) ||
+                                (twoFingerEraseActive && 
+                                 ImGui::IsMouseReleased(ImGuiMouseButton_Right));
+            
+            if (isPainting && mouseReleased) {
                 if (!currentPaintChanges.empty()) {
                     auto cmd = std::make_unique<PaintTilesCommand>(
                         currentPaintChanges
                     );
-                    // Let History execute the command (applies all changes)
-                    history.AddCommand(std::move(cmd), model);
+                    // Changes already applied, just store for undo/redo
+                    history.AddCommand(std::move(cmd), model, false);
                     currentPaintChanges.clear();
                 }
                 isPainting = false;
                 lastPaintedTileX = -1;
                 lastPaintedTileY = -1;
+                twoFingerEraseActive = false;
             }
         }
         else if (currentTool == Tool::Erase) {
@@ -843,7 +858,8 @@ void UI::RenderCanvasPanel(
                             
                             currentPaintChanges.push_back(change);
                             
-                            // Don't apply immediately - let History execute it
+                            // Apply immediately for visual feedback
+                            model.SetTileAt(targetRoom->id, roomX, roomY, 0);
                         }
                         
                         lastPaintedTileX = tx;
@@ -859,8 +875,8 @@ void UI::RenderCanvasPanel(
                     auto cmd = std::make_unique<PaintTilesCommand>(
                         currentPaintChanges
                     );
-                    // Note: Command already applied, so don't execute again
-                    history.AddCommand(std::move(cmd), model);
+                    // Changes already applied, just store for undo/redo
+                    history.AddCommand(std::move(cmd), model, false);
                     currentPaintChanges.clear();
                 }
                 isPainting = false;
