@@ -328,22 +328,32 @@ void UI::RenderStatusBar(Model& model, Canvas& canvas) {
     ImGuiWindowFlags flags = 
         ImGuiWindowFlags_NoMove | 
         ImGuiWindowFlags_NoCollapse |
-        ImGuiWindowFlags_NoScrollbar;
+        ImGuiWindowFlags_NoScrollbar |
+        ImGuiWindowFlags_NoTitleBar;
     
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8, 4));
     ImGui::Begin("Cartograph/Console", nullptr, flags);
+    ImGui::PopStyleVar();
     
-    // TODO: Add error banner area (pinned at top)
-    // TODO: Add console ring buffer with severity filtering
-    
-    // Status line at bottom
-    ImGui::Separator();
+    // Thin horizontal status bar layout
+    // Left section: Zoom
     ImGui::Text("Zoom: %.0f%%", canvas.zoom * 100.0f);
-    ImGui::SameLine(200);
+    
+    // Console output section
+    ImGui::SameLine(0, 20);
+    ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), 
+        "Console: Ready");
+    
+    // Error/Warning section (if any)
     if (model.dirty) {
-        ImGui::Text("✱ Modified");
+        ImGui::SameLine(0, 20);
+        ImGui::TextColored(ImVec4(1.0f, 0.7f, 0.3f, 1.0f), 
+            "⚠ Modified");
     }
     
-    // TODO: Add cursor position, autosave countdown, last save result
+    // Right section: Reserved space for future icons and info
+    ImGui::SameLine(0, 20);
+    ImGui::TextDisabled("[ Space for future info ]");
     
     ImGui::End();
 }
@@ -450,13 +460,13 @@ void UI::BuildFixedLayout(ImGuiID dockspaceId) {
     //   └─ RightRest
     //      ├─ Center (remaining)
     //      └─ Right (360px)
-    //   Bottom (140px)
+    //   Bottom (28px - thin status bar)
     
-    // Split bottom: 140px from bottom
+    // Split bottom: 28px from bottom for thin status bar
     ImGuiID bottomId = 0;
     ImGuiID topRestId = 0;
     ImGui::DockBuilderSplitNode(
-        dockspaceId, ImGuiDir_Down, 140.0f / viewport->WorkSize.y, 
+        dockspaceId, ImGuiDir_Down, 28.0f / viewport->WorkSize.y, 
         &bottomId, &topRestId
     );
     
