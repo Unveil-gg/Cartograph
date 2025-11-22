@@ -35,16 +35,24 @@ public:
     // Coordinate transformations
     void ScreenToWorld(float sx, float sy, float* wx, float* wy) const;
     void WorldToScreen(float wx, float wy, float* sx, float* sy) const;
-    void ScreenToTile(float sx, float sy, int tileSize, int* tx, int* ty) const;
-    void TileToWorld(int tx, int ty, int tileSize, float* wx, float* wy) const;
+    void ScreenToTile(
+        float sx, float sy, 
+        int tileWidth, int tileHeight, 
+        int* tx, int* ty
+    ) const;
+    void TileToWorld(
+        int tx, int ty, 
+        int tileWidth, int tileHeight, 
+        float* wx, float* wy
+    ) const;
     
     // View manipulation
     void SetZoom(float newZoom);
     void Pan(float dx, float dy);
-    void FocusOnTile(int tx, int ty, int tileSize);
+    void FocusOnTile(int tx, int ty, int tileWidth, int tileHeight);
     
     // Queries
-    bool IsVisible(const Rect& rect, int tileSize) const;
+    bool IsVisible(const Rect& rect, int tileWidth, int tileHeight) const;
     
 private:
     // Render passes

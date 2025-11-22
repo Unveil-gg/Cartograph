@@ -49,22 +49,22 @@ void Canvas::WorldToScreen(float wx, float wy, float* sx, float* sy) const {
 
 void Canvas::ScreenToTile(
     float sx, float sy, 
-    int tileSize, 
+    int tileWidth, int tileHeight, 
     int* tx, int* ty
 ) const {
     float wx, wy;
     ScreenToWorld(sx, sy, &wx, &wy);
-    *tx = static_cast<int>(std::floor(wx / tileSize));
-    *ty = static_cast<int>(std::floor(wy / tileSize));
+    *tx = static_cast<int>(std::floor(wx / tileWidth));
+    *ty = static_cast<int>(std::floor(wy / tileHeight));
 }
 
 void Canvas::TileToWorld(
     int tx, int ty, 
-    int tileSize, 
+    int tileWidth, int tileHeight, 
     float* wx, float* wy
 ) const {
-    *wx = tx * tileSize;
-    *wy = ty * tileSize;
+    *wx = tx * tileWidth;
+    *wy = ty * tileHeight;
 }
 
 void Canvas::SetZoom(float newZoom) {
@@ -76,17 +76,20 @@ void Canvas::Pan(float dx, float dy) {
     offsetY += dy / zoom;
 }
 
-void Canvas::FocusOnTile(int tx, int ty, int tileSize) {
-    offsetX = tx * tileSize - m_vpW / (2.0f * zoom);
-    offsetY = ty * tileSize - m_vpH / (2.0f * zoom);
+void Canvas::FocusOnTile(int tx, int ty, int tileWidth, int tileHeight) {
+    offsetX = tx * tileWidth - m_vpW / (2.0f * zoom);
+    offsetY = ty * tileHeight - m_vpH / (2.0f * zoom);
 }
 
-bool Canvas::IsVisible(const Rect& rect, int tileSize) const {
+bool Canvas::IsVisible(
+    const Rect& rect, 
+    int tileWidth, int tileHeight
+) const {
     // Convert tile rect to world space
-    float wx1 = rect.x * tileSize;
-    float wy1 = rect.y * tileSize;
-    float wx2 = (rect.x + rect.w) * tileSize;
-    float wy2 = (rect.y + rect.h) * tileSize;
+    float wx1 = rect.x * tileWidth;
+    float wy1 = rect.y * tileHeight;
+    float wx2 = (rect.x + rect.w) * tileWidth;
+    float wy2 = (rect.y + rect.h) * tileHeight;
     
     // Convert to screen space
     float sx1, sy1, sx2, sy2;
@@ -99,13 +102,15 @@ bool Canvas::IsVisible(const Rect& rect, int tileSize) const {
 }
 
 void Canvas::RenderGrid(IRenderer& renderer, const GridConfig& grid) {
-    const int tileSize = grid.tileSize;
+    const int tileWidth = grid.tileWidth;
+    const int tileHeight = grid.tileHeight;
     const Color gridColor(0.2f, 0.2f, 0.2f, 0.5f);
     
     // Calculate visible tile range
     int minTx, minTy, maxTx, maxTy;
-    ScreenToTile(m_vpX, m_vpY, tileSize, &minTx, &minTy);
-    ScreenToTile(m_vpX + m_vpW, m_vpY + m_vpH, tileSize, &maxTx, &maxTy);
+    ScreenToTile(m_vpX, m_vpY, tileWidth, tileHeight, &minTx, &minTy);
+    ScreenToTile(m_vpX + m_vpW, m_vpY + m_vpH, tileWidth, tileHeight, 
+                 &maxTx, &maxTy);
     
     // Clamp to grid bounds
     minTx = std::max(0, minTx - 1);
@@ -116,8 +121,8 @@ void Canvas::RenderGrid(IRenderer& renderer, const GridConfig& grid) {
     // Draw vertical lines
     for (int tx = minTx; tx <= maxTx; ++tx) {
         float wx1, wy1, wx2, wy2;
-        TileToWorld(tx, minTy, tileSize, &wx1, &wy1);
-        TileToWorld(tx, maxTy, tileSize, &wx2, &wy2);
+        TileToWorld(tx, minTy, tileWidth, tileHeight, &wx1, &wy1);
+        TileToWorld(tx, maxTy, tileWidth, tileHeight, &wx2, &wy2);
         
         float sx1, sy1, sx2, sy2;
         WorldToScreen(wx1, wy1, &sx1, &sy1);
@@ -129,8 +134,8 @@ void Canvas::RenderGrid(IRenderer& renderer, const GridConfig& grid) {
     // Draw horizontal lines
     for (int ty = minTy; ty <= maxTy; ++ty) {
         float wx1, wy1, wx2, wy2;
-        TileToWorld(minTx, ty, tileSize, &wx1, &wy1);
-        TileToWorld(maxTx, ty, tileSize, &wx2, &wy2);
+        TileToWorld(minTx, ty, tileWidth, tileHeight, &wx1, &wy1);
+        TileToWorld(maxTx, ty, tileWidth, tileHeight, &wx2, &wy2);
         
         float sx1, sy1, sx2, sy2;
         WorldToScreen(wx1, wy1, &sx1, &sy1);
@@ -141,18 +146,19 @@ void Canvas::RenderGrid(IRenderer& renderer, const GridConfig& grid) {
 }
 
 void Canvas::RenderRooms(IRenderer& renderer, const Model& model) {
-    const int tileSize = model.grid.tileSize;
+    const int tileWidth = model.grid.tileWidth;
+    const int tileHeight = model.grid.tileHeight;
     
     for (const auto& room : model.rooms) {
-        if (!IsVisible(room.rect, tileSize)) {
+        if (!IsVisible(room.rect, tileWidth, tileHeight)) {
             continue;
         }
         
         // Convert to world space
-        float wx = room.rect.x * tileSize;
-        float wy = room.rect.y * tileSize;
-        float ww = room.rect.w * tileSize;
-        float wh = room.rect.h * tileSize;
+        float wx = room.rect.x * tileWidth;
+        float wy = room.rect.y * tileHeight;
+        float ww = room.rect.w * tileWidth;
+        float wh = room.rect.h * tileHeight;
         
         // Convert to screen space
         float sx, sy;
@@ -179,7 +185,8 @@ void Canvas::RenderRooms(IRenderer& renderer, const Model& model) {
 }
 
 void Canvas::RenderTiles(IRenderer& renderer, const Model& model) {
-    const int tileSize = model.grid.tileSize;
+    const int tileWidth = model.grid.tileWidth;
+    const int tileHeight = model.grid.tileHeight;
     
     for (const auto& row : model.tiles) {
         const Room* room = model.FindRoom(row.roomId);
@@ -203,12 +210,12 @@ void Canvas::RenderTiles(IRenderer& renderer, const Model& model) {
                 int ty = room->rect.y + row.y;
                 
                 float wx, wy;
-                TileToWorld(tx, ty, tileSize, &wx, &wy);
+                TileToWorld(tx, ty, tileWidth, tileHeight, &wx, &wy);
                 
                 float sx, sy;
                 WorldToScreen(wx, wy, &sx, &sy);
-                float sw = tileSize * zoom;
-                float sh = tileSize * zoom;
+                float sw = tileWidth * zoom;
+                float sh = tileHeight * zoom;
                 
                 renderer.DrawRect(sx, sy, sw, sh, tileColor);
             }
@@ -217,7 +224,8 @@ void Canvas::RenderTiles(IRenderer& renderer, const Model& model) {
 }
 
 void Canvas::RenderDoors(IRenderer& renderer, const Model& model) {
-    const int tileSize = model.grid.tileSize;
+    const int tileWidth = model.grid.tileWidth;
+    const int tileHeight = model.grid.tileHeight;
     const Color doorColor(1.0f, 0.8f, 0.2f, 1.0f);
     
     for (const auto& door : model.doors) {
@@ -226,11 +234,14 @@ void Canvas::RenderDoors(IRenderer& renderer, const Model& model) {
             const auto& endpoint = (ep == 0) ? door.a : door.b;
             
             float wx, wy;
-            TileToWorld(endpoint.x, endpoint.y, tileSize, &wx, &wy);
+            TileToWorld(endpoint.x, endpoint.y, tileWidth, tileHeight, 
+                        &wx, &wy);
             
             float sx, sy;
             WorldToScreen(wx, wy, &sx, &sy);
-            float size = tileSize * zoom * 0.5f;
+            // Use average of width and height for door size
+            float avgSize = (tileWidth + tileHeight) / 2.0f;
+            float size = avgSize * zoom * 0.5f;
             
             // Draw as a small square
             renderer.DrawRect(
@@ -243,15 +254,18 @@ void Canvas::RenderDoors(IRenderer& renderer, const Model& model) {
 }
 
 void Canvas::RenderMarkers(IRenderer& renderer, const Model& model) {
-    const int tileSize = model.grid.tileSize;
+    const int tileWidth = model.grid.tileWidth;
+    const int tileHeight = model.grid.tileHeight;
     
     for (const auto& marker : model.markers) {
         float wx, wy;
-        TileToWorld(marker.x, marker.y, tileSize, &wx, &wy);
+        TileToWorld(marker.x, marker.y, tileWidth, tileHeight, &wx, &wy);
         
         float sx, sy;
         WorldToScreen(wx, wy, &sx, &sy);
-        float size = tileSize * zoom * 0.7f;
+        // Use average of width and height for marker size
+        float avgSize = (tileWidth + tileHeight) / 2.0f;
+        float size = avgSize * zoom * 0.7f;
         
         // Draw as a colored circle (approximated with rect for now)
         renderer.DrawRect(
@@ -264,7 +278,8 @@ void Canvas::RenderMarkers(IRenderer& renderer, const Model& model) {
         if (zoom > 0.7f && !marker.label.empty()) {
             ImDrawList* dl = ImGui::GetBackgroundDrawList();
             ImVec2 textPos(sx + size/2 + 2, sy);
-            dl->AddText(textPos, marker.color.ToU32(), marker.label.c_str());
+            dl->AddText(textPos, marker.color.ToU32(), 
+                        marker.label.c_str());
         }
     }
 }

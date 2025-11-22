@@ -38,9 +38,10 @@ struct Color {
 // ============================================================================
 
 struct GridConfig {
-    int tileSize = 16;   // pixels per tile at 1:1 zoom
-    int cols = 256;      // grid width in tiles
-    int rows = 256;      // grid height in tiles
+    int tileWidth = 16;   // pixels per tile width at 1:1 zoom
+    int tileHeight = 16;  // pixels per tile height at 1:1 zoom
+    int cols = 256;       // grid width in tiles
+    int rows = 256;       // grid height in tiles
 };
 
 // ============================================================================

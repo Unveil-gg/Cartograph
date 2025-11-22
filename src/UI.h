@@ -31,7 +31,8 @@ struct Toast {
  */
 struct NewProjectConfig {
     char projectName[256] = "New Map";
-    int cellSize = 16;
+    int cellWidth = 16;   // cell width in pixels
+    int cellHeight = 16;  // cell height in pixels
     int mapWidth = 256;   // in cells
     int mapHeight = 256;  // in cells
 };
@@ -108,6 +109,7 @@ public:
     // UI state
     bool showExportModal = false;
     ExportOptions exportOptions;
+    bool showSettingsModal = false;
     
     // Welcome screen state
     bool showNewProjectModal = false;
@@ -140,6 +142,7 @@ private:
     void RenderStatusBar(Model& model, Canvas& canvas);
     void RenderToasts(float deltaTime);
     void RenderExportModal(Model& model, Canvas& canvas);
+    void RenderSettingsModal(Model& model);
     
     // Welcome screen components
     void RenderNewProjectModal(App& app, Model& model);

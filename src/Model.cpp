@@ -145,7 +145,8 @@ void Model::InitDefaults() {
     InitDefaultKeymap();
     InitDefaultTheme("Dark");
     
-    grid.tileSize = 16;
+    grid.tileWidth = 16;
+    grid.tileHeight = 16;
     grid.cols = 256;
     grid.rows = 256;
     

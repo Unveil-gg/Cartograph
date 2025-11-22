@@ -51,7 +51,8 @@ std::string IOJson::SaveToString(const Model& model) {
     
     // Grid
     j["grid"] = {
-        {"tileSize", model.grid.tileSize},
+        {"tileWidth", model.grid.tileWidth},
+        {"tileHeight", model.grid.tileHeight},
         {"cols", model.grid.cols},
         {"rows", model.grid.rows}
     };
@@ -157,7 +158,19 @@ bool IOJson::LoadFromString(const std::string& jsonStr, Model& outModel) {
         // Grid
         if (j.contains("grid")) {
             const auto& grid = j["grid"];
-            outModel.grid.tileSize = grid.value("tileSize", 16);
+            // Backward compatibility: support old "tileSize" field
+            if (grid.contains("tileWidth") && grid.contains("tileHeight")) {
+                outModel.grid.tileWidth = grid.value("tileWidth", 16);
+                outModel.grid.tileHeight = grid.value("tileHeight", 16);
+            } else if (grid.contains("tileSize")) {
+                // Old format: use same value for both
+                int tileSize = grid.value("tileSize", 16);
+                outModel.grid.tileWidth = tileSize;
+                outModel.grid.tileHeight = tileSize;
+            } else {
+                outModel.grid.tileWidth = 16;
+                outModel.grid.tileHeight = 16;
+            }
             outModel.grid.cols = grid.value("cols", 256);
             outModel.grid.rows = grid.value("rows", 256);
         }

@@ -18,8 +18,10 @@ void ExportPng::CalculateDimensions(
     int* outHeight
 ) {
     if (options.cropMode == ExportOptions::CropMode::FullGrid) {
-        *outWidth = model.grid.cols * model.grid.tileSize * options.scale;
-        *outHeight = model.grid.rows * model.grid.tileSize * options.scale;
+        *outWidth = model.grid.cols * model.grid.tileWidth * 
+                    options.scale;
+        *outHeight = model.grid.rows * model.grid.tileHeight * 
+                     options.scale;
         return;
     }
     
@@ -42,15 +44,16 @@ void ExportPng::CalculateDimensions(
         maxY = std::max(maxY, room.rect.y + room.rect.h);
     }
     
-    // Add padding
-    int paddingTiles = options.padding / model.grid.tileSize;
+    // Add padding (use average of width and height)
+    int avgTileSize = (model.grid.tileWidth + model.grid.tileHeight) / 2;
+    int paddingTiles = options.padding / avgTileSize;
     minX -= paddingTiles;
     minY -= paddingTiles;
     maxX += paddingTiles;
     maxY += paddingTiles;
     
-    *outWidth = (maxX - minX) * model.grid.tileSize * options.scale;
-    *outHeight = (maxY - minY) * model.grid.tileSize * options.scale;
+    *outWidth = (maxX - minX) * model.grid.tileWidth * options.scale;
+    *outHeight = (maxY - minY) * model.grid.tileHeight * options.scale;
 }
 
 bool ExportPng::Export(

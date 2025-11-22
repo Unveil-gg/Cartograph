@@ -81,6 +81,9 @@ void UI::Render(
     if (showExportModal) {
         RenderExportModal(model, canvas);
     }
+    if (showSettingsModal) {
+        RenderSettingsModal(model);
+    }
 }
 
 void UI::ShowToast(
@@ -232,7 +235,8 @@ void UI::RenderWelcomeScreen(App& app, Model& model) {
         showNewProjectModal = true;
         // Reset config to defaults
         std::strcpy(newProjectConfig.projectName, "New Map");
-        newProjectConfig.cellSize = 16;
+        newProjectConfig.cellWidth = 16;
+        newProjectConfig.cellHeight = 16;
         newProjectConfig.mapWidth = 256;
         newProjectConfig.mapHeight = 256;
         selectedTemplate = ProjectTemplate::Medium;
@@ -322,6 +326,10 @@ void UI::RenderMenuBar(Model& model, Canvas& canvas, History& history) {
             }
             if (ImGui::MenuItem("Redo", "Cmd+Y", false, canRedo)) {
                 history.Redo(model);
+            }
+            ImGui::Separator();
+            if (ImGui::MenuItem("Settings...")) {
+                showSettingsModal = true;
             }
             ImGui::EndMenu();
         }
@@ -530,17 +538,23 @@ void UI::RenderCanvasPanel(Model& model, Canvas& canvas) {
     
     // Draw grid if enabled
     if (canvas.showGrid) {
-        int tileSize = model.grid.tileSize;
-        float scaledTileSize = tileSize * canvas.zoom;
+        int tileWidth = model.grid.tileWidth;
+        int tileHeight = model.grid.tileHeight;
+        float scaledTileWidth = tileWidth * canvas.zoom;
+        float scaledTileHeight = tileHeight * canvas.zoom;
         
         // Calculate visible grid range
-        float startX = canvasPos.x - fmod(canvas.offsetX * canvas.zoom, scaledTileSize);
-        float startY = canvasPos.y - fmod(canvas.offsetY * canvas.zoom, scaledTileSize);
+        float startX = canvasPos.x - fmod(canvas.offsetX * canvas.zoom, 
+                                          scaledTileWidth);
+        float startY = canvasPos.y - fmod(canvas.offsetY * canvas.zoom, 
+                                          scaledTileHeight);
         
-        ImU32 gridColor = ImGui::GetColorU32(ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
+        ImU32 gridColor = ImGui::GetColorU32(
+            ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
         
         // Draw vertical lines
-        for (float x = startX; x < canvasPos.x + canvasSize.x; x += scaledTileSize) {
+        for (float x = startX; x < canvasPos.x + canvasSize.x; 
+             x += scaledTileWidth) {
             drawList->AddLine(
                 ImVec2(x, canvasPos.y),
                 ImVec2(x, canvasPos.y + canvasSize.y),
@@ -549,7 +563,8 @@ void UI::RenderCanvasPanel(Model& model, Canvas& canvas) {
         }
         
         // Draw horizontal lines
-        for (float y = startY; y < canvasPos.y + canvasSize.y; y += scaledTileSize) {
+        for (float y = startY; y < canvasPos.y + canvasSize.y; 
+             y += scaledTileHeight) {
             drawList->AddLine(
                 ImVec2(canvasPos.x, y),
                 ImVec2(canvasPos.x + canvasSize.x, y),
@@ -710,6 +725,93 @@ void UI::RenderExportModal(Model& model, Canvas& canvas) {
     }
 }
 
+void UI::RenderSettingsModal(Model& model) {
+    ImGui::OpenPopup("Settings");
+    
+    ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, 
+        ImVec2(0.5f, 0.5f));
+    
+    if (ImGui::BeginPopupModal("Settings", nullptr, 
+        ImGuiWindowFlags_AlwaysAutoResize)) {
+        
+        ImGui::Text("Project Settings");
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        // Grid Cell Dimensions
+        ImGui::Text("Grid Cell Dimensions:");
+        
+        ImGui::SliderInt("Cell Width (px)", &model.grid.tileWidth, 
+            4, 128);
+        ImGui::SameLine();
+        if (ImGui::Button("?##cellwidth_settings")) {
+            ShowToast("Width of each grid cell in pixels", 
+                Toast::Type::Info, 4.0f);
+        }
+        
+        ImGui::SliderInt("Cell Height (px)", &model.grid.tileHeight, 
+            4, 128);
+        ImGui::SameLine();
+        if (ImGui::Button("?##cellheight_settings")) {
+            ShowToast("Height of each grid cell in pixels", 
+                Toast::Type::Info, 4.0f);
+        }
+        
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        // Grid Dimensions
+        ImGui::Text("Grid Dimensions:");
+        
+        int tempCols = model.grid.cols;
+        int tempRows = model.grid.rows;
+        
+        ImGui::InputInt("Grid Width (cells)", &tempCols);
+        if (tempCols < 16) tempCols = 16;
+        if (tempCols > 2048) tempCols = 2048;
+        model.grid.cols = tempCols;
+        
+        ImGui::InputInt("Grid Height (cells)", &tempRows);
+        if (tempRows < 16) tempRows = 16;
+        if (tempRows > 2048) tempRows = 2048;
+        model.grid.rows = tempRows;
+        
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        // Preview info
+        int totalCells = model.grid.cols * model.grid.rows;
+        int pixelWidth = model.grid.cols * model.grid.tileWidth;
+        int pixelHeight = model.grid.rows * model.grid.tileHeight;
+        
+        ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
+            "Total cells: %d | Canvas size: %dx%d px",
+            totalCells, pixelWidth, pixelHeight);
+        
+        ImGui::Spacing();
+        
+        // Buttons
+        if (ImGui::Button("Apply", ImVec2(120, 0))) {
+            model.MarkDirty();
+            showSettingsModal = false;
+            ImGui::CloseCurrentPopup();
+            ShowToast("Settings applied", Toast::Type::Success);
+        }
+        
+        ImGui::SameLine();
+        
+        if (ImGui::Button("Close", ImVec2(120, 0))) {
+            showSettingsModal = false;
+            ImGui::CloseCurrentPopup();
+        }
+        
+        ImGui::EndPopup();
+    }
+}
+
 void UI::RenderNewProjectModal(App& app, Model& model) {
     ImGui::OpenPopup("New Project");
     
@@ -771,12 +873,20 @@ void UI::RenderNewProjectModal(App& app, Model& model) {
         // Configuration
         ImGui::Text("Configuration:");
         
-        // Cell size
-        ImGui::SliderInt("Cell Size (px)", &newProjectConfig.cellSize, 
+        // Cell dimensions
+        ImGui::SliderInt("Cell Width (px)", &newProjectConfig.cellWidth, 
             8, 64);
         ImGui::SameLine();
-        if (ImGui::Button("?##cellsize")) {
-            ShowToast("Size of each grid cell in pixels", 
+        if (ImGui::Button("?##cellwidth")) {
+            ShowToast("Width of each grid cell in pixels", 
+                Toast::Type::Info, 4.0f);
+        }
+        
+        ImGui::SliderInt("Cell Height (px)", &newProjectConfig.cellHeight, 
+            8, 64);
+        ImGui::SameLine();
+        if (ImGui::Button("?##cellheight")) {
+            ShowToast("Height of each grid cell in pixels", 
                 Toast::Type::Info, 4.0f);
         }
         
@@ -800,9 +910,9 @@ void UI::RenderNewProjectModal(App& app, Model& model) {
         int totalCells = newProjectConfig.mapWidth * 
             newProjectConfig.mapHeight;
         int pixelWidth = newProjectConfig.mapWidth * 
-            newProjectConfig.cellSize;
+            newProjectConfig.cellWidth;
         int pixelHeight = newProjectConfig.mapHeight * 
-            newProjectConfig.cellSize;
+            newProjectConfig.cellHeight;
         
         ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
             "Total cells: %d | Canvas size: %dx%d px",
@@ -814,7 +924,8 @@ void UI::RenderNewProjectModal(App& app, Model& model) {
         if (ImGui::Button("Create", ImVec2(120, 0))) {
             // Apply configuration to model
             model.meta.title = std::string(newProjectConfig.projectName);
-            model.grid.tileSize = newProjectConfig.cellSize;
+            model.grid.tileWidth = newProjectConfig.cellWidth;
+            model.grid.tileHeight = newProjectConfig.cellHeight;
             model.grid.cols = newProjectConfig.mapWidth;
             model.grid.rows = newProjectConfig.mapHeight;
             
@@ -926,25 +1037,29 @@ void UI::RenderWhatsNewPanel() {
 void UI::ApplyTemplate(ProjectTemplate tmpl) {
     switch (tmpl) {
         case ProjectTemplate::Small:
-            newProjectConfig.cellSize = 16;
+            newProjectConfig.cellWidth = 16;
+            newProjectConfig.cellHeight = 16;
             newProjectConfig.mapWidth = 128;
             newProjectConfig.mapHeight = 128;
             break;
             
         case ProjectTemplate::Medium:
-            newProjectConfig.cellSize = 16;
+            newProjectConfig.cellWidth = 16;
+            newProjectConfig.cellHeight = 16;
             newProjectConfig.mapWidth = 256;
             newProjectConfig.mapHeight = 256;
             break;
             
         case ProjectTemplate::Large:
-            newProjectConfig.cellSize = 16;
+            newProjectConfig.cellWidth = 16;
+            newProjectConfig.cellHeight = 16;
             newProjectConfig.mapWidth = 512;
             newProjectConfig.mapHeight = 512;
             break;
             
         case ProjectTemplate::Metroidvania:
-            newProjectConfig.cellSize = 8;
+            newProjectConfig.cellWidth = 8;
+            newProjectConfig.cellHeight = 8;
             newProjectConfig.mapWidth = 256;
             newProjectConfig.mapHeight = 256;
             break;
