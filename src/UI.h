@@ -75,8 +75,15 @@ public:
     
     // Current tool
     enum class Tool {
-        Paint, Erase, Fill, Rectangle, Door, Marker, Eyedropper
-    } currentTool = Tool::Paint;
+        Move, Select, Paint, Erase, Fill, Rectangle, Door, Marker, Eyedropper
+    } currentTool = Tool::Move;
+    
+    // Selection state (for Select tool)
+    bool isSelecting = false;
+    float selectionStartX = 0.0f;
+    float selectionStartY = 0.0f;
+    float selectionEndX = 0.0f;
+    float selectionEndY = 0.0f;
     
 private:
     void RenderMenuBar(Model& model, Canvas& canvas, History& history);

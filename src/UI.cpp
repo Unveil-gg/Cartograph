@@ -196,10 +196,11 @@ void UI::RenderToolsPanel() {
     ImGui::Separator();
     
     const char* toolNames[] = {
-        "Paint", "Erase", "Fill", "Rectangle", "Door", "Marker", "Eyedropper"
+        "Move", "Select", "Paint", "Erase", "Fill", "Rectangle", "Door", 
+        "Marker", "Eyedropper"
     };
     
-    for (int i = 0; i < 7; ++i) {
+    for (int i = 0; i < 9; ++i) {
         bool selected = (static_cast<int>(currentTool) == i);
         if (ImGui::Selectable(toolNames[i], selected)) {
             currentTool = static_cast<Tool>(i);
@@ -264,19 +265,63 @@ void UI::RenderCanvasPanel(Model& model, Canvas& canvas) {
     
     // Handle input
     if (ImGui::IsItemHovered()) {
-        // Mouse wheel zoom
+        // Mouse wheel zoom (available in all tools)
         float wheel = ImGui::GetIO().MouseWheel;
         if (wheel != 0.0f) {
             float zoomFactor = (wheel > 0) ? 1.1f : 0.9f;
             canvas.SetZoom(canvas.zoom * zoomFactor);
         }
         
-        // Space + drag to pan
+        // Middle mouse button panning (universal shortcut)
         if (ImGui::IsMouseDragging(ImGuiMouseButton_Middle)) {
             ImVec2 delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Middle);
             canvas.Pan(-delta.x, -delta.y);
             ImGui::ResetMouseDragDelta(ImGuiMouseButton_Middle);
         }
+        
+        // Tool-specific input handling
+        if (currentTool == Tool::Move) {
+            // Move tool: Left mouse drag to pan
+            if (ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
+                ImVec2 delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left);
+                canvas.Pan(-delta.x, -delta.y);
+                ImGui::ResetMouseDragDelta(ImGuiMouseButton_Left);
+            }
+        }
+        else if (currentTool == Tool::Select) {
+            // Select tool: Left mouse drag to create selection rectangle
+            if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+                // Start selection
+                ImVec2 mousePos = ImGui::GetMousePos();
+                selectionStartX = mousePos.x;
+                selectionStartY = mousePos.y;
+                selectionEndX = mousePos.x;
+                selectionEndY = mousePos.y;
+                isSelecting = true;
+            }
+            
+            if (ImGui::IsMouseDragging(ImGuiMouseButton_Left) && isSelecting) {
+                // Update selection end position
+                ImVec2 mousePos = ImGui::GetMousePos();
+                selectionEndX = mousePos.x;
+                selectionEndY = mousePos.y;
+            }
+            
+            if (ImGui::IsMouseReleased(ImGuiMouseButton_Left) && isSelecting) {
+                // Finish selection
+                ImVec2 mousePos = ImGui::GetMousePos();
+                selectionEndX = mousePos.x;
+                selectionEndY = mousePos.y;
+                // Note: Keep selection visible until a different action
+            }
+        }
+        // TODO: Add input handling for other tools (Paint, Erase, etc.)
+    }
+    
+    // Clear selection if we click outside canvas
+    if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && 
+        !ImGui::IsItemHovered() && isSelecting) {
+        isSelecting = false;
     }
     
     // Draw canvas content using ImGui DrawList
@@ -321,6 +366,34 @@ void UI::RenderCanvasPanel(Model& model, Canvas& canvas) {
     // TODO: Draw rooms, tiles, doors, markers
     // For now, just show the grid
     
+    // Draw selection rectangle if Select tool is active
+    if (currentTool == Tool::Select && isSelecting) {
+        // Calculate rectangle bounds
+        float minX = std::min(selectionStartX, selectionEndX);
+        float minY = std::min(selectionStartY, selectionEndY);
+        float maxX = std::max(selectionStartX, selectionEndX);
+        float maxY = std::max(selectionStartY, selectionEndY);
+        
+        // Draw semi-transparent fill
+        ImU32 fillColor = ImGui::GetColorU32(ImVec4(0.3f, 0.6f, 1.0f, 0.2f));
+        drawList->AddRectFilled(
+            ImVec2(minX, minY),
+            ImVec2(maxX, maxY),
+            fillColor
+        );
+        
+        // Draw border
+        ImU32 borderColor = ImGui::GetColorU32(ImVec4(0.3f, 0.6f, 1.0f, 0.8f));
+        drawList->AddRect(
+            ImVec2(minX, minY),
+            ImVec2(maxX, maxY),
+            borderColor,
+            0.0f,
+            0,
+            2.0f
+        );
+    }
+    
     ImGui::End();
 }
 
@@ -353,7 +426,6 @@ void UI::RenderStatusBar(Model& model, Canvas& canvas) {
     
     // Right section: Reserved space for future icons and info
     ImGui::SameLine(0, 20);
-    ImGui::TextDisabled("[ Space for future info ]");
     
     ImGui::End();
 }
