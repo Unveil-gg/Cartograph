@@ -130,11 +130,75 @@ void Model::SetTileAt(const std::string& roomId, int x, int y, int tileId) {
         row = &tiles.back();
     }
     
-    // TODO: Properly handle run-length encoding insertion/updates
-    // For now, simple implementation - replace entire row
-    row->runs.clear();
-    if (tileId != 0) {
-        row->runs.push_back({x, 1, tileId});
+    // Properly handle run-length encoding insertion/updates
+    std::vector<TileRun> newRuns;
+    bool inserted = false;
+    
+    for (const auto& run : row->runs) {
+        int runEnd = run.startX + run.count;
+        
+        if (x < run.startX) {
+            // Insert before this run
+            if (!inserted && tileId != 0) {
+                newRuns.push_back({x, 1, tileId});
+                inserted = true;
+            }
+            newRuns.push_back(run);
+        } else if (x >= run.startX && x < runEnd) {
+            // Overlaps with this run - need to split/modify
+            if (run.tileId == tileId) {
+                // Same tile, keep the run as is
+                newRuns.push_back(run);
+                inserted = true;
+            } else {
+                // Different tile, need to split the run
+                if (x > run.startX) {
+                    // Add part before x
+                    newRuns.push_back({run.startX, x - run.startX, 
+                                      run.tileId});
+                }
+                if (tileId != 0) {
+                    // Add new tile at x
+                    newRuns.push_back({x, 1, tileId});
+                }
+                if (x + 1 < runEnd) {
+                    // Add part after x
+                    newRuns.push_back({x + 1, runEnd - (x + 1), run.tileId});
+                }
+                inserted = true;
+            }
+        } else {
+            // After this run
+            newRuns.push_back(run);
+        }
+    }
+    
+    // If not inserted yet, add at the end
+    if (!inserted && tileId != 0) {
+        newRuns.push_back({x, 1, tileId});
+    }
+    
+    row->runs = newRuns;
+    
+    // Coalesce adjacent runs with same tile ID
+    if (!row->runs.empty()) {
+        std::vector<TileRun> coalesced;
+        coalesced.push_back(row->runs[0]);
+        
+        for (size_t i = 1; i < row->runs.size(); ++i) {
+            TileRun& last = coalesced.back();
+            const TileRun& current = row->runs[i];
+            
+            if (last.tileId == current.tileId && 
+                last.startX + last.count == current.startX) {
+                // Merge with previous run
+                last.count += current.count;
+            } else {
+                coalesced.push_back(current);
+            }
+        }
+        
+        row->runs = coalesced;
     }
     
     MarkDirty();
@@ -167,13 +231,20 @@ void Model::InitDefaultKeymap() {
     keymap.clear();
     
     // Tools
-    keymap["paint"] = "Mouse1";
-    keymap["erase"] = "Mouse2";
+    keymap["paint"] = "Mouse1";  // Left click or single tap
+    keymap["erase"] = "Mouse2";  // Right click or two-finger tap (trackpad)
+    keymap["eraseAlt"] = "E+Mouse1";  // Hold E key + left click to erase
     keymap["fill"] = "F";
     keymap["rect"] = "R";
     keymap["door"] = "D";
     keymap["marker"] = "M";
-    keymap["eyedropper"] = "Alt+Mouse1";
+    keymap["eyedropper"] = "I";  // Use I key for eyedropper
+    
+    // Tool switching shortcuts
+    keymap["toolMove"] = "V";
+    keymap["toolSelect"] = "S";
+    keymap["toolPaint"] = "B";  // B for Brush
+    keymap["toolErase"] = "E";
     
     // View
     keymap["pan"] = "Space+Drag";

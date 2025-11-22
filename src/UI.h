@@ -2,6 +2,7 @@
 
 #include "Model.h"
 #include "ExportPng.h"
+#include "History.h"
 #include <string>
 #include <vector>
 
@@ -11,7 +12,6 @@ typedef unsigned int ImGuiID;
 namespace Cartograph {
 
 class Canvas;
-class History;
 class IconManager;
 class App;
 
@@ -73,6 +73,7 @@ public:
     
     /**
      * Render all UI panels (editor mode).
+     * @param renderer Renderer for drawing canvas
      * @param model Current model
      * @param canvas Canvas
      * @param history History
@@ -80,6 +81,7 @@ public:
      * @param deltaTime Frame delta time
      */
     void Render(
+        IRenderer& renderer,
         Model& model,
         Canvas& canvas,
         History& history,
@@ -133,12 +135,23 @@ public:
     float selectionEndX = 0.0f;
     float selectionEndY = 0.0f;
     
+    // Paint state (for Paint/Erase tools)
+    bool isPainting = false;
+    int lastPaintedTileX = -1;
+    int lastPaintedTileY = -1;
+    std::vector<PaintTilesCommand::TileChange> currentPaintChanges;
+    
 private:
     void RenderMenuBar(Model& model, Canvas& canvas, History& history);
     void RenderPalettePanel(Model& model);
-    void RenderToolsPanel();
+    void RenderToolsPanel(Model& model);
     void RenderPropertiesPanel(Model& model);
-    void RenderCanvasPanel(Model& model, Canvas& canvas);
+    void RenderCanvasPanel(
+        IRenderer& renderer,
+        Model& model, 
+        Canvas& canvas, 
+        History& history
+    );
     void RenderStatusBar(Model& model, Canvas& canvas);
     void RenderToasts(float deltaTime);
     void RenderExportModal(Model& model, Canvas& canvas);
@@ -162,6 +175,10 @@ private:
     std::vector<Toast> m_toasts;
     float m_statusBarHeight = 24.0f;
     bool m_layoutInitialized = false;
+    
+    // Status bar error message
+    std::string m_statusError;
+    float m_statusErrorTime = 0.0f;
 };
 
 } // namespace Cartograph

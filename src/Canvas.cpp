@@ -7,7 +7,8 @@
 namespace Cartograph {
 
 Canvas::Canvas()
-    : m_vpX(0), m_vpY(0), m_vpW(0), m_vpH(0)
+    : offsetX(0.0f), offsetY(0.0f), zoom(1.0f), showGrid(true),
+      m_vpX(0), m_vpY(0), m_vpW(0), m_vpH(0)
 {
 }
 
@@ -27,6 +28,9 @@ void Canvas::Render(
     m_vpW = viewportW;
     m_vpH = viewportH;
     
+    // Enable scissor clipping to prevent drawing outside canvas bounds
+    renderer.SetScissor(viewportX, viewportY, viewportW, viewportH);
+    
     // Render in order: grid, rooms, tiles, doors, markers
     if (showGrid) {
         RenderGrid(renderer, model.grid);
@@ -35,6 +39,9 @@ void Canvas::Render(
     RenderTiles(renderer, model);
     RenderDoors(renderer, model);
     RenderMarkers(renderer, model);
+    
+    // Disable scissor clipping
+    renderer.SetScissor(0, 0, 0, 0);
 }
 
 void Canvas::ScreenToWorld(float sx, float sy, float* wx, float* wy) const {
@@ -205,13 +212,17 @@ void Canvas::RenderTiles(IRenderer& renderer, const Model& model) {
             }
             
             // Draw each tile in the run
+            // Note: run.startX and row.y are room-relative coordinates
             for (int i = 0; i < run.count; ++i) {
+                // Convert room-relative to absolute tile coordinates
                 int tx = room->rect.x + run.startX + i;
                 int ty = room->rect.y + row.y;
                 
+                // Convert tile coordinates to world pixel coordinates
                 float wx, wy;
                 TileToWorld(tx, ty, tileWidth, tileHeight, &wx, &wy);
                 
+                // Convert world to screen coordinates
                 float sx, sy;
                 WorldToScreen(wx, wy, &sx, &sy);
                 float sw = tileWidth * zoom;

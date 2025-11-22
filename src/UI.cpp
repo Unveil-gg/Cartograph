@@ -21,6 +21,7 @@ void UI::SetupDockspace() {
 }
 
 void UI::Render(
+    IRenderer& renderer,
     Model& model,
     Canvas& canvas,
     History& history,
@@ -69,8 +70,8 @@ void UI::Render(
     ImGui::End();
     
     // Render all panels (they will dock into the dockspace)
-    RenderToolsPanel();
-    RenderCanvasPanel(model, canvas);
+    RenderToolsPanel(model);
+    RenderCanvasPanel(renderer, model, canvas, history);
     RenderPropertiesPanel(model);
     RenderStatusBar(model, canvas);
     
@@ -388,7 +389,7 @@ void UI::RenderPalettePanel(Model& model) {
     ImGui::End();
 }
 
-void UI::RenderToolsPanel() {
+void UI::RenderToolsPanel(Model& model) {
     ImGuiWindowFlags flags = 
         ImGuiWindowFlags_NoMove | 
         ImGuiWindowFlags_NoCollapse;
@@ -403,14 +404,109 @@ void UI::RenderToolsPanel() {
         "Marker", "Eyedropper"
     };
     
+    const char* toolShortcuts[] = {
+        "V", "S", "B", "", "", "", "", "", "I"
+    };
+    
     for (int i = 0; i < 9; ++i) {
         bool selected = (static_cast<int>(currentTool) == i);
-        if (ImGui::Selectable(toolNames[i], selected)) {
+        
+        // Show tool name with optional shortcut
+        char toolLabel[64];
+        if (toolShortcuts[i][0] != '\0') {
+            snprintf(toolLabel, sizeof(toolLabel), "%s [%s]", 
+                     toolNames[i], toolShortcuts[i]);
+        } else {
+            snprintf(toolLabel, sizeof(toolLabel), "%s", toolNames[i]);
+        }
+        
+        if (ImGui::Selectable(toolLabel, selected)) {
             currentTool = static_cast<Tool>(i);
+        }
+        
+        // Add tooltip with more info
+        if (ImGui::IsItemHovered()) {
+            ImGui::BeginTooltip();
+            switch (i) {
+                case 0: // Move
+                    ImGui::Text("Move Tool [V]");
+                    ImGui::Separator();
+                    ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
+                        "Drag to pan the canvas\nWheel to zoom in/out");
+                    break;
+                case 1: // Select
+                    ImGui::Text("Select Tool [S]");
+                    ImGui::Separator();
+                    ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
+                        "Drag to create selection rectangle");
+                    break;
+                case 2: // Paint
+                    ImGui::Text("Paint Tool [B]");
+                    ImGui::Separator();
+                    ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
+                        "Left-click: Paint with selected color\n"
+                        "Right-click: Erase\n"
+                        "E+Click: Erase (alternative)");
+                    break;
+                case 3: // Erase
+                    ImGui::Text("Erase Tool [E]");
+                    ImGui::Separator();
+                    ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
+                        "Click to erase tiles");
+                    break;
+                case 8: // Eyedropper
+                    ImGui::Text("Eyedropper Tool [I]");
+                    ImGui::Separator();
+                    ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
+                        "Click to pick tile color");
+                    break;
+                default:
+                    ImGui::Text("%s", toolNames[i]);
+                    ImGui::Separator();
+                    ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
+                        "Tool not yet implemented");
+                    break;
+            }
+            ImGui::EndTooltip();
         }
     }
     
-    // TODO: Add palette section here
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+    
+    // Show palette when Paint tool is active
+    if (currentTool == Tool::Paint || currentTool == Tool::Erase || 
+        currentTool == Tool::Fill) {
+        ImGui::Text("Paint Color");
+        ImGui::Separator();
+        
+        // Display palette tiles inline
+        for (const auto& tile : model.palette) {
+            if (tile.id == 0) continue;  // Skip empty tile
+            
+            ImGui::PushID(tile.id);
+            
+            bool selected = (selectedTileId == tile.id);
+            ImVec4 color = tile.color.ToImVec4();
+            
+            // Color button
+            if (ImGui::ColorButton("##color", color, 0, ImVec2(24, 24))) {
+                selectedTileId = tile.id;
+            }
+            
+            ImGui::SameLine();
+            
+            // Selectable name
+            if (ImGui::Selectable(tile.name.c_str(), selected, 0, 
+                                  ImVec2(0, 24))) {
+                selectedTileId = tile.id;
+            }
+            
+            ImGui::PopID();
+        }
+    }
+    
     // TODO: Add icons palette section here
     // TODO: Add layers toggles here
     
@@ -450,7 +546,12 @@ void UI::RenderPropertiesPanel(Model& model) {
     ImGui::End();
 }
 
-void UI::RenderCanvasPanel(Model& model, Canvas& canvas) {
+void UI::RenderCanvasPanel(
+    IRenderer& renderer,
+    Model& model, 
+    Canvas& canvas, 
+    History& history
+) {
     ImGuiWindowFlags flags = 
         ImGuiWindowFlags_NoMove | 
         ImGuiWindowFlags_NoCollapse |
@@ -465,6 +566,27 @@ void UI::RenderCanvasPanel(Model& model, Canvas& canvas) {
     
     // Reserve space for canvas
     ImGui::InvisibleButton("canvas", canvasSize);
+    
+    // Global keyboard shortcuts for tool switching (work even when not hovering)
+    if (!ImGui::GetIO().WantCaptureKeyboard) {
+        if (ImGui::IsKeyPressed(ImGuiKey_V)) {
+            currentTool = Tool::Move;
+        }
+        if (ImGui::IsKeyPressed(ImGuiKey_S) && 
+            !ImGui::GetIO().KeyCtrl && !ImGui::GetIO().KeySuper) {
+            currentTool = Tool::Select;
+        }
+        if (ImGui::IsKeyPressed(ImGuiKey_B)) {
+            currentTool = Tool::Paint;
+        }
+        if (ImGui::IsKeyPressed(ImGuiKey_E) && 
+            !ImGui::GetIO().KeyCtrl && !ImGui::GetIO().KeySuper) {
+            currentTool = Tool::Erase;
+        }
+        if (ImGui::IsKeyPressed(ImGuiKey_I)) {
+            currentTool = Tool::Eyedropper;
+        }
+    }
     
     // Handle input
     if (ImGui::IsItemHovered()) {
@@ -518,7 +640,235 @@ void UI::RenderCanvasPanel(Model& model, Canvas& canvas) {
                 // Note: Keep selection visible until a different action
             }
         }
-        // TODO: Add input handling for other tools (Paint, Erase, etc.)
+        else if (currentTool == Tool::Paint) {
+            // Paint tool: Left mouse to paint with selected tile
+            // Hold E key + left mouse to erase (alternative to right-click)
+            bool shouldPaint = false;
+            bool shouldErase = false;
+            
+            // Check for E key + left mouse (erase modifier)
+            if (ImGui::IsMouseDown(ImGuiMouseButton_Left) && 
+                ImGui::IsKeyDown(ImGuiKey_E)) {
+                shouldErase = true;
+            }
+            // Check for left mouse button (primary paint input)
+            else if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+                shouldPaint = true;
+            }
+            
+            if (shouldPaint) {
+                ImVec2 mousePos = ImGui::GetMousePos();
+                
+                // Convert mouse position to tile coordinates
+                int tx, ty;
+                canvas.ScreenToTile(
+                    mousePos.x, mousePos.y,
+                    model.grid.tileWidth, model.grid.tileHeight,
+                    &tx, &ty
+                );
+                
+                // Check if we've moved to a new tile or just started
+                if (!isPainting || tx != lastPaintedTileX || 
+                    ty != lastPaintedTileY) {
+                    
+                    // Find which room this tile belongs to
+                    Room* targetRoom = nullptr;
+                    for (auto& room : model.rooms) {
+                        if (room.rect.Contains(tx, ty)) {
+                            targetRoom = &room;
+                            break;
+                        }
+                    }
+                    
+                    if (targetRoom) {
+                        // Convert to room-relative coordinates
+                        int roomX = tx - targetRoom->rect.x;
+                        int roomY = ty - targetRoom->rect.y;
+                        
+                        // Get old tile value
+                        int oldTileId = model.GetTileAt(
+                            targetRoom->id, roomX, roomY
+                        );
+                        
+                        // Only paint if the tile is different
+                        if (oldTileId != selectedTileId) {
+                            PaintTilesCommand::TileChange change;
+                            change.roomId = targetRoom->id;
+                            change.x = roomX;
+                            change.y = roomY;
+                            change.oldTileId = oldTileId;
+                            change.newTileId = selectedTileId;
+                            
+                            currentPaintChanges.push_back(change);
+                            
+                            // Don't apply immediately - let History execute it
+                            // This prevents double-execution and run-length 
+                            // encoding issues
+                        }
+                        
+                        lastPaintedTileX = tx;
+                        lastPaintedTileY = ty;
+                        isPainting = true;
+                    }
+                }
+            }
+            
+            
+            // Handle erase with E+Mouse1 modifier
+            if (shouldErase) {
+                ImVec2 mousePos = ImGui::GetMousePos();
+                
+                // Convert mouse position to tile coordinates
+                int tx, ty;
+                canvas.ScreenToTile(
+                    mousePos.x, mousePos.y,
+                    model.grid.tileWidth, model.grid.tileHeight,
+                    &tx, &ty
+                );
+                
+                // Check if we've moved to a new tile or just started
+                if (!isPainting || tx != lastPaintedTileX || 
+                    ty != lastPaintedTileY) {
+                    
+                    // Find which room this tile belongs to
+                    Room* targetRoom = nullptr;
+                    for (auto& room : model.rooms) {
+                        if (room.rect.Contains(tx, ty)) {
+                            targetRoom = &room;
+                            break;
+                        }
+                    }
+                    
+                    if (targetRoom) {
+                        // Convert to room-relative coordinates
+                        int roomX = tx - targetRoom->rect.x;
+                        int roomY = ty - targetRoom->rect.y;
+                        
+                        // Get old tile value
+                        int oldTileId = model.GetTileAt(
+                            targetRoom->id, roomX, roomY
+                        );
+                        
+                        // Only erase if there's something to erase
+                        if (oldTileId != 0) {
+                            PaintTilesCommand::TileChange change;
+                            change.roomId = targetRoom->id;
+                            change.x = roomX;
+                            change.y = roomY;
+                            change.oldTileId = oldTileId;
+                            change.newTileId = 0;  // 0 = empty/erase
+                            
+                            currentPaintChanges.push_back(change);
+                            
+                            // Don't apply immediately - let History execute it
+                        }
+                        
+                        lastPaintedTileX = tx;
+                        lastPaintedTileY = ty;
+                        isPainting = true;
+                    }
+                }
+            }
+            
+            // When mouse is released, commit the paint command
+            if (isPainting && ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+                if (!currentPaintChanges.empty()) {
+                    auto cmd = std::make_unique<PaintTilesCommand>(
+                        currentPaintChanges
+                    );
+                    // Let History execute the command (applies all changes)
+                    history.AddCommand(std::move(cmd), model);
+                    currentPaintChanges.clear();
+                }
+                isPainting = false;
+                lastPaintedTileX = -1;
+                lastPaintedTileY = -1;
+            }
+        }
+        else if (currentTool == Tool::Erase) {
+            // Erase tool: Right mouse or two-finger touch
+            bool shouldErase = false;
+            
+            // Check for right mouse button
+            if (ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
+                shouldErase = true;
+            }
+            
+            // Check for two-finger touch (SDL multi-touch)
+            // Two-finger touch will be detected via SDL events
+            // For now, we'll handle right-click as erase
+            
+            if (shouldErase) {
+                ImVec2 mousePos = ImGui::GetMousePos();
+                
+                // Convert mouse position to tile coordinates
+                int tx, ty;
+                canvas.ScreenToTile(
+                    mousePos.x, mousePos.y,
+                    model.grid.tileWidth, model.grid.tileHeight,
+                    &tx, &ty
+                );
+                
+                // Check if we've moved to a new tile or just started
+                if (!isPainting || tx != lastPaintedTileX || 
+                    ty != lastPaintedTileY) {
+                    
+                    // Find which room this tile belongs to
+                    Room* targetRoom = nullptr;
+                    for (auto& room : model.rooms) {
+                        if (room.rect.Contains(tx, ty)) {
+                            targetRoom = &room;
+                            break;
+                        }
+                    }
+                    
+                    if (targetRoom) {
+                        // Convert to room-relative coordinates
+                        int roomX = tx - targetRoom->rect.x;
+                        int roomY = ty - targetRoom->rect.y;
+                        
+                        // Get old tile value
+                        int oldTileId = model.GetTileAt(
+                            targetRoom->id, roomX, roomY
+                        );
+                        
+                        // Only erase if there's something to erase
+                        if (oldTileId != 0) {
+                            PaintTilesCommand::TileChange change;
+                            change.roomId = targetRoom->id;
+                            change.x = roomX;
+                            change.y = roomY;
+                            change.oldTileId = oldTileId;
+                            change.newTileId = 0;  // 0 = empty/erase
+                            
+                            currentPaintChanges.push_back(change);
+                            
+                            // Don't apply immediately - let History execute it
+                        }
+                        
+                        lastPaintedTileX = tx;
+                        lastPaintedTileY = ty;
+                        isPainting = true;
+                    }
+                }
+            }
+            
+            // When mouse is released, commit the erase command
+            if (isPainting && ImGui::IsMouseReleased(ImGuiMouseButton_Right)) {
+                if (!currentPaintChanges.empty()) {
+                    auto cmd = std::make_unique<PaintTilesCommand>(
+                        currentPaintChanges
+                    );
+                    // Note: Command already applied, so don't execute again
+                    history.AddCommand(std::move(cmd), model);
+                    currentPaintChanges.clear();
+                }
+                isPainting = false;
+                lastPaintedTileX = -1;
+                lastPaintedTileY = -1;
+            }
+        }
+        // TODO: Add input handling for other tools (Fill, Rectangle, etc.)
     }
     
     // Clear selection if we click outside canvas
@@ -536,45 +886,15 @@ void UI::RenderCanvasPanel(Model& model, Canvas& canvas) {
         ImVec2(canvasPos.x + canvasSize.x, canvasPos.y + canvasSize.y), 
         bgColor);
     
-    // Draw grid if enabled
-    if (canvas.showGrid) {
-        int tileWidth = model.grid.tileWidth;
-        int tileHeight = model.grid.tileHeight;
-        float scaledTileWidth = tileWidth * canvas.zoom;
-        float scaledTileHeight = tileHeight * canvas.zoom;
-        
-        // Calculate visible grid range
-        float startX = canvasPos.x - fmod(canvas.offsetX * canvas.zoom, 
-                                          scaledTileWidth);
-        float startY = canvasPos.y - fmod(canvas.offsetY * canvas.zoom, 
-                                          scaledTileHeight);
-        
-        ImU32 gridColor = ImGui::GetColorU32(
-            ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
-        
-        // Draw vertical lines
-        for (float x = startX; x < canvasPos.x + canvasSize.x; 
-             x += scaledTileWidth) {
-            drawList->AddLine(
-                ImVec2(x, canvasPos.y),
-                ImVec2(x, canvasPos.y + canvasSize.y),
-                gridColor
-            );
-        }
-        
-        // Draw horizontal lines
-        for (float y = startY; y < canvasPos.y + canvasSize.y; 
-             y += scaledTileHeight) {
-            drawList->AddLine(
-                ImVec2(canvasPos.x, y),
-                ImVec2(canvasPos.x + canvasSize.x, y),
-                gridColor
-            );
-        }
-    }
-    
-    // TODO: Draw rooms, tiles, doors, markers
-    // For now, just show the grid
+    // Render the actual canvas content (grid, tiles, rooms, doors, markers)
+    canvas.Render(
+        renderer,
+        model,
+        static_cast<int>(canvasPos.x),
+        static_cast<int>(canvasPos.y),
+        static_cast<int>(canvasSize.x),
+        static_cast<int>(canvasSize.y)
+    );
     
     // Draw selection rectangle if Select tool is active
     if (currentTool == Tool::Select && isSelecting) {
@@ -604,6 +924,70 @@ void UI::RenderCanvasPanel(Model& model, Canvas& canvas) {
         );
     }
     
+    // Draw paint cursor preview if Paint or Erase tool is active
+    if ((currentTool == Tool::Paint || currentTool == Tool::Erase) && 
+        ImGui::IsItemHovered()) {
+        ImVec2 mousePos = ImGui::GetMousePos();
+        
+        // Convert to tile coordinates
+        int tx, ty;
+        canvas.ScreenToTile(
+            mousePos.x, mousePos.y,
+            model.grid.tileWidth, model.grid.tileHeight,
+            &tx, &ty
+        );
+        
+        // Convert back to screen coordinates (snapped to grid)
+        float wx, wy;
+        canvas.TileToWorld(tx, ty, model.grid.tileWidth, 
+                          model.grid.tileHeight, &wx, &wy);
+        
+        float sx, sy;
+        canvas.WorldToScreen(wx, wy, &sx, &sy);
+        
+        float sw = model.grid.tileWidth * canvas.zoom;
+        float sh = model.grid.tileHeight * canvas.zoom;
+        
+        // Draw preview based on tool and state
+        ImU32 previewColor;
+        if (currentTool == Tool::Erase || 
+            (currentTool == Tool::Paint && ImGui::IsKeyDown(ImGuiKey_E))) {
+            // Erase preview (red outline)
+            previewColor = ImGui::GetColorU32(ImVec4(1.0f, 0.3f, 0.3f, 0.6f));
+        } else {
+            // Paint preview (show selected tile color)
+            Color tileColor(0.8f, 0.8f, 0.8f, 0.4f);
+            for (const auto& tile : model.palette) {
+                if (tile.id == selectedTileId) {
+                    tileColor = tile.color;
+                    tileColor.a = 0.5f;  // Semi-transparent
+                    break;
+                }
+            }
+            previewColor = tileColor.ToU32();
+        }
+        
+        // Draw preview outline
+        drawList->AddRect(
+            ImVec2(sx, sy),
+            ImVec2(sx + sw, sy + sh),
+            previewColor,
+            0.0f,
+            0,
+            2.0f
+        );
+        
+        // Draw preview fill for paint mode
+        if (currentTool == Tool::Paint && 
+            !ImGui::IsKeyDown(ImGuiKey_E)) {
+            drawList->AddRectFilled(
+                ImVec2(sx, sy),
+                ImVec2(sx + sw, sy + sh),
+                previewColor
+            );
+        }
+    }
+    
     ImGui::End();
 }
 
@@ -615,28 +999,93 @@ void UI::RenderStatusBar(Model& model, Canvas& canvas) {
         ImGuiWindowFlags_NoTitleBar;
     
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8, 4));
-    ImGui::Begin("Cartograph/Console", nullptr, flags);
-    ImGui::PopStyleVar();
     
-    // Thin horizontal status bar layout
-    // Left section: Zoom
-    ImGui::Text("Zoom: %.0f%%", canvas.zoom * 100.0f);
-    
-    // Console output section
-    ImGui::SameLine(0, 20);
-    ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), 
-        "Console: Ready");
-    
-    // Error/Warning section (if any)
-    if (model.dirty) {
+    // Check if we have an active error to display
+    if (!m_statusError.empty() && m_statusErrorTime > 0.0f) {
+        // Red background for errors
+        ImGui::PushStyleColor(ImGuiCol_WindowBg, 
+                             ImVec4(0.8f, 0.2f, 0.2f, 0.9f));
+        ImGui::Begin("Cartograph/Console", nullptr, flags);
+        ImGui::PopStyleColor();
+        
+        // Display error prominently
+        ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), 
+                          "⚠ ERROR: %s", m_statusError.c_str());
+        
+        // Countdown the error display time
+        m_statusErrorTime -= 0.016f;  // Approximate frame time
+        if (m_statusErrorTime <= 0.0f) {
+            m_statusError.clear();
+        }
+    } else {
+        // Normal status bar
+        ImGui::Begin("Cartograph/Console", nullptr, flags);
+        
+        // Left section: Current tool
+        const char* toolName = "Unknown";
+        const char* toolHint = "";
+        switch (currentTool) {
+            case Tool::Move:
+                toolName = "Move Tool";
+                toolHint = "Drag to pan | Wheel to zoom";
+                break;
+            case Tool::Select:
+                toolName = "Select Tool";
+                toolHint = "Drag to select region";
+                break;
+            case Tool::Paint:
+                toolName = "Paint Tool";
+                toolHint = "Click to paint | Right-click or E+Click to erase";
+                break;
+            case Tool::Erase:
+                toolName = "Erase Tool";
+                toolHint = "Click to erase tiles";
+                break;
+            case Tool::Fill:
+                toolName = "Fill Tool";
+                toolHint = "Click to fill area";
+                break;
+            case Tool::Rectangle:
+                toolName = "Rectangle Tool";
+                toolHint = "Drag to create room";
+                break;
+            case Tool::Door:
+                toolName = "Door Tool";
+                toolHint = "Click to place door";
+                break;
+            case Tool::Marker:
+                toolName = "Marker Tool";
+                toolHint = "Click to place marker";
+                break;
+            case Tool::Eyedropper:
+                toolName = "Eyedropper Tool";
+                toolHint = "Click to pick tile color";
+                break;
+        }
+        
+        ImGui::TextColored(ImVec4(0.5f, 0.8f, 1.0f, 1.0f), "%s", toolName);
+        ImGui::SameLine(0, 10);
+        ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "| %s", 
+                          toolHint);
+        
+        // Middle section: Zoom
         ImGui::SameLine(0, 20);
-        ImGui::TextColored(ImVec4(1.0f, 0.7f, 0.3f, 1.0f), 
-            "⚠ Modified");
+        ImGui::Text("| Zoom: %.0f%%", canvas.zoom * 100.0f);
+        
+        // Modified indicator
+        if (model.dirty) {
+            ImGui::SameLine(0, 20);
+            ImGui::TextColored(ImVec4(1.0f, 0.7f, 0.3f, 1.0f), 
+                "| ⚠ Modified");
+        }
+        
+        // Right section: Tool shortcuts
+        ImGui::SameLine(0, 20);
+        ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), 
+            "| Shortcuts: V=Move B=Paint E=Erase I=Eyedropper");
     }
     
-    // Right section: Reserved space for future icons and info
-    ImGui::SameLine(0, 20);
-    
+    ImGui::PopStyleVar();
     ImGui::End();
 }
 
@@ -791,6 +1240,59 @@ void UI::RenderSettingsModal(Model& model) {
             "Total cells: %d | Canvas size: %dx%d px",
             totalCells, pixelWidth, pixelHeight);
         
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        // Keybindings section
+        ImGui::Text("Keybindings:");
+        ImGui::Spacing();
+        
+        if (ImGui::BeginTable("KeybindingsTable", 2, 
+            ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+            
+            ImGui::TableSetupColumn("Action", ImGuiTableColumnFlags_WidthFixed, 
+                                   150.0f);
+            ImGui::TableSetupColumn("Binding", ImGuiTableColumnFlags_WidthStretch);
+            ImGui::TableHeadersRow();
+            
+            // Display key tool bindings
+            const char* actions[] = {
+                "Paint (primary)", "Erase (primary)", "Erase (alternate)",
+                "Tool: Move", "Tool: Paint", "Tool: Erase", "Tool: Eyedropper"
+            };
+            const char* keys[] = {
+                "paint", "erase", "eraseAlt",
+                "toolMove", "toolPaint", "toolErase", "eyedropper"
+            };
+            
+            for (int i = 0; i < 7; ++i) {
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::Text("%s", actions[i]);
+                
+                ImGui::TableNextColumn();
+                auto it = model.keymap.find(keys[i]);
+                if (it != model.keymap.end()) {
+                    ImGui::TextColored(ImVec4(0.7f, 0.9f, 1.0f, 1.0f), 
+                                      "%s", it->second.c_str());
+                } else {
+                    ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), 
+                                      "Not bound");
+                }
+                
+                // TODO: Add button to rebind key
+            }
+            
+            ImGui::EndTable();
+        }
+        
+        ImGui::Spacing();
+        ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f),
+            "Note: Keybinding customization coming soon!");
+        
+        ImGui::Spacing();
+        ImGui::Separator();
         ImGui::Spacing();
         
         // Buttons

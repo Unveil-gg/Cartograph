@@ -149,6 +149,18 @@ void App::ShowEditor() {
         m_model.InitDefaults();
         m_keymap.LoadBindings(m_model.keymap);
     }
+    
+    // Always ensure world room exists (regardless of palette state)
+    if (m_model.rooms.empty()) {
+        Room worldRoom;
+        worldRoom.id = "world";
+        worldRoom.name = "World";
+        // Cover entire grid - allows painting anywhere
+        worldRoom.rect = {0, 0, m_model.grid.cols, m_model.grid.rows};
+        worldRoom.color = Color(0.0f, 0.0f, 0.0f, 0.0f);  // Invisible
+        worldRoom.notes = "Global paint area";
+        m_model.rooms.push_back(worldRoom);
+    }
 }
 
 void App::ProcessEvents() {
@@ -197,7 +209,8 @@ void App::Render() {
     if (m_appState == AppState::Welcome) {
         m_ui.RenderWelcomeScreen(*this, m_model);
     } else {
-        m_ui.Render(m_model, m_canvas, m_history, m_icons, 0.016f);
+        m_ui.Render(*m_renderer, m_model, m_canvas, m_history, m_icons, 
+                    0.016f);
     }
     
     // Render ImGui
