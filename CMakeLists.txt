@@ -119,7 +119,7 @@ if(APPLE)
         MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_BUNDLE_NAME "Cartograph"
         MACOSX_BUNDLE_GUI_IDENTIFIER "com.unveil.cartograph"
-        MACOSX_BUNDLE_INFO_STRING "Unveil Cartograph - Metroidvania Map Designer"
+        MACOSX_BUNDLE_INFO_STRING "Unveil Cartograph - Metroidvania Map Editor"
         MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
         MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
         XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "-"

@@ -111,47 +111,124 @@ void UI::RenderWelcomeScreen(App& app, Model& model) {
     
     ImGui::Begin("CartographWelcome", nullptr, windowFlags);
     
-    // Center content
+    // Center content horizontally and vertically
     ImVec2 windowSize = ImGui::GetWindowSize();
-    float contentWidth = 800.0f;
-    float startX = (windowSize.x - contentWidth) * 0.5f;
+    float contentHeight = 480.0f;  // Height for treasure map parchment
     
-    ImGui::SetCursorPosX(startX);
+    ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]); // Monospace
+    
+    // Treasure map scroll with parchment texture
+    const char* mapLine1 = 
+        "####++++++++++++++++++++++++++++++++++++++++++++++++++++####";
+    const char* mapLine2 = 
+        "###++++++++++--------+--------++++++---------++++++++++++###";
+    const char* mapLine3 = 
+        "##+++++-------+----+----+----------+----+-------+--++++++##";
+    const char* mapLine4 = 
+        "##++++---+-------+----------+------+----------+------++++##";
+    const char* mapLine5 = 
+        "##++++------+----------++----------+------+----------++++##";
+    const char* mapLine6 = 
+        "##++++---+--------++----+------+------+--+------------+++##";
+    const char* mapLine7 = 
+        "##+++-------+----------+------+--------+------+-------+++##";
+    
+    // Cartograph ASCII integrated into map
+    const char* titleLine1 = 
+        "##+++   ___          _                             _  +++##";
+    const char* titleLine2 = 
+        "##++   / __\\__ _ _ _| |_ ___   __ _ _ __ __ _ _ __| |__++##";
+    const char* titleLine3 = 
+        "##++  / /  / _` | '__| __/ _ \\ / _` | '__/ _` | '_ \\ '_ ++##";
+    const char* titleLine4 = 
+        "##++ / /__| (_| | |  | || (_) | (_| | | | (_| | |_) | |+++##";
+    const char* titleLine5 = 
+        "##++ \\____/\\__,_|_|   \\__\\___/ \\__, |_|  \\__,_| .__/|_|+++##";
+    const char* titleLine6 = 
+        "##+++                          |___/          |_|      +++##";
+    
+    // Bottom map texture
+    const char* mapLine8 = 
+        "##++++------+----------+------+--------+------+-------+++##";
+    const char* mapLine9 = 
+        "##++++---+--------++----+------+------+--+------------+++##";
+    const char* mapLine10 = 
+        "##+++++------+----------++----------+------+----------+++##";
+    const char* mapLine11 = 
+        "##++++++---+-------+----------+------+----------+---+++++##";
+    const char* mapLine12 = 
+        "###+++++++++-------+----+----+----------+----+--+++++++++##";
+    const char* mapLine13 = 
+        "####++++++++++++++--------+--------++++++---------+++++####";
+    
+    // Calculate centering based on longest line
+    float scrollWidth = ImGui::CalcTextSize(mapLine1).x;
+    float scrollStartX = (windowSize.x - scrollWidth) * 0.5f;
+    float scrollStartY = (windowSize.y - contentHeight) * 0.5f;
+    
+    ImGui::SetCursorPos(ImVec2(scrollStartX, scrollStartY));
     ImGui::BeginGroup();
     
-    // ASCII Art Title
-    ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]); // Monospace
-    ImGui::TextColored(ImVec4(0.4f, 0.7f, 1.0f, 1.0f), 
-        "   ___          _                             _     ");
-    ImGui::SetCursorPosX(startX);
-    ImGui::TextColored(ImVec4(0.4f, 0.7f, 1.0f, 1.0f),
-        "  / __\\__ _ _ _| |_ ___   __ _ _ __ __ _ _ __| |__  ");
-    ImGui::SetCursorPosX(startX);
-    ImGui::TextColored(ImVec4(0.4f, 0.7f, 1.0f, 1.0f),
-        " / /  / _` | '__| __/ _ \\ / _` | '__/ _` | '_ \\ '_ \\ ");
-    ImGui::SetCursorPosX(startX);
-    ImGui::TextColored(ImVec4(0.4f, 0.7f, 1.0f, 1.0f),
-        "/ /__| (_| | |  | || (_) | (_| | | | (_| | |_) | | |");
-    ImGui::SetCursorPosX(startX);
-    ImGui::TextColored(ImVec4(0.4f, 0.7f, 1.0f, 1.0f),
-        "\\____/\\__,_|_|   \\__\\___/ \\__, |_|  \\__,_| .__/|_| |");
-    ImGui::SetCursorPosX(startX);
-    ImGui::TextColored(ImVec4(0.4f, 0.7f, 1.0f, 1.0f),
-        "                          |___/          |_|         ");
+    // Top map texture (brown/parchment color)
+    ImGui::TextColored(ImVec4(0.6f, 0.5f, 0.3f, 1.0f), "%s", mapLine1);
+    ImGui::TextColored(ImVec4(0.6f, 0.5f, 0.3f, 1.0f), "%s", mapLine2);
+    ImGui::TextColored(ImVec4(0.6f, 0.5f, 0.3f, 1.0f), "%s", mapLine3);
+    ImGui::TextColored(ImVec4(0.6f, 0.5f, 0.3f, 1.0f), "%s", mapLine4);
+    ImGui::TextColored(ImVec4(0.6f, 0.5f, 0.3f, 1.0f), "%s", mapLine5);
+    ImGui::TextColored(ImVec4(0.6f, 0.5f, 0.3f, 1.0f), "%s", mapLine6);
+    ImGui::TextColored(ImVec4(0.6f, 0.5f, 0.3f, 1.0f), "%s", mapLine7);
+    
+    // Cartograph title (blue text on parchment)
+    ImGui::TextColored(ImVec4(0.4f, 0.7f, 1.0f, 1.0f), "%s", titleLine1);
+    ImGui::TextColored(ImVec4(0.4f, 0.7f, 1.0f, 1.0f), "%s", titleLine2);
+    ImGui::TextColored(ImVec4(0.4f, 0.7f, 1.0f, 1.0f), "%s", titleLine3);
+    ImGui::TextColored(ImVec4(0.4f, 0.7f, 1.0f, 1.0f), "%s", titleLine4);
+    ImGui::TextColored(ImVec4(0.4f, 0.7f, 1.0f, 1.0f), "%s", titleLine5);
+    ImGui::TextColored(ImVec4(0.4f, 0.7f, 1.0f, 1.0f), "%s", titleLine6);
+    
+    // Bottom map texture
+    ImGui::TextColored(ImVec4(0.6f, 0.5f, 0.3f, 1.0f), "%s", mapLine8);
+    ImGui::TextColored(ImVec4(0.6f, 0.5f, 0.3f, 1.0f), "%s", mapLine9);
+    ImGui::TextColored(ImVec4(0.6f, 0.5f, 0.3f, 1.0f), "%s", mapLine10);
+    ImGui::TextColored(ImVec4(0.6f, 0.5f, 0.3f, 1.0f), "%s", mapLine11);
+    ImGui::TextColored(ImVec4(0.6f, 0.5f, 0.3f, 1.0f), "%s", mapLine12);
+    ImGui::TextColored(ImVec4(0.6f, 0.5f, 0.3f, 1.0f), "%s", mapLine13);
+    
     ImGui::PopFont();
     
     ImGui::Spacing();
-    ImGui::SetCursorPosX(startX + 80);
-    ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
-        "M e t r o i d v a n i a   M a p   D e s i g n e r");
     
+    // Subtitle - centered
+    const char* subtitle = 
+        "M e t r o i d v a n i a   M a p   E d i t o r";
+    float subtitleWidth = ImGui::CalcTextSize(subtitle).x;
+    float subtitleStartX = (windowSize.x - subtitleWidth) * 0.5f;
+    
+    ImGui::SetCursorPosX(subtitleStartX);
+    ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "%s", subtitle);
+    
+    // Add extra spacing between ASCII art and buttons
+    ImGui::Spacing();
+    ImGui::Spacing();
+    ImGui::Spacing();
+    ImGui::Spacing();
+    ImGui::Spacing();
+    ImGui::Spacing();
+    ImGui::Spacing();
     ImGui::Spacing();
     ImGui::Spacing();
     ImGui::Spacing();
     
-    // Main action buttons
-    ImGui::SetCursorPosX(startX + 200);
-    if (ImGui::Button("Create New Project", ImVec2(400, 60))) {
+    // Main action buttons - side by side, centered
+    float buttonWidth = 240.0f;
+    float buttonHeight = 60.0f;
+    float buttonSpacing = 20.0f;
+    float buttonsStartX = (windowSize.x - (buttonWidth * 2 + 
+                                           buttonSpacing)) * 0.5f;
+    
+    ImGui::SetCursorPosX(buttonsStartX);
+    if (ImGui::Button("Create New Project", ImVec2(buttonWidth, 
+                                                    buttonHeight))) {
         showNewProjectModal = true;
         // Reset config to defaults
         std::strcpy(newProjectConfig.projectName, "New Map");
@@ -161,8 +238,9 @@ void UI::RenderWelcomeScreen(App& app, Model& model) {
         selectedTemplate = ProjectTemplate::Medium;
     }
     
-    ImGui::SetCursorPosX(startX + 200);
-    if (ImGui::Button("Import Project", ImVec2(400, 60))) {
+    ImGui::SameLine(0.0f, buttonSpacing);
+    if (ImGui::Button("Import Project", ImVec2(buttonWidth, 
+                                                buttonHeight))) {
         // TODO: Implement file picker dialog for .cart files
         ShowToast("Import feature coming soon!", Toast::Type::Info);
     }
@@ -172,10 +250,13 @@ void UI::RenderWelcomeScreen(App& app, Model& model) {
     
     // Recent Projects Section
     if (!recentProjects.empty()) {
-        ImGui::SetCursorPosX(startX);
+        float sectionWidth = 600.0f;
+        float sectionStartX = (windowSize.x - sectionWidth) * 0.5f;
+        
+        ImGui::SetCursorPosX(sectionStartX);
         ImGui::Separator();
         ImGui::Spacing();
-        ImGui::SetCursorPosX(startX);
+        ImGui::SetCursorPosX(sectionStartX);
         ImGui::TextColored(ImVec4(0.8f, 0.8f, 0.8f, 1.0f), 
             "Recent Projects");
         ImGui::Spacing();
