@@ -12,7 +12,8 @@
 
 A complete **foundation** for a cross-platform map design tool with:
 
-### ✅ Complete Systems (16/18 core components)
+### ✅ Complete Systems (17/18 core components)
+- **Welcome Screen** with ASCII art and project templates ⭐ NEW
 - SDL3 + OpenGL 3.3 application framework
 - Dear ImGui docking UI with fullscreen workspace
 - Data model (rooms, tiles, doors, markers, palette)
@@ -148,6 +149,8 @@ These are **quick additions** to make the app fully functional:
 ## 📋 Feature Checklist
 
 ### MVP Features (Spec'd in Original Request)
+- [x] **Welcome screen with project creation** ⭐ NEW
+- [x] **Project templates** (Small/Medium/Large/Metroidvania) ⭐ NEW
 - [x] Canvas with pan/zoom/grid
 - [x] Room data structures
 - [x] Tile painting data structures
@@ -260,6 +263,40 @@ The project is set up for easy collaboration:
 2. Build the project
 3. Wire up the priority integrations (1-2 days work)
 4. Start designing maps! 🗺️
+
+---
+
+## 🆕 Welcome Screen Feature
+
+### What's New (November 2025)
+
+Added a professional welcome screen that greets users on launch:
+
+**Features:**
+- ASCII art Cartograph logo
+- "Create New Project" with configuration modal
+- "Import Project" button (stubbed for future)
+- Project templates: Small, Medium, Large, Metroidvania
+- Configurable cell size, map width/height
+- Input validation and live preview
+- "What's New" panel with changelog
+- Recent projects list (stubbed with TODO)
+
+**User Flow:**
+1. Launch Cartograph → Welcome screen appears
+2. Click "Create New Project" → Configuration modal opens
+3. Choose template or customize settings
+4. Click "Create" → Transition to editor with configured project
+
+**Documentation:**
+- See `WELCOME_SCREEN_IMPLEMENTATION.md` for full details
+- See `WELCOME_FLOW_DIAGRAM.md` for visual reference
+
+**TODOs for Future:**
+- Implement import file picker
+- Add recent projects persistence (JSON storage)
+- Generate and display project thumbnails
+- Add drag & drop support for .cart files
 
 ---
 

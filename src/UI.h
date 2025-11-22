@@ -13,6 +13,7 @@ namespace Cartograph {
 class Canvas;
 class History;
 class IconManager;
+class App;
 
 /**
  * Toast notification.
@@ -23,6 +24,37 @@ struct Toast {
     enum class Type {
         Info, Success, Warning, Error
     } type;
+};
+
+/**
+ * New project configuration.
+ */
+struct NewProjectConfig {
+    char projectName[256] = "New Map";
+    int cellSize = 16;
+    int mapWidth = 256;   // in cells
+    int mapHeight = 256;  // in cells
+};
+
+/**
+ * Project template presets.
+ */
+enum class ProjectTemplate {
+    Custom,      // User-defined settings
+    Small,       // 128x128, 16px cells
+    Medium,      // 256x256, 16px cells
+    Large,       // 512x512, 16px cells
+    Metroidvania // 256x256, 8px cells (detailed)
+};
+
+/**
+ * Recent project entry.
+ */
+struct RecentProject {
+    std::string path;
+    std::string name;
+    std::string lastModified;
+    // TODO: Add thumbnail support
 };
 
 /**
@@ -39,7 +71,7 @@ public:
     void SetupDockspace();
     
     /**
-     * Render all UI panels.
+     * Render all UI panels (editor mode).
      * @param model Current model
      * @param canvas Canvas
      * @param history History
@@ -53,6 +85,13 @@ public:
         IconManager& icons,
         float deltaTime
     );
+    
+    /**
+     * Render welcome screen.
+     * @param app Application instance
+     * @param model Current model
+     */
+    void RenderWelcomeScreen(App& app, Model& model);
     
     /**
      * Show a toast notification.
@@ -69,6 +108,13 @@ public:
     // UI state
     bool showExportModal = false;
     ExportOptions exportOptions;
+    
+    // Welcome screen state
+    bool showNewProjectModal = false;
+    NewProjectConfig newProjectConfig;
+    ProjectTemplate selectedTemplate = ProjectTemplate::Medium;
+    std::vector<RecentProject> recentProjects;
+    bool showWhatsNew = false;
     
     // Selected palette tile
     int selectedTileId = 1;
@@ -94,6 +140,15 @@ private:
     void RenderStatusBar(Model& model, Canvas& canvas);
     void RenderToasts(float deltaTime);
     void RenderExportModal(Model& model, Canvas& canvas);
+    
+    // Welcome screen components
+    void RenderNewProjectModal(App& app, Model& model);
+    void RenderRecentProjectsList(App& app);
+    void RenderProjectTemplates();
+    void RenderWhatsNewPanel();
+    void ApplyTemplate(ProjectTemplate tmpl);
+    void LoadRecentProjects();
+    void AddRecentProject(const std::string& path);
     
     /**
      * Build the fixed docking layout (called once at startup).

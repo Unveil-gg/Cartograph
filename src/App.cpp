@@ -16,6 +16,7 @@ App::App()
     : m_window(nullptr)
     , m_glContext(nullptr)
     , m_running(false)
+    , m_appState(AppState::Welcome)
     , m_lastEditTime(0)
     , m_lastAutosaveTime(0)
     , m_lastFrameTime(0)
@@ -69,22 +70,22 @@ bool App::Init(const std::string& title, int width, int height) {
     // Initialize ImGui
     SetupImGui();
     
-    // Initialize systems
-    m_model.InitDefaults();
-    m_keymap.LoadBindings(m_model.keymap);
+    // Initialize minimal theme for welcome screen
+    m_model.InitDefaultTheme("Dark");
     
     // Load icons from assets
     std::string assetsDir = Platform::GetAssetsDir();
     m_icons.LoadFromDirectory(assetsDir + "icons/", true);
     m_icons.BuildAtlas();
     
-    // Setup UI
+    // Setup UI (dockspace will be set up when entering editor)
     m_ui.SetupDockspace();
     
     // Start background job queue
     m_jobs.Start();
     
     m_running = true;
+    m_appState = AppState::Welcome;
     m_lastFrameTime = Platform::GetTime();
     
     return true;
@@ -136,6 +137,20 @@ void App::RequestQuit() {
     m_running = false;
 }
 
+void App::ShowWelcomeScreen() {
+    m_appState = AppState::Welcome;
+}
+
+void App::ShowEditor() {
+    m_appState = AppState::Editor;
+    
+    // Ensure model is initialized if not already
+    if (m_model.palette.empty()) {
+        m_model.InitDefaults();
+        m_keymap.LoadBindings(m_model.keymap);
+    }
+}
+
 void App::ProcessEvents() {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
@@ -173,11 +188,17 @@ void App::Render() {
     
     // Clear background
     m_renderer->SetRenderTarget(nullptr);
-    Color bgColor = m_model.theme.background;
+    Color bgColor = (m_appState == AppState::Welcome) 
+        ? Color(0.1f, 0.1f, 0.12f, 1.0f)  // Darker for welcome
+        : m_model.theme.background;
     m_renderer->Clear(bgColor);
     
-    // Render UI (includes canvas panel with grid)
-    m_ui.Render(m_model, m_canvas, m_history, m_icons, 0.016f);
+    // Render UI based on state
+    if (m_appState == AppState::Welcome) {
+        m_ui.RenderWelcomeScreen(*this, m_model);
+    } else {
+        m_ui.Render(m_model, m_canvas, m_history, m_icons, 0.016f);
+    }
     
     // Render ImGui
     ImGui::Render();

@@ -1,12 +1,15 @@
 #include "UI.h"
+#include "App.h"
 #include "Canvas.h"
 #include "History.h"
 #include "Icons.h"
 #include "render/Renderer.h"
+#include "platform/Paths.h"
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 
 namespace Cartograph {
 
@@ -90,6 +93,117 @@ void UI::ShowToast(
     toast.type = type;
     toast.remainingTime = duration;
     m_toasts.push_back(toast);
+}
+
+void UI::RenderWelcomeScreen(App& app, Model& model) {
+    ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(viewport->WorkPos);
+    ImGui::SetNextWindowSize(viewport->WorkSize);
+    ImGui::SetNextWindowViewport(viewport->ID);
+    
+    ImGuiWindowFlags windowFlags = 
+        ImGuiWindowFlags_NoTitleBar |
+        ImGuiWindowFlags_NoCollapse |
+        ImGuiWindowFlags_NoResize |
+        ImGuiWindowFlags_NoMove |
+        ImGuiWindowFlags_NoBringToFrontOnFocus |
+        ImGuiWindowFlags_NoNavFocus;
+    
+    ImGui::Begin("CartographWelcome", nullptr, windowFlags);
+    
+    // Center content
+    ImVec2 windowSize = ImGui::GetWindowSize();
+    float contentWidth = 800.0f;
+    float startX = (windowSize.x - contentWidth) * 0.5f;
+    
+    ImGui::SetCursorPosX(startX);
+    ImGui::BeginGroup();
+    
+    // ASCII Art Title
+    ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]); // Monospace
+    ImGui::TextColored(ImVec4(0.4f, 0.7f, 1.0f, 1.0f), 
+        "   ___          _                             _     ");
+    ImGui::SetCursorPosX(startX);
+    ImGui::TextColored(ImVec4(0.4f, 0.7f, 1.0f, 1.0f),
+        "  / __\\__ _ _ _| |_ ___   __ _ _ __ __ _ _ __| |__  ");
+    ImGui::SetCursorPosX(startX);
+    ImGui::TextColored(ImVec4(0.4f, 0.7f, 1.0f, 1.0f),
+        " / /  / _` | '__| __/ _ \\ / _` | '__/ _` | '_ \\ '_ \\ ");
+    ImGui::SetCursorPosX(startX);
+    ImGui::TextColored(ImVec4(0.4f, 0.7f, 1.0f, 1.0f),
+        "/ /__| (_| | |  | || (_) | (_| | | | (_| | |_) | | |");
+    ImGui::SetCursorPosX(startX);
+    ImGui::TextColored(ImVec4(0.4f, 0.7f, 1.0f, 1.0f),
+        "\\____/\\__,_|_|   \\__\\___/ \\__, |_|  \\__,_| .__/|_| |");
+    ImGui::SetCursorPosX(startX);
+    ImGui::TextColored(ImVec4(0.4f, 0.7f, 1.0f, 1.0f),
+        "                          |___/          |_|         ");
+    ImGui::PopFont();
+    
+    ImGui::Spacing();
+    ImGui::SetCursorPosX(startX + 80);
+    ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
+        "M e t r o i d v a n i a   M a p   D e s i g n e r");
+    
+    ImGui::Spacing();
+    ImGui::Spacing();
+    ImGui::Spacing();
+    
+    // Main action buttons
+    ImGui::SetCursorPosX(startX + 200);
+    if (ImGui::Button("Create New Project", ImVec2(400, 60))) {
+        showNewProjectModal = true;
+        // Reset config to defaults
+        std::strcpy(newProjectConfig.projectName, "New Map");
+        newProjectConfig.cellSize = 16;
+        newProjectConfig.mapWidth = 256;
+        newProjectConfig.mapHeight = 256;
+        selectedTemplate = ProjectTemplate::Medium;
+    }
+    
+    ImGui::SetCursorPosX(startX + 200);
+    if (ImGui::Button("Import Project", ImVec2(400, 60))) {
+        // TODO: Implement file picker dialog for .cart files
+        ShowToast("Import feature coming soon!", Toast::Type::Info);
+    }
+    
+    ImGui::Spacing();
+    ImGui::Spacing();
+    
+    // Recent Projects Section
+    if (!recentProjects.empty()) {
+        ImGui::SetCursorPosX(startX);
+        ImGui::Separator();
+        ImGui::Spacing();
+        ImGui::SetCursorPosX(startX);
+        ImGui::TextColored(ImVec4(0.8f, 0.8f, 0.8f, 1.0f), 
+            "Recent Projects");
+        ImGui::Spacing();
+        
+        RenderRecentProjectsList(app);
+    }
+    
+    ImGui::EndGroup();
+    
+    // What's New button in corner
+    ImGui::SetCursorPos(ImVec2(windowSize.x - 140, windowSize.y - 40));
+    if (ImGui::Button("What's New?", ImVec2(120, 30))) {
+        showWhatsNew = !showWhatsNew;
+    }
+    
+    ImGui::End();
+    
+    // Render modal dialogs
+    if (showNewProjectModal) {
+        RenderNewProjectModal(app, model);
+    }
+    
+    if (showWhatsNew) {
+        RenderWhatsNewPanel();
+    }
+    
+    // Render toasts
+    RenderToasts(0.016f);
 }
 
 void UI::RenderMenuBar(Model& model, Canvas& canvas, History& history) {
@@ -513,6 +627,285 @@ void UI::RenderExportModal(Model& model, Canvas& canvas) {
         
         ImGui::EndPopup();
     }
+}
+
+void UI::RenderNewProjectModal(App& app, Model& model) {
+    ImGui::OpenPopup("New Project");
+    
+    ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, 
+        ImVec2(0.5f, 0.5f));
+    
+    if (ImGui::BeginPopupModal("New Project", nullptr, 
+        ImGuiWindowFlags_AlwaysAutoResize)) {
+        
+        ImGui::Text("Create a New Map Project");
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        // Project name
+        ImGui::Text("Project Name:");
+        ImGui::InputText("##projectname", newProjectConfig.projectName, 
+            sizeof(newProjectConfig.projectName));
+        
+        ImGui::Spacing();
+        
+        // Template selection
+        ImGui::Text("Template:");
+        ImGui::BeginGroup();
+        if (ImGui::RadioButton("Custom", 
+            selectedTemplate == ProjectTemplate::Custom)) {
+            selectedTemplate = ProjectTemplate::Custom;
+        }
+        ImGui::SameLine();
+        if (ImGui::RadioButton("Small (128x128)", 
+            selectedTemplate == ProjectTemplate::Small)) {
+            selectedTemplate = ProjectTemplate::Small;
+            ApplyTemplate(ProjectTemplate::Small);
+        }
+        ImGui::SameLine();
+        if (ImGui::RadioButton("Medium (256x256)", 
+            selectedTemplate == ProjectTemplate::Medium)) {
+            selectedTemplate = ProjectTemplate::Medium;
+            ApplyTemplate(ProjectTemplate::Medium);
+        }
+        
+        if (ImGui::RadioButton("Large (512x512)", 
+            selectedTemplate == ProjectTemplate::Large)) {
+            selectedTemplate = ProjectTemplate::Large;
+            ApplyTemplate(ProjectTemplate::Large);
+        }
+        ImGui::SameLine();
+        if (ImGui::RadioButton("Metroidvania (256x256, 8px)", 
+            selectedTemplate == ProjectTemplate::Metroidvania)) {
+            selectedTemplate = ProjectTemplate::Metroidvania;
+            ApplyTemplate(ProjectTemplate::Metroidvania);
+        }
+        ImGui::EndGroup();
+        
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        // Configuration
+        ImGui::Text("Configuration:");
+        
+        // Cell size
+        ImGui::SliderInt("Cell Size (px)", &newProjectConfig.cellSize, 
+            8, 64);
+        ImGui::SameLine();
+        if (ImGui::Button("?##cellsize")) {
+            ShowToast("Size of each grid cell in pixels", 
+                Toast::Type::Info, 4.0f);
+        }
+        
+        // Map dimensions with validation
+        ImGui::InputInt("Map Width (cells)", &newProjectConfig.mapWidth);
+        if (newProjectConfig.mapWidth < 16) newProjectConfig.mapWidth = 16;
+        if (newProjectConfig.mapWidth > 1024) 
+            newProjectConfig.mapWidth = 1024;
+        
+        ImGui::InputInt("Map Height (cells)", &newProjectConfig.mapHeight);
+        if (newProjectConfig.mapHeight < 16) 
+            newProjectConfig.mapHeight = 16;
+        if (newProjectConfig.mapHeight > 1024) 
+            newProjectConfig.mapHeight = 1024;
+        
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        // Preview info
+        int totalCells = newProjectConfig.mapWidth * 
+            newProjectConfig.mapHeight;
+        int pixelWidth = newProjectConfig.mapWidth * 
+            newProjectConfig.cellSize;
+        int pixelHeight = newProjectConfig.mapHeight * 
+            newProjectConfig.cellSize;
+        
+        ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
+            "Total cells: %d | Canvas size: %dx%d px",
+            totalCells, pixelWidth, pixelHeight);
+        
+        ImGui::Spacing();
+        
+        // Buttons
+        if (ImGui::Button("Create", ImVec2(120, 0))) {
+            // Apply configuration to model
+            model.meta.title = std::string(newProjectConfig.projectName);
+            model.grid.tileSize = newProjectConfig.cellSize;
+            model.grid.cols = newProjectConfig.mapWidth;
+            model.grid.rows = newProjectConfig.mapHeight;
+            
+            // Initialize other defaults
+            model.InitDefaultPalette();
+            model.InitDefaultKeymap();
+            model.InitDefaultTheme("Dark");
+            
+            showNewProjectModal = false;
+            ImGui::CloseCurrentPopup();
+            
+            // Transition to editor
+            app.ShowEditor();
+            
+            ShowToast("Project created: " + model.meta.title, 
+                Toast::Type::Success);
+        }
+        
+        ImGui::SameLine();
+        
+        if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+            showNewProjectModal = false;
+            ImGui::CloseCurrentPopup();
+        }
+        
+        ImGui::EndPopup();
+    }
+}
+
+void UI::RenderRecentProjectsList(App& app) {
+    // TODO: Implement recent projects list with thumbnails
+    // This would display a scrollable list of recently opened projects
+    // with small preview thumbnails and last modified dates
+    
+    ImGui::BeginChild("RecentProjects", ImVec2(0, 200), true);
+    
+    for (size_t i = 0; i < recentProjects.size() && i < 5; ++i) {
+        const auto& recent = recentProjects[i];
+        
+        ImGui::PushID(static_cast<int>(i));
+        
+        // TODO: Add thumbnail preview here
+        ImGui::Text("[Thumbnail]");
+        ImGui::SameLine();
+        
+        ImGui::BeginGroup();
+        if (ImGui::Selectable(recent.name.c_str(), false, 
+            0, ImVec2(600, 0))) {
+            app.OpenProject(recent.path);
+            app.ShowEditor();
+        }
+        ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f),
+            "Last modified: %s", recent.lastModified.c_str());
+        ImGui::EndGroup();
+        
+        ImGui::PopID();
+        ImGui::Separator();
+    }
+    
+    ImGui::EndChild();
+}
+
+void UI::RenderProjectTemplates() {
+    // This is handled inline in RenderNewProjectModal
+    // Could be extracted if we want a separate template browser
+}
+
+void UI::RenderWhatsNewPanel() {
+    ImGui::SetNextWindowSize(ImVec2(500, 400), ImGuiCond_FirstUseEver);
+    
+    if (ImGui::Begin("What's New in Cartograph", &showWhatsNew)) {
+        ImGui::TextColored(ImVec4(0.4f, 0.7f, 1.0f, 1.0f), 
+            "Version 0.1.0 - Initial Release");
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        ImGui::BulletText("Welcome screen with project templates");
+        ImGui::BulletText("Pan/zoom canvas with grid");
+        ImGui::BulletText("Room and tile painting tools");
+        ImGui::BulletText("Door and marker placement");
+        ImGui::BulletText("PNG export with layers");
+        ImGui::BulletText("Undo/redo support");
+        ImGui::BulletText("Autosave functionality");
+        ImGui::BulletText("Theme support (Dark/Light)");
+        
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), 
+            "Coming Soon:");
+        ImGui::BulletText("Reachability analysis");
+        ImGui::BulletText("Minimap panel");
+        ImGui::BulletText("Legend generation");
+        ImGui::BulletText("SVG icon support");
+        ImGui::BulletText("Web build");
+        
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        if (ImGui::Button("Close", ImVec2(120, 0))) {
+            showWhatsNew = false;
+        }
+    }
+    ImGui::End();
+}
+
+void UI::ApplyTemplate(ProjectTemplate tmpl) {
+    switch (tmpl) {
+        case ProjectTemplate::Small:
+            newProjectConfig.cellSize = 16;
+            newProjectConfig.mapWidth = 128;
+            newProjectConfig.mapHeight = 128;
+            break;
+            
+        case ProjectTemplate::Medium:
+            newProjectConfig.cellSize = 16;
+            newProjectConfig.mapWidth = 256;
+            newProjectConfig.mapHeight = 256;
+            break;
+            
+        case ProjectTemplate::Large:
+            newProjectConfig.cellSize = 16;
+            newProjectConfig.mapWidth = 512;
+            newProjectConfig.mapHeight = 512;
+            break;
+            
+        case ProjectTemplate::Metroidvania:
+            newProjectConfig.cellSize = 8;
+            newProjectConfig.mapWidth = 256;
+            newProjectConfig.mapHeight = 256;
+            break;
+            
+        case ProjectTemplate::Custom:
+        default:
+            // Keep current settings
+            break;
+    }
+}
+
+void UI::LoadRecentProjects() {
+    // TODO: Load recent projects from persistent storage
+    // This would read from a config file (JSON) in the app data directory
+    // containing paths, names, and last modified dates
+    
+    recentProjects.clear();
+    
+    std::string configDir = Platform::GetUserDataDir();
+    std::string recentPath = configDir + "recent_projects.json";
+    
+    // Stub: For now, just clear the list
+    // In a full implementation:
+    // 1. Read JSON file from recentPath
+    // 2. Parse project entries
+    // 3. Validate that files still exist
+    // 4. Load thumbnails if available
+    // 5. Populate recentProjects vector
+}
+
+void UI::AddRecentProject(const std::string& path) {
+    // TODO: Add project to recent list and save to persistent storage
+    // This would:
+    // 1. Create a RecentProject entry
+    // 2. Add to front of recentProjects list
+    // 3. Remove duplicates
+    // 4. Limit to max 10 entries
+    // 5. Save updated list to JSON file
+    // 6. Optionally generate/save thumbnail
+    
+    // Stub implementation
+    (void)path; // Suppress unused warning
 }
 
 void UI::BuildFixedLayout(ImGuiID dockspaceId) {

@@ -23,6 +23,14 @@ class IRenderer;
 class GlRenderer;
 
 /**
+ * Application state.
+ */
+enum class AppState {
+    Welcome,  // Welcome screen with project creation/import
+    Editor    // Main map editor
+};
+
+/**
  * Main application class.
  * Manages the application lifecycle, window, and main systems.
  */
@@ -55,6 +63,21 @@ public:
      * Request application exit.
      */
     void RequestQuit();
+    
+    /**
+     * Transition to welcome screen.
+     */
+    void ShowWelcomeScreen();
+    
+    /**
+     * Transition to editor (creating project if needed).
+     */
+    void ShowEditor();
+    
+    /**
+     * Get current application state.
+     */
+    AppState GetState() const { return m_appState; }
     
     // File operations
     void NewProject();
@@ -92,6 +115,7 @@ private:
     
     // Application state
     bool m_running;
+    AppState m_appState;
     std::string m_currentFilePath;
     
     // Autosave
