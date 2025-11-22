@@ -801,17 +801,18 @@ void UI::RenderCanvasPanel(
             }
         }
         else if (currentTool == Tool::Erase) {
-            // Erase tool: Right mouse or two-finger touch
+            // Erase tool: Left mouse to erase (primary input)
+            // Right-click also supported for consistency
             bool shouldErase = false;
             
-            // Check for right mouse button
-            if (ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
+            // Check for left mouse button (primary erase input)
+            if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
                 shouldErase = true;
             }
-            
-            // Check for two-finger touch (SDL multi-touch)
-            // Two-finger touch will be detected via SDL events
-            // For now, we'll handle right-click as erase
+            // Also support right-click for two-finger trackpad gestures
+            else if (ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
+                shouldErase = true;
+            }
             
             if (shouldErase) {
                 ImVec2 mousePos = ImGui::GetMousePos();
@@ -870,7 +871,11 @@ void UI::RenderCanvasPanel(
             }
             
             // When mouse is released, commit the erase command
-            if (isPainting && ImGui::IsMouseReleased(ImGuiMouseButton_Right)) {
+            // Check both left and right mouse for release
+            bool mouseReleased = ImGui::IsMouseReleased(ImGuiMouseButton_Left) ||
+                                 ImGui::IsMouseReleased(ImGuiMouseButton_Right);
+            
+            if (isPainting && mouseReleased) {
                 if (!currentPaintChanges.empty()) {
                     auto cmd = std::make_unique<PaintTilesCommand>(
                         currentPaintChanges
