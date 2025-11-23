@@ -116,6 +116,10 @@ void App::Shutdown() {
     
     m_jobs.Stop();
     
+    // Clean up IconManager before ImGui/GL shutdown to prevent memory
+    // corruption from destroying GL context with live texture references
+    m_icons.Clear();
+    
     ShutdownImGui();
     
     if (m_glContext) {

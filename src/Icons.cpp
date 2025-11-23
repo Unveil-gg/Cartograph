@@ -3,6 +3,13 @@
 #include <filesystem>
 #include <algorithm>
 
+// OpenGL for texture cleanup
+#ifdef __APPLE__
+#include <OpenGL/gl3.h>
+#else
+#include <GL/gl.h>
+#endif
+
 // stb_image for PNG loading
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb/stb_image.h>
@@ -20,7 +27,10 @@ IconManager::IconManager()
 }
 
 IconManager::~IconManager() {
-    Clear();
+    // Only clear if not already cleared during explicit shutdown
+    if (!m_icons.empty() || m_atlasTexture != 0) {
+        Clear();
+    }
 }
 
 int IconManager::LoadFromDirectory(const std::string& dir, bool recursive) {
@@ -189,8 +199,13 @@ void IconManager::Clear() {
     m_icons.clear();
     m_pendingIcons.clear();
     
-    // TODO: Destroy GL texture
-    m_atlasTexture = 0;
+    // Properly destroy GL texture before clearing texture ID
+    if (m_atlasTexture != 0) {
+        GLuint texId = (GLuint)(intptr_t)m_atlasTexture;
+        glDeleteTextures(1, &texId);
+        m_atlasTexture = 0;
+    }
+    
     m_atlasDirty = false;
 }
 
