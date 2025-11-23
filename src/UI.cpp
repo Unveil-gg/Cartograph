@@ -402,15 +402,15 @@ void UI::RenderToolsPanel(Model& model) {
     ImGui::Separator();
     
     const char* toolNames[] = {
-        "Move", "Select", "Paint", "Erase", "Fill", "Rectangle", 
+        "Move", "Select", "Paint", "Erase", "Fill", 
         "Marker", "Eyedropper"
     };
     
     const char* toolShortcuts[] = {
-        "V", "S", "B", "", "F", "", "", "I"
+        "V", "S", "B", "", "F", "", "I"
     };
     
-    for (int i = 0; i < 8; ++i) {
+    for (int i = 0; i < 7; ++i) {
         bool selected = (static_cast<int>(currentTool) == i);
         
         // Show tool name with optional shortcut
@@ -526,24 +526,234 @@ void UI::RenderPropertiesPanel(Model& model) {
     ImGui::Separator();
     
     // Project metadata
-    ImGui::Text("Project");
-    ImGui::Separator();
-    
-    char titleBuf[256];
-    strncpy(titleBuf, model.meta.title.c_str(), sizeof(titleBuf) - 1);
-    if (ImGui::InputText("Title", titleBuf, sizeof(titleBuf))) {
-        model.meta.title = titleBuf;
-        model.MarkDirty();
+    if (ImGui::CollapsingHeader("Project", ImGuiTreeNodeFlags_DefaultOpen)) {
+        char titleBuf[256];
+        strncpy(titleBuf, model.meta.title.c_str(), sizeof(titleBuf) - 1);
+        if (ImGui::InputText("Title", titleBuf, sizeof(titleBuf))) {
+            model.meta.title = titleBuf;
+            model.MarkDirty();
+        }
+        
+        char authorBuf[256];
+        strncpy(authorBuf, model.meta.author.c_str(), sizeof(authorBuf) - 1);
+        if (ImGui::InputText("Author", authorBuf, sizeof(authorBuf))) {
+            model.meta.author = authorBuf;
+            model.MarkDirty();
+        }
     }
     
-    char authorBuf[256];
-    strncpy(authorBuf, model.meta.author.c_str(), sizeof(authorBuf) - 1);
-    if (ImGui::InputText("Author", authorBuf, sizeof(authorBuf))) {
-        model.meta.author = authorBuf;
-        model.MarkDirty();
+    ImGui::Spacing();
+    
+    // Rooms management
+    if (ImGui::CollapsingHeader("Rooms", ImGuiTreeNodeFlags_DefaultOpen)) {
+        // Room overlay toggle
+        if (ImGui::Checkbox("Show Overlays", &showRoomOverlays)) {
+            // Visual change only, no model change
+        }
+        
+        // New room button
+        if (ImGui::Button("Create Room")) {
+            showNewRoomDialog = true;
+        }
+        
+        ImGui::Separator();
+        
+        // List existing rooms
+        if (model.rooms.empty()) {
+            ImGui::TextDisabled("No rooms created yet");
+        } else {
+            for (auto& room : model.rooms) {
+                bool isSelected = (selectedRoomId == room.id);
+                ImGuiTreeNodeFlags nodeFlags = 
+                    ImGuiTreeNodeFlags_Leaf |
+                    ImGuiTreeNodeFlags_NoTreePushOnOpen |
+                    (isSelected ? ImGuiTreeNodeFlags_Selected : 0);
+                
+                // Color indicator
+                ImVec4 roomColor(room.color.r, room.color.g, 
+                                room.color.b, room.color.a);
+                ImGui::ColorButton("##colorIndicator", roomColor, 
+                                  ImGuiColorEditFlags_NoTooltip, 
+                                  ImVec2(16, 16));
+                ImGui::SameLine();
+                
+                // Room name (selectable)
+                ImGui::TreeNodeEx(room.name.c_str(), nodeFlags);
+                if (ImGui::IsItemClicked()) {
+                    selectedRoomId = room.id;
+                    roomPaintMode = false;  // Reset paint mode on select
+                }
+            }
+        }
     }
     
-    // TODO: Context-sensitive properties for selected room/door/marker/tile
+    ImGui::Spacing();
+    
+    // Selected room details
+    if (!selectedRoomId.empty()) {
+        Room* room = model.FindRoom(selectedRoomId);
+        if (room) {
+            if (ImGui::CollapsingHeader("Selected Room", 
+                                      ImGuiTreeNodeFlags_DefaultOpen)) {
+                // Room name
+                char nameBuf[256];
+                strncpy(nameBuf, room->name.c_str(), sizeof(nameBuf) - 1);
+                if (ImGui::InputText("Name", nameBuf, sizeof(nameBuf))) {
+                    room->name = nameBuf;
+                    model.MarkDirty();
+                }
+                
+                // Room color
+                float colorArray[4] = {
+                    room->color.r, room->color.g, 
+                    room->color.b, room->color.a
+                };
+                if (ImGui::ColorEdit4("Color", colorArray)) {
+                    room->color = Color(colorArray[0], colorArray[1], 
+                                       colorArray[2], colorArray[3]);
+                    model.MarkDirty();
+                }
+                
+                // Room notes
+                char notesBuf[1024];
+                strncpy(notesBuf, room->notes.c_str(), sizeof(notesBuf) - 1);
+                if (ImGui::InputTextMultiline("Notes", notesBuf, 
+                                             sizeof(notesBuf), 
+                                             ImVec2(-1, 80))) {
+                    room->notes = notesBuf;
+                    model.MarkDirty();
+                }
+                
+                ImGui::Separator();
+                
+                // Room paint mode toggle
+                if (roomPaintMode) {
+                    if (ImGui::Button("Exit Room Paint Mode")) {
+                        roomPaintMode = false;
+                    }
+                    ImGui::TextWrapped(
+                        "Paint cells to assign them to this room. "
+                        "Right-click to remove cells."
+                    );
+                } else {
+                    if (ImGui::Button("Paint Room Cells")) {
+                        roomPaintMode = true;
+                    }
+                }
+                
+                ImGui::Separator();
+                
+                // Room actions
+                if (ImGui::Button("Demote Room")) {
+                    ImGui::OpenPopup("Demote Room?");
+                }
+                
+                // Demote confirmation popup
+                if (ImGui::BeginPopupModal("Demote Room?", nullptr, 
+                                          ImGuiWindowFlags_AlwaysAutoResize)) {
+                    ImGui::Text("What would you like to do?");
+                    ImGui::Separator();
+                    
+                    if (ImGui::Button("Remove room metadata only", 
+                                     ImVec2(-1, 0))) {
+                        // Remove room but keep cells/tiles
+                        model.ClearAllCellsForRoom(room->id);
+                        auto it = std::find_if(
+                            model.rooms.begin(), 
+                            model.rooms.end(),
+                            [&](const Room& r) { return r.id == selectedRoomId; }
+                        );
+                        if (it != model.rooms.end()) {
+                            model.rooms.erase(it);
+                        }
+                        selectedRoomId.clear();
+                        roomPaintMode = false;
+                        model.MarkDirty();
+                        ImGui::CloseCurrentPopup();
+                    }
+                    
+                    if (ImGui::Button("Remove room AND clear all cells", 
+                                     ImVec2(-1, 0))) {
+                        // Clear all cells assigned to this room
+                        for (auto it = model.cellRoomAssignments.begin(); 
+                             it != model.cellRoomAssignments.end(); ) {
+                            if (it->second == room->id) {
+                                // Also clear the tile at this position
+                                model.SetTileAt("", it->first.first, 
+                                              it->first.second, 0);
+                                it = model.cellRoomAssignments.erase(it);
+                            } else {
+                                ++it;
+                            }
+                        }
+                        // Remove room
+                        auto it = std::find_if(
+                            model.rooms.begin(), 
+                            model.rooms.end(),
+                            [&](const Room& r) { return r.id == selectedRoomId; }
+                        );
+                        if (it != model.rooms.end()) {
+                            model.rooms.erase(it);
+                        }
+                        selectedRoomId.clear();
+                        roomPaintMode = false;
+                        model.MarkDirty();
+                        ImGui::CloseCurrentPopup();
+                    }
+                    
+                    if (ImGui::Button("Cancel", ImVec2(-1, 0))) {
+                        ImGui::CloseCurrentPopup();
+                    }
+                    
+                    ImGui::EndPopup();
+                }
+            }
+        }
+    }
+    
+    // New room dialog
+    if (showNewRoomDialog) {
+        ImGui::OpenPopup("Create New Room");
+        showNewRoomDialog = false;
+    }
+    
+    if (ImGui::BeginPopupModal("Create New Room", nullptr, 
+                              ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::InputText("Room Name", newRoomName, sizeof(newRoomName));
+        ImGui::ColorEdit3("Room Color", newRoomColor);
+        
+        if (ImGui::Button("Create", ImVec2(120, 0))) {
+            // Generate unique room ID
+            std::string roomId = "room_" + std::to_string(model.rooms.size());
+            
+            Room newRoom;
+            newRoom.id = roomId;
+            newRoom.name = newRoomName;
+            newRoom.color = Color(newRoomColor[0], newRoomColor[1], 
+                                 newRoomColor[2], 1.0f);
+            newRoom.regionId = -1;
+            
+            model.rooms.push_back(newRoom);
+            selectedRoomId = roomId;
+            model.MarkDirty();
+            
+            // Reset form
+            strcpy(newRoomName, "New Room");
+            newRoomColor[0] = 1.0f;
+            newRoomColor[1] = 0.5f;
+            newRoomColor[2] = 0.5f;
+            
+            ImGui::CloseCurrentPopup();
+        }
+        
+        ImGui::SameLine();
+        
+        if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+            ImGui::CloseCurrentPopup();
+        }
+        
+        ImGui::EndPopup();
+    }
     
     ImGui::End();
 }
@@ -708,6 +918,7 @@ void UI::RenderCanvasPanel(
         }
         else if (currentTool == Tool::Paint) {
             // Paint tool: 
+            // - Room paint mode: assign/unassign cells to selected room
             // - Hover over edge: highlight and show state
             // - Click edge: cycle through None -> Wall -> Door -> None
             // - W key + click: set to Wall
@@ -716,15 +927,39 @@ void UI::RenderCanvasPanel(
             
             ImVec2 mousePos = ImGui::GetMousePos();
             
-            // First, check if we're hovering near an edge
-            EdgeId edgeId;
-            EdgeSide edgeSide;
-            isHoveringEdge = DetectEdgeHover(
-                mousePos.x, mousePos.y, canvas, model.grid,
-                &edgeId, &edgeSide
-            );
-            
-            if (isHoveringEdge) {
+            // Room paint mode: assign cells to selected room
+            if (roomPaintMode && !selectedRoomId.empty()) {
+                // Convert mouse position to tile coordinates
+                int tx, ty;
+                canvas.ScreenToTile(
+                    mousePos.x, mousePos.y,
+                    model.grid.tileWidth, model.grid.tileHeight,
+                    &tx, &ty
+                );
+                
+                // Left click: assign cell to room
+                if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+                    model.SetCellRoom(tx, ty, selectedRoomId);
+                }
+                // Right click (two-finger): unassign cell from room
+                else if (ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
+                    std::string currentRoomId = model.GetCellRoom(tx, ty);
+                    if (currentRoomId == selectedRoomId) {
+                        model.ClearCellRoom(tx, ty);
+                    }
+                }
+            }
+            // Regular paint mode: edges and tiles
+            else {
+                // First, check if we're hovering near an edge
+                EdgeId edgeId;
+                EdgeSide edgeSide;
+                isHoveringEdge = DetectEdgeHover(
+                    mousePos.x, mousePos.y, canvas, model.grid,
+                    &edgeId, &edgeSide
+                );
+                
+                if (isHoveringEdge) {
                 hoveredEdge = edgeId;
                 
                 // Handle edge clicking
@@ -779,7 +1014,7 @@ void UI::RenderCanvasPanel(
                     }
                     isModifyingEdges = false;
                 }
-            } else {
+                } else {
                 // Not hovering edge, handle tile painting/erasing
                 bool shouldPaint = false;
                 bool shouldErase = false;
@@ -902,7 +1137,8 @@ void UI::RenderCanvasPanel(
                     lastPaintedTileY = -1;
                     twoFingerEraseActive = false;
                 }
-            }  // End of "not hovering edge" block
+                }  // End of "not hovering edge" block
+            }  // End of "regular paint mode" block
         }
         else if (currentTool == Tool::Erase) {
             // Erase tool: Left mouse to erase (primary input)
@@ -1069,7 +1305,7 @@ void UI::RenderCanvasPanel(
                 }
             }
         }
-        // TODO: Add input handling for other tools (Rectangle, etc.)
+        // TODO: Add input handling for other tools
     }
     
     // Clear selection if we click outside canvas
@@ -1087,7 +1323,7 @@ void UI::RenderCanvasPanel(
         ImVec2(canvasPos.x + canvasSize.x, canvasPos.y + canvasSize.y), 
         bgColor);
     
-    // Render the actual canvas content (grid, tiles, rooms, doors, markers)
+    // Render the actual canvas content (grid, tiles, rooms, doors, markers, overlays)
     canvas.Render(
         renderer,
         model,
@@ -1095,7 +1331,8 @@ void UI::RenderCanvasPanel(
         static_cast<int>(canvasPos.y),
         static_cast<int>(canvasSize.x),
         static_cast<int>(canvasSize.y),
-        isHoveringEdge ? &hoveredEdge : nullptr
+        isHoveringEdge ? &hoveredEdge : nullptr,
+        showRoomOverlays  // Pass room overlay toggle state
     );
     
     // Draw selection rectangle if Select tool is active
@@ -1312,8 +1549,13 @@ void UI::RenderStatusBar(Model& model, Canvas& canvas) {
                 toolHint = "Drag to select region";
                 break;
             case Tool::Paint:
-                toolName = "Paint Tool";
-                toolHint = "Paint tiles | Hover edges: W=Wall D=Door Click=Cycle";
+                if (roomPaintMode) {
+                    toolName = "Paint Tool (ROOM MODE)";
+                    toolHint = "Click to assign cells | Right-click to unassign";
+                } else {
+                    toolName = "Paint Tool";
+                    toolHint = "Paint tiles | Hover edges: W=Wall D=Door Click=Cycle";
+                }
                 break;
             case Tool::Erase:
                 toolName = "Erase Tool";
@@ -1322,10 +1564,6 @@ void UI::RenderStatusBar(Model& model, Canvas& canvas) {
             case Tool::Fill:
                 toolName = "Fill Tool";
                 toolHint = "Click to fill area";
-                break;
-            case Tool::Rectangle:
-                toolName = "Rectangle Tool";
-                toolHint = "Drag to create room";
                 break;
             case Tool::Marker:
                 toolName = "Marker Tool";
@@ -1337,7 +1575,11 @@ void UI::RenderStatusBar(Model& model, Canvas& canvas) {
                 break;
         }
         
-        ImGui::TextColored(ImVec4(0.5f, 0.8f, 1.0f, 1.0f), "%s", toolName);
+        if (roomPaintMode) {
+            ImGui::TextColored(ImVec4(1.0f, 0.5f, 1.0f, 1.0f), "%s", toolName);
+        } else {
+            ImGui::TextColored(ImVec4(0.5f, 0.8f, 1.0f, 1.0f), "%s", toolName);
+        }
         ImGui::SameLine(0, 10);
         ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "| %s", 
                           toolHint);

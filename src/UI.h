@@ -125,7 +125,7 @@ public:
     
     // Current tool
     enum class Tool {
-        Move, Select, Paint, Erase, Fill, Rectangle, Marker, Eyedropper
+        Move, Select, Paint, Erase, Fill, Marker, Eyedropper
     } currentTool = Tool::Move;
     
     // Selection state (for Select tool)
@@ -147,6 +147,14 @@ public:
     std::vector<ModifyEdgesCommand::EdgeChange> currentEdgeChanges;
     EdgeId hoveredEdge;
     bool isHoveringEdge = false;
+    
+    // Room management state
+    std::string selectedRoomId;   // Currently selected room
+    bool roomPaintMode = false;   // Room painting mode active
+    bool showRoomOverlays = true; // Show room visual overlays
+    bool showNewRoomDialog = false;
+    char newRoomName[64] = "New Room";
+    float newRoomColor[3] = {1.0f, 0.5f, 0.5f};
     
 private:
     void RenderMenuBar(Model& model, Canvas& canvas, History& history);

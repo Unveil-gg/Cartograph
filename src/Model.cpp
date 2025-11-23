@@ -444,6 +444,42 @@ void Model::UpdateAllAutoWalls() {
     }
 }
 
+std::string Model::GetCellRoom(int x, int y) const {
+    auto it = cellRoomAssignments.find({x, y});
+    if (it != cellRoomAssignments.end()) {
+        return it->second;
+    }
+    return "";  // No room assigned
+}
+
+void Model::SetCellRoom(int x, int y, const std::string& roomId) {
+    if (roomId.empty()) {
+        // Empty string means clear assignment
+        cellRoomAssignments.erase({x, y});
+    } else {
+        cellRoomAssignments[{x, y}] = roomId;
+    }
+    MarkDirty();
+}
+
+void Model::ClearCellRoom(int x, int y) {
+    cellRoomAssignments.erase({x, y});
+    MarkDirty();
+}
+
+void Model::ClearAllCellsForRoom(const std::string& roomId) {
+    // Remove all cells assigned to this room
+    for (auto it = cellRoomAssignments.begin(); 
+         it != cellRoomAssignments.end(); ) {
+        if (it->second == roomId) {
+            it = cellRoomAssignments.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    MarkDirty();
+}
+
 void Model::InitDefaults() {
     InitDefaultPalette();
     InitDefaultKeymap();

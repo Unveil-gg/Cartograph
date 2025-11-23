@@ -116,6 +116,16 @@ std::string IOJson::SaveToString(const Model& model) {
         });
     }
     
+    // Cell room assignments
+    j["cellRooms"] = json::array();
+    for (const auto& [cell, roomId] : model.cellRoomAssignments) {
+        j["cellRooms"].push_back({
+            {"x", cell.first},
+            {"y", cell.second},
+            {"roomId", roomId}
+        });
+    }
+    
     // Doors
     j["doors"] = json::array();
     for (const auto& door : model.doors) {
@@ -274,6 +284,20 @@ bool IOJson::LoadFromString(const std::string& jsonStr, Model& outModel) {
                 
                 if (state != EdgeState::None) {
                     outModel.edges[edgeId] = state;
+                }
+            }
+        }
+        
+        // Cell room assignments
+        if (j.contains("cellRooms")) {
+            outModel.cellRoomAssignments.clear();
+            for (const auto& cellRoom : j["cellRooms"]) {
+                int x = cellRoom.value("x", 0);
+                int y = cellRoom.value("y", 0);
+                std::string roomId = cellRoom.value("roomId", "");
+                
+                if (!roomId.empty()) {
+                    outModel.cellRoomAssignments[{x, y}] = roomId;
                 }
             }
         }

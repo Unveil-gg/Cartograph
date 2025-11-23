@@ -171,6 +171,13 @@ struct EdgeIdHash {
     }
 };
 
+// Hash function for std::pair<int, int> (for cell coordinates)
+struct PairHash {
+    std::size_t operator()(const std::pair<int, int>& p) const {
+        return std::hash<int>()(p.first) ^ (std::hash<int>()(p.second) << 1);
+    }
+};
+
 // Helper to create EdgeId from cell and side
 inline EdgeId MakeEdgeId(int cellX, int cellY, EdgeSide side) {
     switch (side) {
@@ -285,6 +292,10 @@ public:
     Theme theme;
     Metadata meta;
     
+    // Cell-to-room assignments (manual room painting)
+    std::unordered_map<std::pair<int, int>, std::string, 
+        PairHash> cellRoomAssignments;
+    
     // Computed/cached data
     std::vector<Region> inferredRegions;  // Auto-computed from walls
     bool regionsDirty = true;             // Needs recomputation?
@@ -319,6 +330,12 @@ public:
     // Auto-wall generation
     void GenerateRegionPerimeterWalls(const Region& region);
     void UpdateAllAutoWalls();        // Regenerate walls for all regions
+    
+    // Cell-room assignment (manual room painting)
+    std::string GetCellRoom(int x, int y) const;  // Get room at cell
+    void SetCellRoom(int x, int y, const std::string& roomId);
+    void ClearCellRoom(int x, int y);  // Remove room assignment
+    void ClearAllCellsForRoom(const std::string& roomId);  // Clear all cells
     
     // Initialize defaults
     void InitDefaults();

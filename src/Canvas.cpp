@@ -22,7 +22,8 @@ void Canvas::Render(
     const Model& model,
     int viewportX, int viewportY,
     int viewportW, int viewportH,
-    const EdgeId* hoveredEdge
+    const EdgeId* hoveredEdge,
+    bool showRoomOverlays
 ) {
     m_vpX = viewportX;
     m_vpY = viewportY;
@@ -40,7 +41,7 @@ void Canvas::Render(
         true  // Intersect with current clip rect
     );
     
-    // Render in order: grid, rooms, tiles, edges, doors, markers
+    // Render in order: grid, rooms, tiles, edges, doors, markers, overlays
     if (showGrid) {
         RenderGrid(renderer, model.grid);
     }
@@ -49,6 +50,9 @@ void Canvas::Render(
     RenderEdges(renderer, model, hoveredEdge);
     RenderDoors(renderer, model);
     RenderMarkers(renderer, model);
+    if (showRoomOverlays) {
+        RenderRoomOverlays(renderer, model);
+    }
     
     // Pop clip rect
     dl->PopClipRect();
@@ -401,6 +405,109 @@ void Canvas::RenderMarkers(IRenderer& renderer, const Model& model) {
             ImVec2 textPos(sx + size/2 + 2, sy);
             dl->AddText(textPos, marker.color.ToU32(), 
                         marker.label.c_str());
+        }
+    }
+}
+
+void Canvas::RenderRoomOverlays(IRenderer& renderer, const Model& model) {
+    const int tileWidth = model.grid.tileWidth;
+    const int tileHeight = model.grid.tileHeight;
+    
+    ImDrawList* dl = ImGui::GetForegroundDrawList();
+    
+    // Draw overlays for each room
+    for (const auto& room : model.rooms) {
+        // Get all cells assigned to this room
+        std::vector<std::pair<int, int>> roomCells;
+        for (const auto& assignment : model.cellRoomAssignments) {
+            if (assignment.second == room.id) {
+                roomCells.push_back(assignment.first);
+            }
+        }
+        
+        if (roomCells.empty()) continue;
+        
+        // Room overlay color (very transparent)
+        Color overlayColor = room.color;
+        overlayColor.a = 0.15f;  // Super light overlay
+        
+        // Room outline color (opaque)
+        Color outlineColor = room.color;
+        outlineColor.a = 1.0f;
+        
+        // Draw filled overlay for each cell
+        for (const auto& cell : roomCells) {
+            int tx = cell.first;
+            int ty = cell.second;
+            
+            float wx, wy;
+            TileToWorld(tx, ty, tileWidth, tileHeight, &wx, &wy);
+            
+            float sx, sy;
+            WorldToScreen(wx, wy, &sx, &sy);
+            float sw = tileWidth * zoom;
+            float sh = tileHeight * zoom;
+            
+            // Draw overlay
+            renderer.DrawRect(sx, sy, sw, sh, overlayColor);
+        }
+        
+        // Draw outline for perimeter of room
+        // For each cell, check which sides are on the perimeter
+        for (const auto& cell : roomCells) {
+            int cx = cell.first;
+            int cy = cell.second;
+            
+            float wx, wy;
+            TileToWorld(cx, cy, tileWidth, tileHeight, &wx, &wy);
+            
+            float sx, sy;
+            WorldToScreen(wx, wy, &sx, &sy);
+            float sw = tileWidth * zoom;
+            float sh = tileHeight * zoom;
+            
+            // Check each of 4 sides
+            int dx[] = {0, 0, 1, -1};
+            int dy[] = {1, -1, 0, 0};
+            
+            for (int i = 0; i < 4; ++i) {
+                int nx = cx + dx[i];
+                int ny = cy + dy[i];
+                
+                // Check if adjacent cell is in the same room
+                bool adjacentInRoom = false;
+                for (const auto& other : roomCells) {
+                    if (other.first == nx && other.second == ny) {
+                        adjacentInRoom = true;
+                        break;
+                    }
+                }
+                
+                // If adjacent cell is not in room, draw outline on this side
+                if (!adjacentInRoom) {
+                    float x1, y1, x2, y2;
+                    if (i == 0) { // South
+                        x1 = sx; y1 = sy + sh;
+                        x2 = sx + sw; y2 = sy + sh;
+                    } else if (i == 1) { // North
+                        x1 = sx; y1 = sy;
+                        x2 = sx + sw; y2 = sy;
+                    } else if (i == 2) { // East
+                        x1 = sx + sw; y1 = sy;
+                        x2 = sx + sw; y2 = sy + sh;
+                    } else { // West
+                        x1 = sx; y1 = sy;
+                        x2 = sx; y2 = sy + sh;
+                    }
+                    
+                    dl->AddLine(
+                        ImVec2(x1, y1), 
+                        ImVec2(x2, y2), 
+                        outlineColor.ToU32(), 
+                        2.0f * std::max(1.0f, zoom)  // Thicker line at higher zoom
+                    );
+                }
+            }
         }
     }
 }
