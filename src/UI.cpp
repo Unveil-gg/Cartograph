@@ -525,25 +525,6 @@ void UI::RenderPropertiesPanel(Model& model) {
     ImGui::Text("Inspector");
     ImGui::Separator();
     
-    // Project metadata
-    if (ImGui::CollapsingHeader("Project", ImGuiTreeNodeFlags_DefaultOpen)) {
-        char titleBuf[256];
-        strncpy(titleBuf, model.meta.title.c_str(), sizeof(titleBuf) - 1);
-        if (ImGui::InputText("Title", titleBuf, sizeof(titleBuf))) {
-            model.meta.title = titleBuf;
-            model.MarkDirty();
-        }
-        
-        char authorBuf[256];
-        strncpy(authorBuf, model.meta.author.c_str(), sizeof(authorBuf) - 1);
-        if (ImGui::InputText("Author", authorBuf, sizeof(authorBuf))) {
-            model.meta.author = authorBuf;
-            model.MarkDirty();
-        }
-    }
-    
-    ImGui::Spacing();
-    
     // Rooms management
     if (ImGui::CollapsingHeader("Rooms", ImGuiTreeNodeFlags_DefaultOpen)) {
         // Room overlay toggle
@@ -1305,7 +1286,36 @@ void UI::RenderCanvasPanel(
                 }
             }
         }
-        // TODO: Add input handling for other tools
+        else if (currentTool == Tool::Eyedropper) {
+            // Eyedropper tool: Left-click to pick tile color/ID
+            if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+                ImVec2 mousePos = ImGui::GetMousePos();
+                
+                // Convert mouse position to tile coordinates
+                int tx, ty;
+                canvas.ScreenToTile(
+                    mousePos.x, mousePos.y,
+                    model.grid.tileWidth, model.grid.tileHeight,
+                    &tx, &ty
+                );
+                
+                // Pick tile globally (using "" as roomId)
+                const std::string globalRoomId = "";
+                int pickedTileId = model.GetTileAt(globalRoomId, tx, ty);
+                
+                // Only pick non-empty tiles
+                if (pickedTileId != 0) {
+                    selectedTileId = pickedTileId;
+                    ShowToast("Picked tile #" + std::to_string(pickedTileId), 
+                             Toast::Type::Success, 1.5f);
+                    
+                    // Auto-switch to Paint tool after picking
+                    currentTool = Tool::Paint;
+                } else {
+                    ShowToast("No tile to pick", Toast::Type::Info, 1.5f);
+                }
+            }
+        }
     }
     
     // Clear selection if we click outside canvas
@@ -1701,6 +1711,29 @@ void UI::RenderSettingsModal(Model& model) {
         ImGuiWindowFlags_AlwaysAutoResize)) {
         
         ImGui::Text("Project Settings");
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        // Project metadata
+        ImGui::Text("Project Information:");
+        
+        char titleBuf[256];
+        strncpy(titleBuf, model.meta.title.c_str(), sizeof(titleBuf) - 1);
+        titleBuf[sizeof(titleBuf) - 1] = '\0';
+        if (ImGui::InputText("Title", titleBuf, sizeof(titleBuf))) {
+            model.meta.title = titleBuf;
+            model.MarkDirty();
+        }
+        
+        char authorBuf[256];
+        strncpy(authorBuf, model.meta.author.c_str(), sizeof(authorBuf) - 1);
+        authorBuf[sizeof(authorBuf) - 1] = '\0';
+        if (ImGui::InputText("Author", authorBuf, sizeof(authorBuf))) {
+            model.meta.author = authorBuf;
+            model.MarkDirty();
+        }
+        
+        ImGui::Spacing();
         ImGui::Separator();
         ImGui::Spacing();
         
