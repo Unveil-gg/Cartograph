@@ -205,6 +205,7 @@ public:
     TileRow* FindTileRow(const std::string& roomId, int y);
     int GetTileAt(const std::string& roomId, int x, int y) const;
     void SetTileAt(const std::string& roomId, int x, int y, int tileId);
+    bool HasDoorAt(const std::string& roomId, int x, int y) const;
     
     // Initialize defaults
     void InitDefaults();

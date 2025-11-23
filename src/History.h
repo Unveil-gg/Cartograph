@@ -144,6 +144,24 @@ private:
 };
 
 /**
+ * Command to fill connected tiles in a room.
+ * Similar to PaintTilesCommand but for flood fill operations.
+ */
+class FillTilesCommand : public ICommand {
+public:
+    using TileChange = PaintTilesCommand::TileChange;
+    
+    FillTilesCommand(const std::vector<TileChange>& changes);
+    
+    void Execute(Model& model) override;
+    void Undo(Model& model) override;
+    std::string GetDescription() const override;
+    
+private:
+    std::vector<TileChange> m_changes;
+};
+
+/**
  * Command to create/modify/delete a room.
  */
 class ModifyRoomCommand : public ICommand {

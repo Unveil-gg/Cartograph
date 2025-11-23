@@ -204,6 +204,19 @@ void Model::SetTileAt(const std::string& roomId, int x, int y, int tileId) {
     MarkDirty();
 }
 
+bool Model::HasDoorAt(const std::string& roomId, int x, int y) const {
+    // Check if any door endpoint is at this position
+    for (const auto& door : doors) {
+        if (door.a.roomId == roomId && door.a.x == x && door.a.y == y) {
+            return true;
+        }
+        if (door.b.roomId == roomId && door.b.x == x && door.b.y == y) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void Model::InitDefaults() {
     InitDefaultPalette();
     InitDefaultKeymap();
@@ -245,6 +258,7 @@ void Model::InitDefaultKeymap() {
     keymap["toolSelect"] = "S";
     keymap["toolPaint"] = "B";  // B for Brush
     keymap["toolErase"] = "E";
+    keymap["toolFill"] = "F";
     
     // View
     keymap["pan"] = "Space+Drag";

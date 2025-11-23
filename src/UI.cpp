@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <set>
 
 namespace Cartograph {
 
@@ -405,7 +406,7 @@ void UI::RenderToolsPanel(Model& model) {
     };
     
     const char* toolShortcuts[] = {
-        "V", "S", "B", "", "", "", "", "", "I"
+        "V", "S", "B", "", "F", "", "", "", "I"
     };
     
     for (int i = 0; i < 9; ++i) {
@@ -582,6 +583,9 @@ void UI::RenderCanvasPanel(
         if (ImGui::IsKeyPressed(ImGuiKey_E) && 
             !ImGui::GetIO().KeyCtrl && !ImGui::GetIO().KeySuper) {
             currentTool = Tool::Erase;
+        }
+        if (ImGui::IsKeyPressed(ImGuiKey_F)) {
+            currentTool = Tool::Fill;
         }
         if (ImGui::IsKeyPressed(ImGuiKey_I)) {
             currentTool = Tool::Eyedropper;
@@ -889,7 +893,117 @@ void UI::RenderCanvasPanel(
                 lastPaintedTileY = -1;
             }
         }
-        // TODO: Add input handling for other tools (Fill, Rectangle, etc.)
+        else if (currentTool == Tool::Fill) {
+            // Fill tool: Left-click to flood fill connected tiles
+            if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+                ImVec2 mousePos = ImGui::GetMousePos();
+                
+                // Convert mouse position to tile coordinates
+                int tx, ty;
+                canvas.ScreenToTile(
+                    mousePos.x, mousePos.y,
+                    model.grid.tileWidth, model.grid.tileHeight,
+                    &tx, &ty
+                );
+                
+                // Find which room this tile belongs to
+                Room* targetRoom = nullptr;
+                for (auto& room : model.rooms) {
+                    if (room.rect.Contains(tx, ty)) {
+                        targetRoom = &room;
+                        break;
+                    }
+                }
+                
+                if (targetRoom) {
+                    // Convert to room-relative coordinates
+                    int roomX = tx - targetRoom->rect.x;
+                    int roomY = ty - targetRoom->rect.y;
+                    
+                    // Get the original tile ID to replace
+                    int originalTileId = model.GetTileAt(
+                        targetRoom->id, roomX, roomY
+                    );
+                    
+                    // Only fill if we're changing to a different tile
+                    if (originalTileId != selectedTileId) {
+                        // Perform flood fill using BFS
+                        std::vector<PaintTilesCommand::TileChange> fillChanges;
+                        std::vector<std::pair<int, int>> toVisit;
+                        std::set<std::pair<int, int>> visited;
+                        
+                        toVisit.push_back({roomX, roomY});
+                        
+                        while (!toVisit.empty()) {
+                            auto [x, y] = toVisit.back();
+                            toVisit.pop_back();
+                            
+                            // Skip if already visited
+                            if (visited.count({x, y})) {
+                                continue;
+                            }
+                            visited.insert({x, y});
+                            
+                            // Check bounds
+                            if (x < 0 || x >= targetRoom->rect.w ||
+                                y < 0 || y >= targetRoom->rect.h) {
+                                continue;
+                            }
+                            
+                            // Get current tile
+                            int currentTile = model.GetTileAt(
+                                targetRoom->id, x, y
+                            );
+                            
+                            // Skip if not matching original tile
+                            if (currentTile != originalTileId) {
+                                continue;
+                            }
+                            
+                            // Skip if there's a door here
+                            if (model.HasDoorAt(targetRoom->id, x, y)) {
+                                continue;
+                            }
+                            
+                            // Add this tile to changes
+                            PaintTilesCommand::TileChange change;
+                            change.roomId = targetRoom->id;
+                            change.x = x;
+                            change.y = y;
+                            change.oldTileId = originalTileId;
+                            change.newTileId = selectedTileId;
+                            fillChanges.push_back(change);
+                            
+                            // Add neighbors to visit (4-way connectivity)
+                            toVisit.push_back({x + 1, y});
+                            toVisit.push_back({x - 1, y});
+                            toVisit.push_back({x, y + 1});
+                            toVisit.push_back({x, y - 1});
+                        }
+                        
+                        // Apply all changes and add to history
+                        if (!fillChanges.empty()) {
+                            // Apply changes immediately
+                            for (const auto& change : fillChanges) {
+                                model.SetTileAt(
+                                    change.roomId, 
+                                    change.x, 
+                                    change.y, 
+                                    change.newTileId
+                                );
+                            }
+                            
+                            // Add to history
+                            auto cmd = std::make_unique<FillTilesCommand>(
+                                fillChanges
+                            );
+                            history.AddCommand(std::move(cmd), model, false);
+                        }
+                    }
+                }
+            }
+        }
+        // TODO: Add input handling for other tools (Rectangle, etc.)
     }
     
     // Clear selection if we click outside canvas
@@ -1009,6 +1123,82 @@ void UI::RenderCanvasPanel(
         }
     }
     
+    // Draw fill cursor preview if Fill tool is active
+    if (currentTool == Tool::Fill && ImGui::IsItemHovered()) {
+        ImVec2 mousePos = ImGui::GetMousePos();
+        
+        // Convert to tile coordinates
+        int tx, ty;
+        canvas.ScreenToTile(
+            mousePos.x, mousePos.y,
+            model.grid.tileWidth, model.grid.tileHeight,
+            &tx, &ty
+        );
+        
+        // Convert back to screen coordinates (snapped to grid)
+        float wx, wy;
+        canvas.TileToWorld(tx, ty, model.grid.tileWidth, 
+                          model.grid.tileHeight, &wx, &wy);
+        
+        float sx, sy;
+        canvas.WorldToScreen(wx, wy, &sx, &sy);
+        
+        float sw = model.grid.tileWidth * canvas.zoom;
+        float sh = model.grid.tileHeight * canvas.zoom;
+        
+        // Get selected tile color for preview
+        Color tileColor(0.8f, 0.8f, 0.8f, 0.6f);
+        for (const auto& tile : model.palette) {
+            if (tile.id == selectedTileId) {
+                tileColor = tile.color;
+                tileColor.a = 0.6f;  // More opaque for fill preview
+                break;
+            }
+        }
+        
+        // Draw bucket icon indicator (center cross)
+        float centerX = sx + sw / 2.0f;
+        float centerY = sy + sh / 2.0f;
+        float crossSize = std::min(sw, sh) * 0.3f;
+        ImU32 crossColor = ImGui::GetColorU32(
+            ImVec4(1.0f, 1.0f, 1.0f, 0.8f)
+        );
+        
+        // Vertical line of cross
+        drawList->AddLine(
+            ImVec2(centerX, centerY - crossSize),
+            ImVec2(centerX, centerY + crossSize),
+            crossColor,
+            2.0f
+        );
+        
+        // Horizontal line of cross
+        drawList->AddLine(
+            ImVec2(centerX - crossSize, centerY),
+            ImVec2(centerX + crossSize, centerY),
+            crossColor,
+            2.0f
+        );
+        
+        // Draw semi-transparent fill preview
+        ImU32 previewColor = tileColor.ToU32();
+        drawList->AddRectFilled(
+            ImVec2(sx, sy),
+            ImVec2(sx + sw, sy + sh),
+            previewColor
+        );
+        
+        // Draw border
+        drawList->AddRect(
+            ImVec2(sx, sy),
+            ImVec2(sx + sw, sy + sh),
+            ImGui::GetColorU32(ImVec4(1.0f, 1.0f, 1.0f, 0.6f)),
+            0.0f,
+            0,
+            2.0f
+        );
+    }
+    
     ImGui::End();
 }
 
@@ -1103,7 +1293,7 @@ void UI::RenderStatusBar(Model& model, Canvas& canvas) {
         // Right section: Tool shortcuts
         ImGui::SameLine(0, 20);
         ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), 
-            "| Shortcuts: V=Move B=Paint E=Erase I=Eyedropper");
+            "| Shortcuts: V=Move B=Paint F=Fill E=Erase I=Eyedropper");
     }
     
     ImGui::PopStyleVar();
