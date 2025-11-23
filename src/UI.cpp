@@ -11,6 +11,7 @@
 #include <cmath>
 #include <cstring>
 #include <set>
+#include <cmath>
 
 namespace Cartograph {
 
