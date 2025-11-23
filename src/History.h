@@ -172,6 +172,30 @@ public:
 };
 
 /**
+ * Command to assign/unassign cells to rooms.
+ * Used for room painting mode.
+ */
+class ModifyRoomAssignmentsCommand : public ICommand {
+public:
+    struct CellAssignment {
+        int x, y;
+        std::string oldRoomId;  // Empty if no previous assignment
+        std::string newRoomId;  // Empty to unassign
+    };
+    
+    ModifyRoomAssignmentsCommand(
+        const std::vector<CellAssignment>& assignments
+    );
+    
+    void Execute(Model& model) override;
+    void Undo(Model& model) override;
+    std::string GetDescription() const override;
+    
+private:
+    std::vector<CellAssignment> m_assignments;
+};
+
+/**
  * Command to modify edges (walls/doors).
  * Supports coalescing for continuous edge clicks.
  */

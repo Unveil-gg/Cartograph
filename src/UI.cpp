@@ -15,6 +15,56 @@
 
 namespace Cartograph {
 
+// ============================================================================
+// Helper functions
+// ============================================================================
+
+/**
+ * Get all tiles along a line from (x0, y0) to (x1, y1).
+ * Uses Bresenham's line algorithm to ensure continuous painting.
+ * @param x0 Start X coordinate
+ * @param y0 Start Y coordinate
+ * @param x1 End X coordinate
+ * @param y1 End Y coordinate
+ * @return Vector of (x, y) tile coordinates along the line
+ */
+static std::vector<std::pair<int, int>> GetTilesAlongLine(
+    int x0, int y0, 
+    int x1, int y1
+) {
+    std::vector<std::pair<int, int>> tiles;
+    
+    // Bresenham's line algorithm
+    int dx = std::abs(x1 - x0);
+    int dy = std::abs(y1 - y0);
+    int sx = (x0 < x1) ? 1 : -1;
+    int sy = (y0 < y1) ? 1 : -1;
+    int err = dx - dy;
+    
+    int x = x0;
+    int y = y0;
+    
+    while (true) {
+        tiles.push_back({x, y});
+        
+        if (x == x1 && y == y1) {
+            break;
+        }
+        
+        int e2 = 2 * err;
+        if (e2 > -dy) {
+            err -= dy;
+            x += sx;
+        }
+        if (e2 < dx) {
+            err += dx;
+            y += sy;
+        }
+    }
+    
+    return tiles;
+}
+
 UI::UI() {
 }
 
@@ -920,14 +970,120 @@ void UI::RenderCanvasPanel(
                 
                 // Left click: assign cell to room
                 if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-                    model.SetCellRoom(tx, ty, selectedRoomId);
+                    // Check if moved to new cell or just started
+                    if (!isPaintingRoomCells || tx != lastRoomPaintX || 
+                        ty != lastRoomPaintY) {
+                        
+                        // Get cells to assign (interpolate if dragging)
+                        std::vector<std::pair<int, int>> cellsToAssign;
+                        if (isPaintingRoomCells && lastRoomPaintX >= 0 && 
+                            lastRoomPaintY >= 0) {
+                            // Interpolate from last position to current
+                            cellsToAssign = GetTilesAlongLine(
+                                lastRoomPaintX, lastRoomPaintY, tx, ty
+                            );
+                        } else {
+                            // First cell
+                            cellsToAssign.push_back({tx, ty});
+                        }
+                        
+                        // Assign all cells along the line
+                        for (const auto& cell : cellsToAssign) {
+                            int cellX = cell.first;
+                            int cellY = cell.second;
+                            
+                            std::string oldRoomId = model.GetCellRoom(
+                                cellX, cellY
+                            );
+                            
+                            // Only assign if different
+                            if (oldRoomId != selectedRoomId) {
+                                ModifyRoomAssignmentsCommand::CellAssignment 
+                                    assignment;
+                                assignment.x = cellX;
+                                assignment.y = cellY;
+                                assignment.oldRoomId = oldRoomId;
+                                assignment.newRoomId = selectedRoomId;
+                                
+                                currentRoomAssignments.push_back(assignment);
+                                
+                                // Apply immediately for visual feedback
+                                model.SetCellRoom(cellX, cellY, selectedRoomId);
+                            }
+                        }
+                        
+                        lastRoomPaintX = tx;
+                        lastRoomPaintY = ty;
+                        isPaintingRoomCells = true;
+                    }
                 }
                 // Right click (two-finger): unassign cell from room
                 else if (ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
-                    std::string currentRoomId = model.GetCellRoom(tx, ty);
-                    if (currentRoomId == selectedRoomId) {
-                        model.ClearCellRoom(tx, ty);
+                    // Check if moved to new cell or just started
+                    if (!isPaintingRoomCells || tx != lastRoomPaintX || 
+                        ty != lastRoomPaintY) {
+                        
+                        // Get cells to unassign (interpolate if dragging)
+                        std::vector<std::pair<int, int>> cellsToUnassign;
+                        if (isPaintingRoomCells && lastRoomPaintX >= 0 && 
+                            lastRoomPaintY >= 0) {
+                            // Interpolate from last position to current
+                            cellsToUnassign = GetTilesAlongLine(
+                                lastRoomPaintX, lastRoomPaintY, tx, ty
+                            );
+                        } else {
+                            // First cell
+                            cellsToUnassign.push_back({tx, ty});
+                        }
+                        
+                        // Unassign all cells along the line
+                        for (const auto& cell : cellsToUnassign) {
+                            int cellX = cell.first;
+                            int cellY = cell.second;
+                            
+                            std::string currentRoomId = model.GetCellRoom(
+                                cellX, cellY
+                            );
+                            
+                            // Only unassign if currently assigned to selected room
+                            if (currentRoomId == selectedRoomId) {
+                                ModifyRoomAssignmentsCommand::CellAssignment 
+                                    assignment;
+                                assignment.x = cellX;
+                                assignment.y = cellY;
+                                assignment.oldRoomId = currentRoomId;
+                                assignment.newRoomId = "";  // Empty = unassign
+                                
+                                currentRoomAssignments.push_back(assignment);
+                                
+                                // Apply immediately for visual feedback
+                                model.ClearCellRoom(cellX, cellY);
+                            }
+                        }
+                        
+                        lastRoomPaintX = tx;
+                        lastRoomPaintY = ty;
+                        isPaintingRoomCells = true;
                     }
+                }
+                
+                // When mouse is released, commit the room assignment command
+                bool mouseReleased = 
+                    ImGui::IsMouseReleased(ImGuiMouseButton_Left) ||
+                    ImGui::IsMouseReleased(ImGuiMouseButton_Right);
+                
+                if (isPaintingRoomCells && mouseReleased) {
+                    if (!currentRoomAssignments.empty()) {
+                        auto cmd = std::make_unique<
+                            ModifyRoomAssignmentsCommand
+                        >(currentRoomAssignments);
+                        // Changes already applied, just store for undo/redo
+                        history.AddCommand(std::move(cmd), model, false);
+                        currentRoomAssignments.clear();
+                    }
+                    isPaintingRoomCells = false;
+                    lastRoomPaintX = -1;
+                    lastRoomPaintY = -1;
                 }
             }
             // Regular paint mode: edges and tiles
@@ -1029,25 +1185,47 @@ void UI::RenderCanvasPanel(
                         ty != lastPaintedTileY) {
                         
                         // Paint tiles globally (using "" as roomId)
-                        // TODO: Add UI to associate tiles with rooms later
                         const std::string globalRoomId = "";
                         
-                        // Get old tile value
-                        int oldTileId = model.GetTileAt(globalRoomId, tx, ty);
+                        // Get tiles to paint (interpolate if dragging)
+                        std::vector<std::pair<int, int>> tilesToPaint;
+                        if (isPainting && lastPaintedTileX >= 0 && 
+                            lastPaintedTileY >= 0) {
+                            // Interpolate from last position to current
+                            tilesToPaint = GetTilesAlongLine(
+                                lastPaintedTileX, lastPaintedTileY, 
+                                tx, ty
+                            );
+                        } else {
+                            // First tile
+                            tilesToPaint.push_back({tx, ty});
+                        }
                         
-                        // Only paint if the tile is different
-                        if (oldTileId != selectedTileId) {
-                            PaintTilesCommand::TileChange change;
-                            change.roomId = globalRoomId;
-                            change.x = tx;
-                            change.y = ty;
-                            change.oldTileId = oldTileId;
-                            change.newTileId = selectedTileId;
+                        // Paint all tiles along the line
+                        for (const auto& tile : tilesToPaint) {
+                            int tileX = tile.first;
+                            int tileY = tile.second;
                             
-                            currentPaintChanges.push_back(change);
+                            int oldTileId = model.GetTileAt(
+                                globalRoomId, tileX, tileY
+                            );
                             
-                            // Apply immediately for visual feedback
-                            model.SetTileAt(globalRoomId, tx, ty, selectedTileId);
+                            // Only paint if the tile is different
+                            if (oldTileId != selectedTileId) {
+                                PaintTilesCommand::TileChange change;
+                                change.roomId = globalRoomId;
+                                change.x = tileX;
+                                change.y = tileY;
+                                change.oldTileId = oldTileId;
+                                change.newTileId = selectedTileId;
+                                
+                                currentPaintChanges.push_back(change);
+                                
+                                // Apply immediately for visual feedback
+                                model.SetTileAt(
+                                    globalRoomId, tileX, tileY, selectedTileId
+                                );
+                            }
                         }
                         
                         lastPaintedTileX = tx;
@@ -1074,22 +1252,43 @@ void UI::RenderCanvasPanel(
                         // Erase tiles globally (using "" as roomId)
                         const std::string globalRoomId = "";
                         
-                        // Get old tile value
-                        int oldTileId = model.GetTileAt(globalRoomId, tx, ty);
+                        // Get tiles to erase (interpolate if dragging)
+                        std::vector<std::pair<int, int>> tilesToErase;
+                        if (isPainting && lastPaintedTileX >= 0 && 
+                            lastPaintedTileY >= 0) {
+                            // Interpolate from last position to current
+                            tilesToErase = GetTilesAlongLine(
+                                lastPaintedTileX, lastPaintedTileY, 
+                                tx, ty
+                            );
+                        } else {
+                            // First tile
+                            tilesToErase.push_back({tx, ty});
+                        }
                         
-                        // Only erase if there's something to erase
-                        if (oldTileId != 0) {
-                            PaintTilesCommand::TileChange change;
-                            change.roomId = globalRoomId;
-                            change.x = tx;
-                            change.y = ty;
-                            change.oldTileId = oldTileId;
-                            change.newTileId = 0;  // 0 = empty/erase
+                        // Erase all tiles along the line
+                        for (const auto& tile : tilesToErase) {
+                            int tileX = tile.first;
+                            int tileY = tile.second;
                             
-                            currentPaintChanges.push_back(change);
+                            int oldTileId = model.GetTileAt(
+                                globalRoomId, tileX, tileY
+                            );
                             
-                            // Apply immediately for visual feedback
-                            model.SetTileAt(globalRoomId, tx, ty, 0);
+                            // Only erase if there's something to erase
+                            if (oldTileId != 0) {
+                                PaintTilesCommand::TileChange change;
+                                change.roomId = globalRoomId;
+                                change.x = tileX;
+                                change.y = tileY;
+                                change.oldTileId = oldTileId;
+                                change.newTileId = 0;  // 0 = empty/erase
+                                
+                                currentPaintChanges.push_back(change);
+                                
+                                // Apply immediately for visual feedback
+                                model.SetTileAt(globalRoomId, tileX, tileY, 0);
+                            }
                         }
                         
                         lastPaintedTileX = tx;
@@ -1153,22 +1352,42 @@ void UI::RenderCanvasPanel(
                     // Erase tiles globally (using "" as roomId)
                     const std::string globalRoomId = "";
                     
-                    // Get old tile value
-                    int oldTileId = model.GetTileAt(globalRoomId, tx, ty);
+                    // Get tiles to erase (interpolate if dragging)
+                    std::vector<std::pair<int, int>> tilesToErase;
+                    if (isPainting && lastPaintedTileX >= 0 && 
+                        lastPaintedTileY >= 0) {
+                        // Interpolate from last position to current
+                        tilesToErase = GetTilesAlongLine(
+                            lastPaintedTileX, lastPaintedTileY, tx, ty
+                        );
+                    } else {
+                        // First tile
+                        tilesToErase.push_back({tx, ty});
+                    }
                     
-                    // Only erase if there's something to erase
-                    if (oldTileId != 0) {
-                        PaintTilesCommand::TileChange change;
-                        change.roomId = globalRoomId;
-                        change.x = tx;
-                        change.y = ty;
-                        change.oldTileId = oldTileId;
-                        change.newTileId = 0;  // 0 = empty/erase
+                    // Erase all tiles along the line
+                    for (const auto& tile : tilesToErase) {
+                        int tileX = tile.first;
+                        int tileY = tile.second;
                         
-                        currentPaintChanges.push_back(change);
+                        int oldTileId = model.GetTileAt(
+                            globalRoomId, tileX, tileY
+                        );
                         
-                        // Apply immediately for visual feedback
-                        model.SetTileAt(globalRoomId, tx, ty, 0);
+                        // Only erase if there's something to erase
+                        if (oldTileId != 0) {
+                            PaintTilesCommand::TileChange change;
+                            change.roomId = globalRoomId;
+                            change.x = tileX;
+                            change.y = tileY;
+                            change.oldTileId = oldTileId;
+                            change.newTileId = 0;  // 0 = empty/erase
+                            
+                            currentPaintChanges.push_back(change);
+                            
+                            // Apply immediately for visual feedback
+                            model.SetTileAt(globalRoomId, tileX, tileY, 0);
+                        }
                     }
                     
                     lastPaintedTileX = tx;

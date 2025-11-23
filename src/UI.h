@@ -156,6 +156,13 @@ public:
     char newRoomName[64] = "New Room";
     float newRoomColor[3] = {1.0f, 0.5f, 0.5f};
     
+    // Room assignment state (for room paint mode)
+    bool isPaintingRoomCells = false;
+    int lastRoomPaintX = -1;
+    int lastRoomPaintY = -1;
+    std::vector<ModifyRoomAssignmentsCommand::CellAssignment> 
+        currentRoomAssignments;
+    
 private:
     void RenderMenuBar(Model& model, Canvas& canvas, History& history);
     void RenderPalettePanel(Model& model);
