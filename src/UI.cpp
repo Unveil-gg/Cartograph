@@ -812,46 +812,31 @@ void UI::RenderCanvasPanel(
                     if (!isPainting || tx != lastPaintedTileX || 
                         ty != lastPaintedTileY) {
                         
-                        // Find which room this tile belongs to
-                        Room* targetRoom = nullptr;
-                        for (auto& room : model.rooms) {
-                            if (room.rect.Contains(tx, ty)) {
-                                targetRoom = &room;
-                                break;
-                            }
+                        // Paint tiles globally (using "" as roomId)
+                        // TODO: Add UI to associate tiles with rooms later
+                        const std::string globalRoomId = "";
+                        
+                        // Get old tile value
+                        int oldTileId = model.GetTileAt(globalRoomId, tx, ty);
+                        
+                        // Only paint if the tile is different
+                        if (oldTileId != selectedTileId) {
+                            PaintTilesCommand::TileChange change;
+                            change.roomId = globalRoomId;
+                            change.x = tx;
+                            change.y = ty;
+                            change.oldTileId = oldTileId;
+                            change.newTileId = selectedTileId;
+                            
+                            currentPaintChanges.push_back(change);
+                            
+                            // Apply immediately for visual feedback
+                            model.SetTileAt(globalRoomId, tx, ty, selectedTileId);
                         }
                         
-                        if (targetRoom) {
-                            // Convert to room-relative coordinates
-                            int roomX = tx - targetRoom->rect.x;
-                            int roomY = ty - targetRoom->rect.y;
-                            
-                            // Get old tile value
-                            int oldTileId = model.GetTileAt(
-                                targetRoom->id, roomX, roomY
-                            );
-                            
-                            // Only paint if the tile is different
-                            if (oldTileId != selectedTileId) {
-                                PaintTilesCommand::TileChange change;
-                                change.roomId = targetRoom->id;
-                                change.x = roomX;
-                                change.y = roomY;
-                                change.oldTileId = oldTileId;
-                                change.newTileId = selectedTileId;
-                                
-                                currentPaintChanges.push_back(change);
-                                
-                                // Apply immediately for visual feedback
-                                model.SetTileAt(
-                                    targetRoom->id, roomX, roomY, selectedTileId
-                                );
-                            }
-                            
-                            lastPaintedTileX = tx;
-                            lastPaintedTileY = ty;
-                            isPainting = true;
-                        }
+                        lastPaintedTileX = tx;
+                        lastPaintedTileY = ty;
+                        isPainting = true;
                     }
                 }
                 
@@ -870,44 +855,30 @@ void UI::RenderCanvasPanel(
                     if (!isPainting || tx != lastPaintedTileX || 
                         ty != lastPaintedTileY) {
                         
-                        // Find which room this tile belongs to
-                        Room* targetRoom = nullptr;
-                        for (auto& room : model.rooms) {
-                            if (room.rect.Contains(tx, ty)) {
-                                targetRoom = &room;
-                                break;
-                            }
+                        // Erase tiles globally (using "" as roomId)
+                        const std::string globalRoomId = "";
+                        
+                        // Get old tile value
+                        int oldTileId = model.GetTileAt(globalRoomId, tx, ty);
+                        
+                        // Only erase if there's something to erase
+                        if (oldTileId != 0) {
+                            PaintTilesCommand::TileChange change;
+                            change.roomId = globalRoomId;
+                            change.x = tx;
+                            change.y = ty;
+                            change.oldTileId = oldTileId;
+                            change.newTileId = 0;  // 0 = empty/erase
+                            
+                            currentPaintChanges.push_back(change);
+                            
+                            // Apply immediately for visual feedback
+                            model.SetTileAt(globalRoomId, tx, ty, 0);
                         }
                         
-                        if (targetRoom) {
-                            // Convert to room-relative coordinates
-                            int roomX = tx - targetRoom->rect.x;
-                            int roomY = ty - targetRoom->rect.y;
-                            
-                            // Get old tile value
-                            int oldTileId = model.GetTileAt(
-                                targetRoom->id, roomX, roomY
-                            );
-                            
-                            // Only erase if there's something to erase
-                            if (oldTileId != 0) {
-                                PaintTilesCommand::TileChange change;
-                                change.roomId = targetRoom->id;
-                                change.x = roomX;
-                                change.y = roomY;
-                                change.oldTileId = oldTileId;
-                                change.newTileId = 0;  // 0 = empty/erase
-                                
-                                currentPaintChanges.push_back(change);
-                                
-                                // Apply immediately for visual feedback
-                                model.SetTileAt(targetRoom->id, roomX, roomY, 0);
-                            }
-                            
-                            lastPaintedTileX = tx;
-                            lastPaintedTileY = ty;
-                            isPainting = true;
-                        }
+                        lastPaintedTileX = tx;
+                        lastPaintedTileY = ty;
+                        isPainting = true;
                     }
                 }
                 
@@ -962,44 +933,30 @@ void UI::RenderCanvasPanel(
                 if (!isPainting || tx != lastPaintedTileX || 
                     ty != lastPaintedTileY) {
                     
-                    // Find which room this tile belongs to
-                    Room* targetRoom = nullptr;
-                    for (auto& room : model.rooms) {
-                        if (room.rect.Contains(tx, ty)) {
-                            targetRoom = &room;
-                            break;
-                        }
+                    // Erase tiles globally (using "" as roomId)
+                    const std::string globalRoomId = "";
+                    
+                    // Get old tile value
+                    int oldTileId = model.GetTileAt(globalRoomId, tx, ty);
+                    
+                    // Only erase if there's something to erase
+                    if (oldTileId != 0) {
+                        PaintTilesCommand::TileChange change;
+                        change.roomId = globalRoomId;
+                        change.x = tx;
+                        change.y = ty;
+                        change.oldTileId = oldTileId;
+                        change.newTileId = 0;  // 0 = empty/erase
+                        
+                        currentPaintChanges.push_back(change);
+                        
+                        // Apply immediately for visual feedback
+                        model.SetTileAt(globalRoomId, tx, ty, 0);
                     }
                     
-                    if (targetRoom) {
-                        // Convert to room-relative coordinates
-                        int roomX = tx - targetRoom->rect.x;
-                        int roomY = ty - targetRoom->rect.y;
-                        
-                        // Get old tile value
-                        int oldTileId = model.GetTileAt(
-                            targetRoom->id, roomX, roomY
-                        );
-                        
-                        // Only erase if there's something to erase
-                        if (oldTileId != 0) {
-                            PaintTilesCommand::TileChange change;
-                            change.roomId = targetRoom->id;
-                            change.x = roomX;
-                            change.y = roomY;
-                            change.oldTileId = oldTileId;
-                            change.newTileId = 0;  // 0 = empty/erase
-                            
-                            currentPaintChanges.push_back(change);
-                            
-                            // Apply immediately for visual feedback
-                            model.SetTileAt(targetRoom->id, roomX, roomY, 0);
-                        }
-                        
-                        lastPaintedTileX = tx;
-                        lastPaintedTileY = ty;
-                        isPainting = true;
-                    }
+                    lastPaintedTileX = tx;
+                    lastPaintedTileY = ty;
+                    isPainting = true;
                 }
             }
             
@@ -1035,99 +992,79 @@ void UI::RenderCanvasPanel(
                     &tx, &ty
                 );
                 
-                // Find which room this tile belongs to
-                Room* targetRoom = nullptr;
-                for (auto& room : model.rooms) {
-                    if (room.rect.Contains(tx, ty)) {
-                        targetRoom = &room;
-                        break;
-                    }
-                }
+                // Fill tiles globally (using "" as roomId)
+                // TODO: Implement flood-fill with wall boundaries
+                const std::string globalRoomId = "";
                 
-                if (targetRoom) {
-                    // Convert to room-relative coordinates
-                    int roomX = tx - targetRoom->rect.x;
-                    int roomY = ty - targetRoom->rect.y;
+                // Get the original tile ID to replace
+                int originalTileId = model.GetTileAt(globalRoomId, tx, ty);
+                
+                // Only fill if we're changing to a different tile
+                if (originalTileId != selectedTileId) {
+                    // Perform flood fill using BFS
+                    std::vector<PaintTilesCommand::TileChange> fillChanges;
+                    std::vector<std::pair<int, int>> toVisit;
+                    std::set<std::pair<int, int>> visited;
                     
-                    // Get the original tile ID to replace
-                    int originalTileId = model.GetTileAt(
-                        targetRoom->id, roomX, roomY
-                    );
+                    toVisit.push_back({tx, ty});
                     
-                    // Only fill if we're changing to a different tile
-                    if (originalTileId != selectedTileId) {
-                        // Perform flood fill using BFS
-                        std::vector<PaintTilesCommand::TileChange> fillChanges;
-                        std::vector<std::pair<int, int>> toVisit;
-                        std::set<std::pair<int, int>> visited;
+                    while (!toVisit.empty()) {
+                        auto [x, y] = toVisit.back();
+                        toVisit.pop_back();
                         
-                        toVisit.push_back({roomX, roomY});
+                        // Skip if already visited
+                        if (visited.count({x, y})) {
+                            continue;
+                        }
+                        visited.insert({x, y});
                         
-                        while (!toVisit.empty()) {
-                            auto [x, y] = toVisit.back();
-                            toVisit.pop_back();
-                            
-                            // Skip if already visited
-                            if (visited.count({x, y})) {
-                                continue;
-                            }
-                            visited.insert({x, y});
-                            
-                            // Check bounds
-                            if (x < 0 || x >= targetRoom->rect.w ||
-                                y < 0 || y >= targetRoom->rect.h) {
-                                continue;
-                            }
-                            
-                            // Get current tile
-                            int currentTile = model.GetTileAt(
-                                targetRoom->id, x, y
-                            );
-                            
-                            // Skip if not matching original tile
-                            if (currentTile != originalTileId) {
-                                continue;
-                            }
-                            
-                            // Skip if there's a door here
-                            if (model.HasDoorAt(targetRoom->id, x, y)) {
-                                continue;
-                            }
-                            
-                            // Add this tile to changes
-                            PaintTilesCommand::TileChange change;
-                            change.roomId = targetRoom->id;
-                            change.x = x;
-                            change.y = y;
-                            change.oldTileId = originalTileId;
-                            change.newTileId = selectedTileId;
-                            fillChanges.push_back(change);
-                            
-                            // Add neighbors to visit (4-way connectivity)
-                            toVisit.push_back({x + 1, y});
-                            toVisit.push_back({x - 1, y});
-                            toVisit.push_back({x, y + 1});
-                            toVisit.push_back({x, y - 1});
+                        // Check grid bounds
+                        if (x < 0 || x >= model.grid.cols ||
+                            y < 0 || y >= model.grid.rows) {
+                            continue;
                         }
                         
-                        // Apply all changes and add to history
-                        if (!fillChanges.empty()) {
-                            // Apply changes immediately
-                            for (const auto& change : fillChanges) {
-                                model.SetTileAt(
-                                    change.roomId, 
-                                    change.x, 
-                                    change.y, 
-                                    change.newTileId
-                                );
-                            }
-                            
-                            // Add to history
-                            auto cmd = std::make_unique<FillTilesCommand>(
-                                fillChanges
-                            );
-                            history.AddCommand(std::move(cmd), model, false);
+                        // Get current tile
+                        int currentTile = model.GetTileAt(globalRoomId, x, y);
+                        
+                        // Skip if not matching original tile
+                        if (currentTile != originalTileId) {
+                            continue;
                         }
+                        
+                        // Add this tile to changes
+                        PaintTilesCommand::TileChange change;
+                        change.roomId = globalRoomId;
+                        change.x = x;
+                        change.y = y;
+                        change.oldTileId = originalTileId;
+                        change.newTileId = selectedTileId;
+                        fillChanges.push_back(change);
+                        
+                        // Add neighbors to visit (4-way connectivity)
+                        toVisit.push_back({x + 1, y});
+                        toVisit.push_back({x - 1, y});
+                        toVisit.push_back({x, y + 1});
+                        toVisit.push_back({x, y - 1});
+                    }
+                    
+                    // Apply all changes and add to history
+                    if (!fillChanges.empty()) {
+                        // Apply changes immediately
+                        for (const auto& change : fillChanges) {
+                            model.SetTileAt(
+                                change.roomId, 
+                                change.x, 
+                                change.y, 
+                                change.newTileId
+                            );
+                        }
+                        
+                        // Add to history
+                        auto cmd = std::make_unique<FillTilesCommand>(
+                            fillChanges
+                        );
+                        history.AddCommand(std::move(cmd), model, false);
                     }
                 }
             }

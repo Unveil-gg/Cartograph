@@ -63,7 +63,7 @@ struct TileType {
 using Palette = std::vector<TileType>;
 
 // ============================================================================
-// Rooms
+// Regions (Inferred from walls)
 // ============================================================================
 
 struct Rect {
@@ -74,12 +74,32 @@ struct Rect {
     }
 };
 
+struct Region {
+    int id;                           // Auto-generated region ID
+    std::vector<std::pair<int, int>> cells;  // List of (x, y) cells in region
+    Rect boundingBox;                 // Bounding rectangle for quick checks
+    
+    bool Contains(int x, int y) const {
+        for (const auto& cell : cells) {
+            if (cell.first == x && cell.second == y) {
+                return true;
+            }
+        }
+        return false;
+    }
+};
+
+// ============================================================================
+// Rooms (Named regions with metadata)
+// ============================================================================
+
 struct Room {
     std::string id;
     std::string name;
-    Rect rect;
+    int regionId;                     // Links to inferred region (-1 if none)
     Color color;
     std::string notes;
+    std::vector<std::string> imageAttachments;  // Design doc images
 };
 
 // ============================================================================
@@ -256,14 +276,18 @@ public:
     // Core data
     GridConfig grid;
     Palette palette;
-    std::vector<Room> rooms;
+    std::vector<Room> rooms;          // Named rooms (metadata)
     TileData tiles;
     std::unordered_map<EdgeId, EdgeState, EdgeIdHash> edges;  // Cell edges
-    std::vector<Door> doors;  // Legacy door connections
+    std::vector<Door> doors;          // Legacy door connections
     std::vector<Marker> markers;
     Keymap keymap;
     Theme theme;
     Metadata meta;
+    
+    // Computed/cached data
+    std::vector<Region> inferredRegions;  // Auto-computed from walls
+    bool regionsDirty = true;             // Needs recomputation?
     
     // Dirty tracking
     bool dirty = false;
@@ -286,8 +310,15 @@ public:
     // Grid expansion
     void ExpandGridIfNeeded(int cellX, int cellY);
     
-    // Room helpers
-    void GenerateRoomPerimeterWalls(const Room& room);
+    // Region management
+    void ComputeInferredRegions();    // Flood-fill to detect regions
+    void InvalidateRegions();         // Mark regions as needing recompute
+    const std::vector<Region>& GetRegions();  // Get cached regions
+    Region* FindRegionAt(int x, int y);  // Which region contains cell?
+    
+    // Auto-wall generation
+    void GenerateRegionPerimeterWalls(const Region& region);
+    void UpdateAllAutoWalls();        // Regenerate walls for all regions
     
     // Initialize defaults
     void InitDefaults();

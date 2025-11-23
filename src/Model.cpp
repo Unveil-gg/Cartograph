@@ -4,6 +4,7 @@
 #include <sstream>
 #include <iomanip>
 #include <cstdio>
+#include <set>
 
 namespace Cartograph {
 
@@ -229,6 +230,9 @@ void Model::SetEdgeState(const EdgeId& edgeId, EdgeState state) {
     } else {
         edges[edgeId] = state;
     }
+    
+    // Walls change region boundaries - invalidate cache
+    InvalidateRegions();
     MarkDirty();
 }
 
@@ -270,48 +274,173 @@ void Model::ExpandGridIfNeeded(int cellX, int cellY) {
     }
 }
 
-void Model::GenerateRoomPerimeterWalls(const Room& room) {
-    // For each cell in the room, check all 4 edges
-    for (int cy = room.rect.y; cy < room.rect.y + room.rect.h; ++cy) {
-        for (int cx = room.rect.x; cx < room.rect.x + room.rect.w; ++cx) {
-            // Check all 4 sides
-            EdgeSide sides[] = {
-                EdgeSide::North, EdgeSide::South, 
-                EdgeSide::East, EdgeSide::West
-            };
+void Model::InvalidateRegions() {
+    regionsDirty = true;
+}
+
+const std::vector<Region>& Model::GetRegions() {
+    if (regionsDirty) {
+        ComputeInferredRegions();
+    }
+    return inferredRegions;
+}
+
+void Model::ComputeInferredRegions() {
+    inferredRegions.clear();
+    
+    // Track which cells have been visited
+    std::vector<std::vector<bool>> visited(
+        grid.rows, std::vector<bool>(grid.cols, false)
+    );
+    
+    int nextRegionId = 0;
+    
+    // Flood-fill from each unvisited cell
+    for (int y = 0; y < grid.rows; ++y) {
+        for (int x = 0; x < grid.cols; ++x) {
+            if (visited[y][x]) continue;
             
-            for (EdgeSide side : sides) {
-                EdgeId edgeId = MakeEdgeId(cx, cy, side);
+            // Start a new region
+            Region region;
+            region.id = nextRegionId++;
+            region.boundingBox = {x, y, 0, 0};
+            
+            // Flood-fill to find all connected cells
+            std::vector<std::pair<int, int>> stack;
+            stack.push_back({x, y});
+            
+            int minX = x, minY = y, maxX = x, maxY = y;
+            
+            while (!stack.empty()) {
+                auto [cx, cy] = stack.back();
+                stack.pop_back();
                 
-                // Determine adjacent cell position
-                int adjX = cx;
-                int adjY = cy;
-                switch (side) {
-                    case EdgeSide::North: adjY = cy - 1; break;
-                    case EdgeSide::South: adjY = cy + 1; break;
-                    case EdgeSide::East:  adjX = cx + 1; break;
-                    case EdgeSide::West:  adjX = cx - 1; break;
+                // Skip if out of bounds or already visited
+                if (cx < 0 || cx >= grid.cols || 
+                    cy < 0 || cy >= grid.rows || 
+                    visited[cy][cx]) {
+                    continue;
                 }
                 
-                // Check if adjacent cell belongs to any room
-                bool adjacentInRoom = false;
-                for (const auto& otherRoom : rooms) {
-                    if (otherRoom.rect.Contains(adjX, adjY)) {
-                        adjacentInRoom = true;
-                        break;
-                    }
-                }
+                // Mark as visited
+                visited[cy][cx] = true;
+                region.cells.push_back({cx, cy});
                 
-                // If adjacent cell is not in any room, add wall
-                // (unless there's already an edge there)
-                if (!adjacentInRoom) {
-                    EdgeState currentState = GetEdgeState(edgeId);
-                    if (currentState == EdgeState::None) {
-                        SetEdgeState(edgeId, EdgeState::Wall);
+                // Update bounding box
+                minX = std::min(minX, cx);
+                minY = std::min(minY, cy);
+                maxX = std::max(maxX, cx);
+                maxY = std::max(maxY, cy);
+                
+                // Check all 4 neighbors - only cross if no wall
+                EdgeSide sides[] = {
+                    EdgeSide::North, EdgeSide::South,
+                    EdgeSide::East, EdgeSide::West
+                };
+                int dx[] = {0, 0, 1, -1};
+                int dy[] = {-1, 1, 0, 0};
+                
+                for (int i = 0; i < 4; ++i) {
+                    EdgeId edgeId = MakeEdgeId(cx, cy, sides[i]);
+                    EdgeState state = GetEdgeState(edgeId);
+                    
+                    // Can only cross if edge is None or Door
+                    // Wall blocks region boundary
+                    if (state == EdgeState::None || state == EdgeState::Door) {
+                        int nx = cx + dx[i];
+                        int ny = cy + dy[i];
+                        
+                        if (nx >= 0 && nx < grid.cols && 
+                            ny >= 0 && ny < grid.rows &&
+                            !visited[ny][nx]) {
+                            stack.push_back({nx, ny});
+                        }
                     }
                 }
             }
+            
+            // Set bounding box
+            region.boundingBox.x = minX;
+            region.boundingBox.y = minY;
+            region.boundingBox.w = maxX - minX + 1;
+            region.boundingBox.h = maxY - minY + 1;
+            
+            inferredRegions.push_back(region);
         }
+    }
+    
+    regionsDirty = false;
+}
+
+Region* Model::FindRegionAt(int x, int y) {
+    if (regionsDirty) {
+        ComputeInferredRegions();
+    }
+    
+    for (auto& region : inferredRegions) {
+        if (region.Contains(x, y)) {
+            return &region;
+        }
+    }
+    return nullptr;
+}
+
+void Model::GenerateRegionPerimeterWalls(const Region& region) {
+    // Build a set for fast lookup (O(log n) vs O(n))
+    std::set<std::pair<int, int>> cellSet(
+        region.cells.begin(), region.cells.end()
+    );
+    
+    // For each cell in the region, check all 4 edges
+    for (const auto& [cx, cy] : region.cells) {
+        EdgeSide sides[] = {
+            EdgeSide::North, EdgeSide::South, 
+            EdgeSide::East, EdgeSide::West
+        };
+        
+        for (EdgeSide side : sides) {
+            EdgeId edgeId = MakeEdgeId(cx, cy, side);
+            
+            // Determine adjacent cell position
+            int adjX = cx;
+            int adjY = cy;
+            switch (side) {
+                case EdgeSide::North: adjY = cy - 1; break;
+                case EdgeSide::South: adjY = cy + 1; break;
+                case EdgeSide::East:  adjX = cx + 1; break;
+                case EdgeSide::West:  adjX = cx - 1; break;
+            }
+            
+            // Check if adjacent cell is in the same region (fast lookup)
+            bool sameRegion = cellSet.count({adjX, adjY}) > 0;
+            
+            // If adjacent is NOT in same region, add wall
+            // (unless there's already an edge there)
+            if (!sameRegion) {
+                EdgeState currentState = GetEdgeState(edgeId);
+                if (currentState == EdgeState::None) {
+                    SetEdgeState(edgeId, EdgeState::Wall);
+                }
+            }
+        }
+    }
+}
+
+void Model::UpdateAllAutoWalls() {
+    // Ensure regions are computed
+    if (regionsDirty) {
+        ComputeInferredRegions();
+    }
+    
+    // Generate walls for each region (skip very large regions to avoid freeze)
+    const size_t MAX_REGION_SIZE = 10000;  // Safety limit
+    
+    for (const auto& region : inferredRegions) {
+        if (region.cells.size() > MAX_REGION_SIZE) {
+            // Skip generating walls for huge regions (likely entire grid)
+            continue;
+        }
+        GenerateRegionPerimeterWalls(region);
     }
 }
 

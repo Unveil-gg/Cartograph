@@ -32,17 +32,12 @@ void ExportPng::CalculateDimensions(
         return;
     }
     
-    int minX = model.rooms[0].rect.x;
-    int minY = model.rooms[0].rect.y;
-    int maxX = model.rooms[0].rect.x + model.rooms[0].rect.w;
-    int maxY = model.rooms[0].rect.y + model.rooms[0].rect.h;
-    
-    for (const auto& room : model.rooms) {
-        minX = std::min(minX, room.rect.x);
-        minY = std::min(minY, room.rect.y);
-        maxX = std::max(maxX, room.rect.x + room.rect.w);
-        maxY = std::max(maxY, room.rect.y + room.rect.h);
-    }
+    // Use grid bounds for export
+    // TODO: Calculate actual bounds from painted tiles or regions
+    int minX = 0;
+    int minY = 0;
+    int maxX = model.grid.cols;
+    int maxY = model.grid.rows;
     
     // Add padding (use average of width and height)
     int avgTileSize = (model.grid.tileWidth + model.grid.tileHeight) / 2;

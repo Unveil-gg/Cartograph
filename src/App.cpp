@@ -150,19 +150,13 @@ void App::ShowEditor() {
         m_keymap.LoadBindings(m_model.keymap);
     }
     
-    // Always ensure world room exists (regardless of palette state)
-    if (m_model.rooms.empty()) {
-        Room worldRoom;
-        worldRoom.id = "world";
-        worldRoom.name = "World";
-        // Cover entire grid - allows painting anywhere
-        worldRoom.rect = {0, 0, m_model.grid.cols, m_model.grid.rows};
-        worldRoom.color = Color(0.0f, 0.0f, 0.0f, 0.0f);  // Invisible
-        worldRoom.notes = "Global paint area";
-        m_model.rooms.push_back(worldRoom);
-        
-        // Generate perimeter walls for the world room
-        m_model.GenerateRoomPerimeterWalls(worldRoom);
+    // No need for world room anymore - regions are inferred from walls
+    // Tiles can be painted anywhere on the grid
+    
+    // Only generate auto-walls if there are existing walls/edges
+    // (Skip on empty new projects to avoid performance issues)
+    if (!m_model.edges.empty()) {
+        m_model.UpdateAllAutoWalls();
     }
 }
 

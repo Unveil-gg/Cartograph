@@ -71,16 +71,23 @@ std::string IOJson::SaveToString(const Model& model) {
         });
     }
     
-    // Rooms
+    // Rooms (metadata only, linked to regions)
     j["rooms"] = json::array();
     for (const auto& room : model.rooms) {
-        j["rooms"].push_back({
+        json jRoom = {
             {"id", room.id},
             {"name", room.name},
-            {"rect", json::array({room.rect.x, room.rect.y, room.rect.w, room.rect.h})},
+            {"regionId", room.regionId},
             {"color", room.color.ToHex(false)},
             {"notes", room.notes}
-        });
+        };
+        
+        // Save image attachments if present
+        if (!room.imageAttachments.empty()) {
+            jRoom["images"] = room.imageAttachments;
+        }
+        
+        j["rooms"].push_back(jRoom);
     }
     
     // Tiles
@@ -211,22 +218,23 @@ bool IOJson::LoadFromString(const std::string& jsonStr, Model& outModel) {
             }
         }
         
-        // Rooms
+        // Rooms (metadata only, regions inferred from walls)
         if (j.contains("rooms")) {
             outModel.rooms.clear();
             for (const auto& room : j["rooms"]) {
                 Room r;
                 r.id = room.value("id", "");
                 r.name = room.value("name", "");
-                if (room.contains("rect") && room["rect"].is_array()) {
-                    auto rect = room["rect"];
-                    r.rect.x = rect[0];
-                    r.rect.y = rect[1];
-                    r.rect.w = rect[2];
-                    r.rect.h = rect[3];
-                }
+                r.regionId = room.value("regionId", -1);
                 r.color = Color::FromHex(room.value("color", "#000000"));
                 r.notes = room.value("notes", "");
+                
+                // Load image attachments if present
+                if (room.contains("images") && room["images"].is_array()) {
+                    r.imageAttachments = 
+                        room["images"].get<std::vector<std::string>>();
+                }
+                
                 outModel.rooms.push_back(r);
             }
         }

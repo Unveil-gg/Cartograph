@@ -166,16 +166,29 @@ void Canvas::RenderRooms(IRenderer& renderer, const Model& model) {
     const int tileWidth = model.grid.tileWidth;
     const int tileHeight = model.grid.tileHeight;
     
+    // Render named rooms (those promoted from regions)
     for (const auto& room : model.rooms) {
-        if (!IsVisible(room.rect, tileWidth, tileHeight)) {
+        // Find the region this room references
+        const Region* region = nullptr;
+        for (const auto& r : model.inferredRegions) {
+            if (r.id == room.regionId) {
+                region = &r;
+                break;
+            }
+        }
+        
+        if (!region) continue;  // Room references invalid region
+        
+        const Rect& bbox = region->boundingBox;
+        if (!IsVisible(bbox, tileWidth, tileHeight)) {
             continue;
         }
         
-        // Convert to world space
-        float wx = room.rect.x * tileWidth;
-        float wy = room.rect.y * tileHeight;
-        float ww = room.rect.w * tileWidth;
-        float wh = room.rect.h * tileHeight;
+        // Convert bounding box to world space
+        float wx = bbox.x * tileWidth;
+        float wy = bbox.y * tileHeight;
+        float ww = bbox.w * tileWidth;
+        float wh = bbox.h * tileHeight;
         
         // Convert to screen space
         float sx, sy;
@@ -183,9 +196,9 @@ void Canvas::RenderRooms(IRenderer& renderer, const Model& model) {
         float sw = ww * zoom;
         float sh = wh * zoom;
         
-        // Draw fill with room color
+        // Draw fill with room color (semi-transparent)
         Color fillColor = room.color;
-        fillColor.a *= 0.3f;  // Semi-transparent
+        fillColor.a *= 0.3f;
         renderer.DrawRect(sx, sy, sw, sh, fillColor);
         
         // Draw outline
@@ -205,10 +218,8 @@ void Canvas::RenderTiles(IRenderer& renderer, const Model& model) {
     const int tileWidth = model.grid.tileWidth;
     const int tileHeight = model.grid.tileHeight;
     
+    // Render all tiles (no room requirement - uses absolute coordinates)
     for (const auto& row : model.tiles) {
-        const Room* room = model.FindRoom(row.roomId);
-        if (!room) continue;
-        
         for (const auto& run : row.runs) {
             if (run.tileId == 0) continue;  // Skip empty
             
@@ -222,11 +233,11 @@ void Canvas::RenderTiles(IRenderer& renderer, const Model& model) {
             }
             
             // Draw each tile in the run
-            // Note: run.startX and row.y are room-relative coordinates
+            // Note: run.startX and row.y are absolute grid coordinates
             for (int i = 0; i < run.count; ++i) {
-                // Convert room-relative to absolute tile coordinates
-                int tx = room->rect.x + run.startX + i;
-                int ty = room->rect.y + row.y;
+                // Use absolute tile coordinates
+                int tx = run.startX + i;
+                int ty = row.y;
                 
                 // Convert tile coordinates to world pixel coordinates
                 float wx, wy;
