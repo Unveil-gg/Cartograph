@@ -54,7 +54,11 @@ std::string IOJson::SaveToString(const Model& model) {
         {"tileWidth", model.grid.tileWidth},
         {"tileHeight", model.grid.tileHeight},
         {"cols", model.grid.cols},
-        {"rows", model.grid.rows}
+        {"rows", model.grid.rows},
+        {"autoExpandGrid", model.grid.autoExpandGrid},
+        {"expansionThreshold", model.grid.expansionThreshold},
+        {"expansionFactor", model.grid.expansionFactor},
+        {"edgeHoverThreshold", model.grid.edgeHoverThreshold}
     };
     
     // Palette
@@ -90,6 +94,19 @@ std::string IOJson::SaveToString(const Model& model) {
             jRow["runs"].push_back(json::array({run.startX, run.count, run.tileId}));
         }
         j["tiles"].push_back(jRow);
+    }
+    
+    // Edges
+    j["edges"] = json::array();
+    for (const auto& [edgeId, state] : model.edges) {
+        if (state == EdgeState::None) continue;  // Skip empty edges
+        j["edges"].push_back({
+            {"x1", edgeId.x1},
+            {"y1", edgeId.y1},
+            {"x2", edgeId.x2},
+            {"y2", edgeId.y2},
+            {"state", static_cast<int>(state)}
+        });
     }
     
     // Doors
@@ -173,6 +190,13 @@ bool IOJson::LoadFromString(const std::string& jsonStr, Model& outModel) {
             }
             outModel.grid.cols = grid.value("cols", 256);
             outModel.grid.rows = grid.value("rows", 256);
+            
+            // Edge configuration (optional, with defaults)
+            outModel.grid.autoExpandGrid = grid.value("autoExpandGrid", true);
+            outModel.grid.expansionThreshold = grid.value("expansionThreshold", 3);
+            outModel.grid.expansionFactor = grid.value("expansionFactor", 1.5f);
+            outModel.grid.edgeHoverThreshold = 
+                grid.value("edgeHoverThreshold", 0.2f);
         }
         
         // Palette
@@ -224,6 +248,25 @@ bool IOJson::LoadFromString(const std::string& jsonStr, Model& outModel) {
                     }
                 }
                 outModel.tiles.push_back(tr);
+            }
+        }
+        
+        // Edges
+        if (j.contains("edges")) {
+            outModel.edges.clear();
+            for (const auto& edge : j["edges"]) {
+                EdgeId edgeId;
+                edgeId.x1 = edge.value("x1", 0);
+                edgeId.y1 = edge.value("y1", 0);
+                edgeId.x2 = edge.value("x2", 0);
+                edgeId.y2 = edge.value("y2", 0);
+                
+                int stateInt = edge.value("state", 0);
+                EdgeState state = static_cast<EdgeState>(stateInt);
+                
+                if (state != EdgeState::None) {
+                    outModel.edges[edgeId] = state;
+                }
             }
         }
         

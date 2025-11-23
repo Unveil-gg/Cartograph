@@ -1,12 +1,11 @@
 #pragma once
 
+#include "Model.h"
 #include <memory>
 #include <vector>
 #include <string>
 
 namespace Cartograph {
-
-class Model;
 
 /**
  * Abstract command interface for undo/redo.
@@ -170,6 +169,30 @@ public:
     void Execute(Model& model) override {}
     void Undo(Model& model) override {}
     std::string GetDescription() const override { return "Modify Room"; }
+};
+
+/**
+ * Command to modify edges (walls/doors).
+ * Supports coalescing for continuous edge clicks.
+ */
+class ModifyEdgesCommand : public ICommand {
+public:
+    struct EdgeChange {
+        EdgeId edgeId;
+        EdgeState oldState;
+        EdgeState newState;
+    };
+    
+    ModifyEdgesCommand(const std::vector<EdgeChange>& changes);
+    
+    void Execute(Model& model) override;
+    void Undo(Model& model) override;
+    std::string GetDescription() const override;
+    bool TryCoalesce(ICommand* other, uint64_t timeDelta, 
+                     float distanceSq) override;
+    
+private:
+    std::vector<EdgeChange> m_changes;
 };
 
 } // namespace Cartograph

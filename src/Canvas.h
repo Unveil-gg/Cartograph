@@ -29,7 +29,8 @@ public:
         IRenderer& renderer,
         const Model& model,
         int viewportX, int viewportY,
-        int viewportW, int viewportH
+        int viewportW, int viewportH,
+        const EdgeId* hoveredEdge = nullptr
     );
     
     // Coordinate transformations
@@ -59,6 +60,8 @@ private:
     void RenderGrid(IRenderer& renderer, const GridConfig& grid);
     void RenderRooms(IRenderer& renderer, const Model& model);
     void RenderTiles(IRenderer& renderer, const Model& model);
+    void RenderEdges(IRenderer& renderer, const Model& model,
+                    const EdgeId* hoveredEdge);
     void RenderDoors(IRenderer& renderer, const Model& model);
     void RenderMarkers(IRenderer& renderer, const Model& model);
     

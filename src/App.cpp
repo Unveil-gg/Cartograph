@@ -160,6 +160,9 @@ void App::ShowEditor() {
         worldRoom.color = Color(0.0f, 0.0f, 0.0f, 0.0f);  // Invisible
         worldRoom.notes = "Global paint area";
         m_model.rooms.push_back(worldRoom);
+        
+        // Generate perimeter walls for the world room
+        m_model.GenerateRoomPerimeterWalls(worldRoom);
     }
 }
 

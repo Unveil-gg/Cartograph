@@ -42,6 +42,12 @@ struct GridConfig {
     int tileHeight = 16;  // pixels per tile height at 1:1 zoom
     int cols = 256;       // grid width in tiles
     int rows = 256;       // grid height in tiles
+    
+    // Edge configuration
+    bool autoExpandGrid = true;       // Auto-expand when near boundaries
+    int expansionThreshold = 3;       // cells from edge to trigger expansion
+    float expansionFactor = 1.5f;     // 50% growth
+    float edgeHoverThreshold = 0.2f;  // 20% of cell size
 };
 
 // ============================================================================
@@ -95,7 +101,69 @@ struct TileRow {
 using TileData = std::vector<TileRow>;
 
 // ============================================================================
-// Doors
+// Edges (Walls & Doors)
+// ============================================================================
+
+// Edge state for cell boundaries
+enum class EdgeState {
+    None = 0,   // No edge (empty)
+    Wall = 1,   // Solid wall
+    Door = 2    // Door (dashed line)
+};
+
+// Edge orientation relative to a cell
+enum class EdgeSide {
+    North,  // Top edge
+    South,  // Bottom edge
+    East,   // Right edge
+    West    // Left edge
+};
+
+// Edge identifier (shared between adjacent cells)
+struct EdgeId {
+    int x1, y1;  // First cell position
+    int x2, y2;  // Second cell position (adjacent)
+    
+    EdgeId() : x1(0), y1(0), x2(0), y2(0) {}
+    EdgeId(int x1, int y1, int x2, int y2) 
+        : x1(x1), y1(y1), x2(x2), y2(y2) {
+        // Normalize so x1,y1 is always "smaller" for consistent hashing
+        if (x1 > x2 || (x1 == x2 && y1 > y2)) {
+            std::swap(this->x1, this->x2);
+            std::swap(this->y1, this->y2);
+        }
+    }
+    
+    bool operator==(const EdgeId& other) const {
+        return x1 == other.x1 && y1 == other.y1 && 
+               x2 == other.x2 && y2 == other.y2;
+    }
+};
+
+// Hash function for EdgeId
+struct EdgeIdHash {
+    std::size_t operator()(const EdgeId& e) const {
+        // Simple hash combining all coordinates
+        return std::hash<int>()(e.x1) ^ 
+               (std::hash<int>()(e.y1) << 1) ^
+               (std::hash<int>()(e.x2) << 2) ^
+               (std::hash<int>()(e.y2) << 3);
+    }
+};
+
+// Helper to create EdgeId from cell and side
+inline EdgeId MakeEdgeId(int cellX, int cellY, EdgeSide side) {
+    switch (side) {
+        case EdgeSide::North: return EdgeId(cellX, cellY, cellX, cellY - 1);
+        case EdgeSide::South: return EdgeId(cellX, cellY, cellX, cellY + 1);
+        case EdgeSide::East:  return EdgeId(cellX, cellY, cellX + 1, cellY);
+        case EdgeSide::West:  return EdgeId(cellX, cellY, cellX - 1, cellY);
+    }
+    return EdgeId();
+}
+
+// ============================================================================
+// Doors (Legacy - kept for compatibility)
 // ============================================================================
 
 enum class DoorSide {
@@ -161,7 +229,9 @@ struct Theme {
     Color gridLine;
     Color roomOutline;
     Color roomFill;
-    Color doorColor;
+    Color wallColor;       // Solid wall lines
+    Color doorColor;       // Door (dashed) lines
+    Color edgeHoverColor;  // Edge hover highlight
     Color markerColor;
     Color textColor;
 };
@@ -188,7 +258,8 @@ public:
     Palette palette;
     std::vector<Room> rooms;
     TileData tiles;
-    std::vector<Door> doors;
+    std::unordered_map<EdgeId, EdgeState, EdgeIdHash> edges;  // Cell edges
+    std::vector<Door> doors;  // Legacy door connections
     std::vector<Marker> markers;
     Keymap keymap;
     Theme theme;
@@ -206,6 +277,17 @@ public:
     int GetTileAt(const std::string& roomId, int x, int y) const;
     void SetTileAt(const std::string& roomId, int x, int y, int tileId);
     bool HasDoorAt(const std::string& roomId, int x, int y) const;
+    
+    // Edge queries
+    EdgeState GetEdgeState(const EdgeId& edgeId) const;
+    void SetEdgeState(const EdgeId& edgeId, EdgeState state);
+    EdgeState CycleEdgeState(EdgeState current);  // Cycle through states
+    
+    // Grid expansion
+    void ExpandGridIfNeeded(int cellX, int cellY);
+    
+    // Room helpers
+    void GenerateRoomPerimeterWalls(const Room& room);
     
     // Initialize defaults
     void InitDefaults();

@@ -125,7 +125,7 @@ public:
     
     // Current tool
     enum class Tool {
-        Move, Select, Paint, Erase, Fill, Rectangle, Door, Marker, Eyedropper
+        Move, Select, Paint, Erase, Fill, Rectangle, Marker, Eyedropper
     } currentTool = Tool::Move;
     
     // Selection state (for Select tool)
@@ -141,6 +141,12 @@ public:
     int lastPaintedTileY = -1;
     std::vector<PaintTilesCommand::TileChange> currentPaintChanges;
     bool twoFingerEraseActive = false;
+    
+    // Edge modification state (for Paint tool)
+    bool isModifyingEdges = false;
+    std::vector<ModifyEdgesCommand::EdgeChange> currentEdgeChanges;
+    EdgeId hoveredEdge;
+    bool isHoveringEdge = false;
     
 private:
     void RenderMenuBar(Model& model, Canvas& canvas, History& history);
@@ -172,6 +178,24 @@ private:
      * @param dockspaceId ImGui dockspace ID
      */
     void BuildFixedLayout(ImGuiID dockspaceId);
+    
+    /**
+     * Detect if mouse position is near a cell edge.
+     * @param mouseX Screen mouse X
+     * @param mouseY Screen mouse Y
+     * @param canvas Canvas for coordinate conversion
+     * @param grid Grid configuration
+     * @param outEdgeId Output: detected edge ID
+     * @param outEdgeSide Output: which side of the cell
+     * @return true if near an edge
+     */
+    bool DetectEdgeHover(
+        float mouseX, float mouseY,
+        const Canvas& canvas,
+        const GridConfig& grid,
+        EdgeId* outEdgeId,
+        EdgeSide* outEdgeSide
+    );
     
     std::vector<Toast> m_toasts;
     float m_statusBarHeight = 24.0f;

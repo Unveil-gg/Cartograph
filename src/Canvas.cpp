@@ -21,7 +21,8 @@ void Canvas::Render(
     IRenderer& renderer,
     const Model& model,
     int viewportX, int viewportY,
-    int viewportW, int viewportH
+    int viewportW, int viewportH,
+    const EdgeId* hoveredEdge
 ) {
     m_vpX = viewportX;
     m_vpY = viewportY;
@@ -39,12 +40,13 @@ void Canvas::Render(
         true  // Intersect with current clip rect
     );
     
-    // Render in order: grid, rooms, tiles, doors, markers
+    // Render in order: grid, rooms, tiles, edges, doors, markers
     if (showGrid) {
         RenderGrid(renderer, model.grid);
     }
     RenderRooms(renderer, model);
     RenderTiles(renderer, model);
+    RenderEdges(renderer, model, hoveredEdge);
     RenderDoors(renderer, model);
     RenderMarkers(renderer, model);
     
@@ -242,11 +244,100 @@ void Canvas::RenderTiles(IRenderer& renderer, const Model& model) {
     }
 }
 
+void Canvas::RenderEdges(
+    IRenderer& renderer,
+    const Model& model,
+    const EdgeId* hoveredEdge
+) {
+    const int tileWidth = model.grid.tileWidth;
+    const int tileHeight = model.grid.tileHeight;
+    const Color wallColor = model.theme.wallColor;
+    const Color doorColor = model.theme.doorColor;
+    const Color hoverColor = model.theme.edgeHoverColor;
+    
+    // Render all edges in the model
+    for (const auto& [edgeId, state] : model.edges) {
+        if (state == EdgeState::None) continue;
+        
+        // Calculate edge line endpoints in world coordinates
+        float wx1 = edgeId.x1 * tileWidth;
+        float wy1 = edgeId.y1 * tileHeight;
+        float wx2 = edgeId.x2 * tileWidth;
+        float wy2 = edgeId.y2 * tileHeight;
+        
+        // Determine which edge this is (horizontal or vertical)
+        bool isVertical = (edgeId.x1 != edgeId.x2);
+        
+        if (isVertical) {
+            // Vertical edge - draw between x1 and x2
+            wx1 = std::max(edgeId.x1, edgeId.x2) * tileWidth;
+            wx2 = wx1;
+            wy1 = std::min(edgeId.y1, edgeId.y2) * tileHeight;
+            wy2 = wy1 + tileHeight;
+        } else {
+            // Horizontal edge - draw between y1 and y2
+            wy1 = std::max(edgeId.y1, edgeId.y2) * tileHeight;
+            wy2 = wy1;
+            wx1 = std::min(edgeId.x1, edgeId.x2) * tileWidth;
+            wx2 = wx1 + tileWidth;
+        }
+        
+        // Convert to screen coordinates
+        float sx1, sy1, sx2, sy2;
+        WorldToScreen(wx1, wy1, &sx1, &sy1);
+        WorldToScreen(wx2, wy2, &sx2, &sy2);
+        
+        // Determine color and style
+        Color lineColor = (state == EdgeState::Wall) ? wallColor : doorColor;
+        float thickness = 2.0f * zoom;
+        
+        // Check if this edge is hovered
+        bool isHovered = false;
+        if (hoveredEdge) {
+            isHovered = (edgeId == *hoveredEdge);
+        }
+        
+        if (isHovered) {
+            // Draw hover highlight (thicker, semi-transparent)
+            renderer.DrawLine(sx1, sy1, sx2, sy2, hoverColor, 
+                            thickness * 2.0f);
+        }
+        
+        // Draw the edge
+        if (state == EdgeState::Wall) {
+            // Solid line for walls
+            renderer.DrawLine(sx1, sy1, sx2, sy2, lineColor, thickness);
+        } else {
+            // Dashed line for doors
+            float dx = sx2 - sx1;
+            float dy = sy2 - sy1;
+            float len = std::sqrt(dx * dx + dy * dy);
+            float dashLen = 8.0f;
+            float gapLen = 4.0f;
+            float totalLen = dashLen + gapLen;
+            int numDashes = static_cast<int>(len / totalLen);
+            
+            for (int i = 0; i <= numDashes; ++i) {
+                float t1 = (i * totalLen) / len;
+                float t2 = std::min(1.0f, (i * totalLen + dashLen) / len);
+                
+                float dx1 = sx1 + dx * t1;
+                float dy1 = sy1 + dy * t1;
+                float dx2 = sx1 + dx * t2;
+                float dy2 = sy1 + dy * t2;
+                
+                renderer.DrawLine(dx1, dy1, dx2, dy2, lineColor, thickness);
+            }
+        }
+    }
+}
+
 void Canvas::RenderDoors(IRenderer& renderer, const Model& model) {
     const int tileWidth = model.grid.tileWidth;
     const int tileHeight = model.grid.tileHeight;
     const Color doorColor(1.0f, 0.8f, 0.2f, 1.0f);
     
+    // Legacy door rendering (for compatibility)
     for (const auto& door : model.doors) {
         // Draw both endpoints
         for (int ep = 0; ep < 2; ++ep) {

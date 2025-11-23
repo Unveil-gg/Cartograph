@@ -401,15 +401,15 @@ void UI::RenderToolsPanel(Model& model) {
     ImGui::Separator();
     
     const char* toolNames[] = {
-        "Move", "Select", "Paint", "Erase", "Fill", "Rectangle", "Door", 
+        "Move", "Select", "Paint", "Erase", "Fill", "Rectangle", 
         "Marker", "Eyedropper"
     };
     
     const char* toolShortcuts[] = {
-        "V", "S", "B", "", "F", "", "", "", "I"
+        "V", "S", "B", "", "F", "", "", "I"
     };
     
-    for (int i = 0; i < 9; ++i) {
+    for (int i = 0; i < 8; ++i) {
         bool selected = (static_cast<int>(currentTool) == i);
         
         // Show tool name with optional shortcut
@@ -547,6 +547,67 @@ void UI::RenderPropertiesPanel(Model& model) {
     ImGui::End();
 }
 
+bool UI::DetectEdgeHover(
+    float mouseX, float mouseY,
+    const Canvas& canvas,
+    const GridConfig& grid,
+    EdgeId* outEdgeId,
+    EdgeSide* outEdgeSide
+) {
+    // Convert mouse to world coordinates
+    float worldX, worldY;
+    canvas.ScreenToWorld(mouseX, mouseY, &worldX, &worldY);
+    
+    // Calculate which tile we're in (using floor for proper tile indexing)
+    int tx = static_cast<int>(std::floor(worldX / grid.tileWidth));
+    int ty = static_cast<int>(std::floor(worldY / grid.tileHeight));
+    
+    // Calculate position within the tile (0.0 to 1.0)
+    float tileWorldX = tx * grid.tileWidth;
+    float tileWorldY = ty * grid.tileHeight;
+    float relX = (worldX - tileWorldX) / grid.tileWidth;
+    float relY = (worldY - tileWorldY) / grid.tileHeight;
+    
+    // Clamp to [0, 1] (should already be, but just in case)
+    relX = std::max(0.0f, std::min(1.0f, relX));
+    relY = std::max(0.0f, std::min(1.0f, relY));
+    
+    // Threshold for edge detection (configurable)
+    float threshold = grid.edgeHoverThreshold;
+    
+    // Find the closest edge
+    float distToNorth = relY;
+    float distToSouth = 1.0f - relY;
+    float distToWest = relX;
+    float distToEast = 1.0f - relX;
+    
+    float minDist = std::min({distToNorth, distToSouth, distToWest, distToEast});
+    
+    // Only trigger if within threshold
+    if (minDist > threshold) {
+        return false;
+    }
+    
+    // Return the closest edge
+    if (minDist == distToNorth) {
+        *outEdgeId = MakeEdgeId(tx, ty, EdgeSide::North);
+        *outEdgeSide = EdgeSide::North;
+        return true;
+    } else if (minDist == distToSouth) {
+        *outEdgeId = MakeEdgeId(tx, ty, EdgeSide::South);
+        *outEdgeSide = EdgeSide::South;
+        return true;
+    } else if (minDist == distToWest) {
+        *outEdgeId = MakeEdgeId(tx, ty, EdgeSide::West);
+        *outEdgeSide = EdgeSide::West;
+        return true;
+    } else {  // distToEast
+        *outEdgeId = MakeEdgeId(tx, ty, EdgeSide::East);
+        *outEdgeSide = EdgeSide::East;
+        return true;
+    }
+}
+
 void UI::RenderCanvasPanel(
     IRenderer& renderer,
     Model& model, 
@@ -645,164 +706,231 @@ void UI::RenderCanvasPanel(
             }
         }
         else if (currentTool == Tool::Paint) {
-            // Paint tool: Left mouse to paint with selected tile
-            // Hold E key + left mouse to erase (alternative to right-click)
-            // Two-finger touch also erases
-            bool shouldPaint = false;
-            bool shouldErase = false;
+            // Paint tool: 
+            // - Hover over edge: highlight and show state
+            // - Click edge: cycle through None -> Wall -> Door -> None
+            // - W key + click: set to Wall
+            // - D key + click: set to Door
+            // - Otherwise: paint/erase tiles
             
-            // Check for two-finger gesture (acts as erase)
-            // Right-click is often mapped from two-finger tap
-            if (ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
-                shouldErase = true;
-                twoFingerEraseActive = true;
-            }
-            // Check for E key + left mouse (erase modifier)
-            else if (ImGui::IsMouseDown(ImGuiMouseButton_Left) && 
-                     ImGui::IsKeyDown(ImGuiKey_E)) {
-                shouldErase = true;
-            }
-            // Check for left mouse button (primary paint input)
-            else if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-                shouldPaint = true;
-            }
+            ImVec2 mousePos = ImGui::GetMousePos();
             
-            if (shouldPaint) {
-                ImVec2 mousePos = ImGui::GetMousePos();
+            // First, check if we're hovering near an edge
+            EdgeId edgeId;
+            EdgeSide edgeSide;
+            isHoveringEdge = DetectEdgeHover(
+                mousePos.x, mousePos.y, canvas, model.grid,
+                &edgeId, &edgeSide
+            );
+            
+            if (isHoveringEdge) {
+                hoveredEdge = edgeId;
                 
-                // Convert mouse position to tile coordinates
-                int tx, ty;
-                canvas.ScreenToTile(
-                    mousePos.x, mousePos.y,
-                    model.grid.tileWidth, model.grid.tileHeight,
-                    &tx, &ty
-                );
-                
-                // Check if we've moved to a new tile or just started
-                if (!isPainting || tx != lastPaintedTileX || 
-                    ty != lastPaintedTileY) {
+                // Handle edge clicking
+                if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+                    EdgeState currentState = model.GetEdgeState(edgeId);
+                    EdgeState newState;
                     
-                    // Find which room this tile belongs to
-                    Room* targetRoom = nullptr;
-                    for (auto& room : model.rooms) {
-                        if (room.rect.Contains(tx, ty)) {
-                            targetRoom = &room;
-                            break;
-                        }
+                    // Check for direct state shortcuts
+                    if (ImGui::IsKeyDown(ImGuiKey_W)) {
+                        newState = EdgeState::Wall;
+                    } else if (ImGui::IsKeyDown(ImGuiKey_D)) {
+                        newState = EdgeState::Door;
+                    } else {
+                        // Cycle through states
+                        newState = model.CycleEdgeState(currentState);
                     }
                     
-                    if (targetRoom) {
-                        // Convert to room-relative coordinates
-                        int roomX = tx - targetRoom->rect.x;
-                        int roomY = ty - targetRoom->rect.y;
+                    // Only modify if state changed
+                    if (newState != currentState) {
+                        ModifyEdgesCommand::EdgeChange change;
+                        change.edgeId = edgeId;
+                        change.oldState = currentState;
+                        change.newState = newState;
                         
-                        // Get old tile value
-                        int oldTileId = model.GetTileAt(
-                            targetRoom->id, roomX, roomY
+                        currentEdgeChanges.push_back(change);
+                        
+                        // Apply immediately for visual feedback
+                        model.SetEdgeState(edgeId, newState);
+                        
+                        // Trigger grid expansion if needed
+                        int tx, ty;
+                        canvas.ScreenToTile(
+                            mousePos.x, mousePos.y,
+                            model.grid.tileWidth, model.grid.tileHeight,
+                            &tx, &ty
                         );
+                        model.ExpandGridIfNeeded(tx, ty);
                         
-                        // Only paint if the tile is different
-                        if (oldTileId != selectedTileId) {
-                            PaintTilesCommand::TileChange change;
-                            change.roomId = targetRoom->id;
-                            change.x = roomX;
-                            change.y = roomY;
-                            change.oldTileId = oldTileId;
-                            change.newTileId = selectedTileId;
-                            
-                            currentPaintChanges.push_back(change);
-                            
-                            // Apply immediately for visual feedback
-                            model.SetTileAt(
-                                targetRoom->id, roomX, roomY, selectedTileId
-                            );
-                        }
-                        
-                        lastPaintedTileX = tx;
-                        lastPaintedTileY = ty;
-                        isPainting = true;
+                        isModifyingEdges = true;
                     }
                 }
-            }
-            
-            
-            // Handle erase with E+Mouse1 or right-click/two-finger
-            if (shouldErase) {
-                ImVec2 mousePos = ImGui::GetMousePos();
                 
-                // Convert mouse position to tile coordinates
-                int tx, ty;
-                canvas.ScreenToTile(
-                    mousePos.x, mousePos.y,
-                    model.grid.tileWidth, model.grid.tileHeight,
-                    &tx, &ty
-                );
-                
-                // Check if we've moved to a new tile or just started
-                if (!isPainting || tx != lastPaintedTileX || 
-                    ty != lastPaintedTileY) {
-                    
-                    // Find which room this tile belongs to
-                    Room* targetRoom = nullptr;
-                    for (auto& room : model.rooms) {
-                        if (room.rect.Contains(tx, ty)) {
-                            targetRoom = &room;
-                            break;
-                        }
-                    }
-                    
-                    if (targetRoom) {
-                        // Convert to room-relative coordinates
-                        int roomX = tx - targetRoom->rect.x;
-                        int roomY = ty - targetRoom->rect.y;
-                        
-                        // Get old tile value
-                        int oldTileId = model.GetTileAt(
-                            targetRoom->id, roomX, roomY
+                // When mouse is released, commit edge changes
+                if (isModifyingEdges && 
+                    ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+                    if (!currentEdgeChanges.empty()) {
+                        auto cmd = std::make_unique<ModifyEdgesCommand>(
+                            currentEdgeChanges
                         );
-                        
-                        // Only erase if there's something to erase
-                        if (oldTileId != 0) {
-                            PaintTilesCommand::TileChange change;
-                            change.roomId = targetRoom->id;
-                            change.x = roomX;
-                            change.y = roomY;
-                            change.oldTileId = oldTileId;
-                            change.newTileId = 0;  // 0 = empty/erase
-                            
-                            currentPaintChanges.push_back(change);
-                            
-                            // Apply immediately for visual feedback
-                            model.SetTileAt(targetRoom->id, roomX, roomY, 0);
-                        }
-                        
-                        lastPaintedTileX = tx;
-                        lastPaintedTileY = ty;
-                        isPainting = true;
+                        history.AddCommand(std::move(cmd), model, false);
+                        currentEdgeChanges.clear();
                     }
+                    isModifyingEdges = false;
                 }
-            }
-            
-            // When mouse is released, commit the paint command
-            // Check both left and right mouse for release (right = two-finger)
-            bool mouseReleased = ImGui::IsMouseReleased(ImGuiMouseButton_Left) ||
-                                (twoFingerEraseActive && 
-                                 ImGui::IsMouseReleased(ImGuiMouseButton_Right));
-            
-            if (isPainting && mouseReleased) {
-                if (!currentPaintChanges.empty()) {
-                    auto cmd = std::make_unique<PaintTilesCommand>(
-                        currentPaintChanges
+            } else {
+                // Not hovering edge, handle tile painting/erasing
+                bool shouldPaint = false;
+                bool shouldErase = false;
+                
+                // Check for two-finger gesture (acts as erase)
+                if (ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
+                    shouldErase = true;
+                    twoFingerEraseActive = true;
+                }
+                // Check for E key + left mouse (erase modifier)
+                else if (ImGui::IsMouseDown(ImGuiMouseButton_Left) && 
+                         ImGui::IsKeyDown(ImGuiKey_E)) {
+                    shouldErase = true;
+                }
+                // Check for left mouse button (primary paint input)
+                else if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+                    shouldPaint = true;
+                }
+                
+                if (shouldPaint) {
+                    // Convert mouse position to tile coordinates
+                    int tx, ty;
+                    canvas.ScreenToTile(
+                        mousePos.x, mousePos.y,
+                        model.grid.tileWidth, model.grid.tileHeight,
+                        &tx, &ty
                     );
-                    // Changes already applied, just store for undo/redo
-                    history.AddCommand(std::move(cmd), model, false);
-                    currentPaintChanges.clear();
+                    
+                    // Check if we've moved to a new tile or just started
+                    if (!isPainting || tx != lastPaintedTileX || 
+                        ty != lastPaintedTileY) {
+                        
+                        // Find which room this tile belongs to
+                        Room* targetRoom = nullptr;
+                        for (auto& room : model.rooms) {
+                            if (room.rect.Contains(tx, ty)) {
+                                targetRoom = &room;
+                                break;
+                            }
+                        }
+                        
+                        if (targetRoom) {
+                            // Convert to room-relative coordinates
+                            int roomX = tx - targetRoom->rect.x;
+                            int roomY = ty - targetRoom->rect.y;
+                            
+                            // Get old tile value
+                            int oldTileId = model.GetTileAt(
+                                targetRoom->id, roomX, roomY
+                            );
+                            
+                            // Only paint if the tile is different
+                            if (oldTileId != selectedTileId) {
+                                PaintTilesCommand::TileChange change;
+                                change.roomId = targetRoom->id;
+                                change.x = roomX;
+                                change.y = roomY;
+                                change.oldTileId = oldTileId;
+                                change.newTileId = selectedTileId;
+                                
+                                currentPaintChanges.push_back(change);
+                                
+                                // Apply immediately for visual feedback
+                                model.SetTileAt(
+                                    targetRoom->id, roomX, roomY, selectedTileId
+                                );
+                            }
+                            
+                            lastPaintedTileX = tx;
+                            lastPaintedTileY = ty;
+                            isPainting = true;
+                        }
+                    }
                 }
-                isPainting = false;
-                lastPaintedTileX = -1;
-                lastPaintedTileY = -1;
-                twoFingerEraseActive = false;
-            }
+                
+                
+                // Handle erase with E+Mouse1 or right-click/two-finger
+                if (shouldErase) {
+                    // Convert mouse position to tile coordinates
+                    int tx, ty;
+                    canvas.ScreenToTile(
+                        mousePos.x, mousePos.y,
+                        model.grid.tileWidth, model.grid.tileHeight,
+                        &tx, &ty
+                    );
+                    
+                    // Check if we've moved to a new tile or just started
+                    if (!isPainting || tx != lastPaintedTileX || 
+                        ty != lastPaintedTileY) {
+                        
+                        // Find which room this tile belongs to
+                        Room* targetRoom = nullptr;
+                        for (auto& room : model.rooms) {
+                            if (room.rect.Contains(tx, ty)) {
+                                targetRoom = &room;
+                                break;
+                            }
+                        }
+                        
+                        if (targetRoom) {
+                            // Convert to room-relative coordinates
+                            int roomX = tx - targetRoom->rect.x;
+                            int roomY = ty - targetRoom->rect.y;
+                            
+                            // Get old tile value
+                            int oldTileId = model.GetTileAt(
+                                targetRoom->id, roomX, roomY
+                            );
+                            
+                            // Only erase if there's something to erase
+                            if (oldTileId != 0) {
+                                PaintTilesCommand::TileChange change;
+                                change.roomId = targetRoom->id;
+                                change.x = roomX;
+                                change.y = roomY;
+                                change.oldTileId = oldTileId;
+                                change.newTileId = 0;  // 0 = empty/erase
+                                
+                                currentPaintChanges.push_back(change);
+                                
+                                // Apply immediately for visual feedback
+                                model.SetTileAt(targetRoom->id, roomX, roomY, 0);
+                            }
+                            
+                            lastPaintedTileX = tx;
+                            lastPaintedTileY = ty;
+                            isPainting = true;
+                        }
+                    }
+                }
+                
+                // When mouse is released, commit the paint command
+                // Check both left and right mouse for release (right = two-finger)
+                bool mouseReleased = ImGui::IsMouseReleased(ImGuiMouseButton_Left) ||
+                                    (twoFingerEraseActive && 
+                                     ImGui::IsMouseReleased(ImGuiMouseButton_Right));
+                
+                if (isPainting && mouseReleased) {
+                    if (!currentPaintChanges.empty()) {
+                        auto cmd = std::make_unique<PaintTilesCommand>(
+                            currentPaintChanges
+                        );
+                        // Changes already applied, just store for undo/redo
+                        history.AddCommand(std::move(cmd), model, false);
+                        currentPaintChanges.clear();
+                    }
+                    isPainting = false;
+                    lastPaintedTileX = -1;
+                    lastPaintedTileY = -1;
+                    twoFingerEraseActive = false;
+                }
+            }  // End of "not hovering edge" block
         }
         else if (currentTool == Tool::Erase) {
             // Erase tool: Left mouse to erase (primary input)
@@ -1028,7 +1156,8 @@ void UI::RenderCanvasPanel(
         static_cast<int>(canvasPos.x),
         static_cast<int>(canvasPos.y),
         static_cast<int>(canvasSize.x),
-        static_cast<int>(canvasSize.y)
+        static_cast<int>(canvasSize.y),
+        isHoveringEdge ? &hoveredEdge : nullptr
     );
     
     // Draw selection rectangle if Select tool is active
@@ -1246,7 +1375,7 @@ void UI::RenderStatusBar(Model& model, Canvas& canvas) {
                 break;
             case Tool::Paint:
                 toolName = "Paint Tool";
-                toolHint = "Click to paint | Right-click or E+Click to erase";
+                toolHint = "Paint tiles | Hover edges: W=Wall D=Door Click=Cycle";
                 break;
             case Tool::Erase:
                 toolName = "Erase Tool";
@@ -1259,10 +1388,6 @@ void UI::RenderStatusBar(Model& model, Canvas& canvas) {
             case Tool::Rectangle:
                 toolName = "Rectangle Tool";
                 toolHint = "Drag to create room";
-                break;
-            case Tool::Door:
-                toolName = "Door Tool";
-                toolHint = "Click to place door";
                 break;
             case Tool::Marker:
                 toolName = "Marker Tool";
@@ -1293,7 +1418,7 @@ void UI::RenderStatusBar(Model& model, Canvas& canvas) {
         // Right section: Tool shortcuts
         ImGui::SameLine(0, 20);
         ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), 
-            "| Shortcuts: V=Move B=Paint F=Fill E=Erase I=Eyedropper");
+            "| Paint: B | Edges: W=Wall D=Door | V=Move F=Fill E=Erase I=Eyedropper");
     }
     
     ImGui::PopStyleVar();
@@ -1450,6 +1575,45 @@ void UI::RenderSettingsModal(Model& model) {
         ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
             "Total cells: %d | Canvas size: %dx%d px",
             totalCells, pixelWidth, pixelHeight);
+        
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        // Edge Configuration
+        ImGui::Text("Edge/Wall Configuration:");
+        
+        ImGui::Checkbox("Auto-expand grid", &model.grid.autoExpandGrid);
+        ImGui::SameLine();
+        if (ImGui::Button("?##autoexpand_settings")) {
+            ShowToast("Automatically expand grid when placing edges "
+                     "near boundaries", Toast::Type::Info, 4.0f);
+        }
+        
+        ImGui::SliderInt("Expansion threshold (cells)", 
+                        &model.grid.expansionThreshold, 1, 20);
+        ImGui::SameLine();
+        if (ImGui::Button("?##threshold_settings")) {
+            ShowToast("Distance from grid boundary to trigger expansion", 
+                     Toast::Type::Info, 4.0f);
+        }
+        
+        ImGui::SliderFloat("Expansion factor", &model.grid.expansionFactor, 
+                          1.1f, 3.0f, "%.1fx");
+        ImGui::SameLine();
+        if (ImGui::Button("?##factor_settings")) {
+            ShowToast("Grid growth multiplier (e.g., 1.5x = 50% growth)", 
+                     Toast::Type::Info, 4.0f);
+        }
+        
+        ImGui::SliderFloat("Edge hover threshold", 
+                          &model.grid.edgeHoverThreshold, 
+                          0.1f, 0.5f, "%.2f");
+        ImGui::SameLine();
+        if (ImGui::Button("?##hover_settings")) {
+            ShowToast("Distance from cell edge to activate edge mode "
+                     "(0.2 = 20% of cell size)", Toast::Type::Info, 4.0f);
+        }
         
         ImGui::Spacing();
         ImGui::Separator();

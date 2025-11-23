@@ -217,6 +217,104 @@ bool Model::HasDoorAt(const std::string& roomId, int x, int y) const {
     return false;
 }
 
+EdgeState Model::GetEdgeState(const EdgeId& edgeId) const {
+    auto it = edges.find(edgeId);
+    return (it != edges.end()) ? it->second : EdgeState::None;
+}
+
+void Model::SetEdgeState(const EdgeId& edgeId, EdgeState state) {
+    if (state == EdgeState::None) {
+        // Remove from map if state is None
+        edges.erase(edgeId);
+    } else {
+        edges[edgeId] = state;
+    }
+    MarkDirty();
+}
+
+EdgeState Model::CycleEdgeState(EdgeState current) {
+    // Cycle: None -> Wall -> Door -> None
+    switch (current) {
+        case EdgeState::None: return EdgeState::Wall;
+        case EdgeState::Wall: return EdgeState::Door;
+        case EdgeState::Door: return EdgeState::None;
+    }
+    return EdgeState::None;
+}
+
+void Model::ExpandGridIfNeeded(int cellX, int cellY) {
+    if (!grid.autoExpandGrid) {
+        return;
+    }
+    
+    // Check if we're near any boundary
+    bool needsExpansion = false;
+    int threshold = grid.expansionThreshold;
+    
+    if (cellX < threshold || cellX >= grid.cols - threshold ||
+        cellY < threshold || cellY >= grid.rows - threshold) {
+        needsExpansion = true;
+    }
+    
+    if (needsExpansion) {
+        int newCols = static_cast<int>(grid.cols * grid.expansionFactor);
+        int newRows = static_cast<int>(grid.rows * grid.expansionFactor);
+        
+        // Ensure minimum expansion
+        if (newCols <= grid.cols) newCols = grid.cols + 64;
+        if (newRows <= grid.rows) newRows = grid.rows + 64;
+        
+        grid.cols = newCols;
+        grid.rows = newRows;
+        MarkDirty();
+    }
+}
+
+void Model::GenerateRoomPerimeterWalls(const Room& room) {
+    // For each cell in the room, check all 4 edges
+    for (int cy = room.rect.y; cy < room.rect.y + room.rect.h; ++cy) {
+        for (int cx = room.rect.x; cx < room.rect.x + room.rect.w; ++cx) {
+            // Check all 4 sides
+            EdgeSide sides[] = {
+                EdgeSide::North, EdgeSide::South, 
+                EdgeSide::East, EdgeSide::West
+            };
+            
+            for (EdgeSide side : sides) {
+                EdgeId edgeId = MakeEdgeId(cx, cy, side);
+                
+                // Determine adjacent cell position
+                int adjX = cx;
+                int adjY = cy;
+                switch (side) {
+                    case EdgeSide::North: adjY = cy - 1; break;
+                    case EdgeSide::South: adjY = cy + 1; break;
+                    case EdgeSide::East:  adjX = cx + 1; break;
+                    case EdgeSide::West:  adjX = cx - 1; break;
+                }
+                
+                // Check if adjacent cell belongs to any room
+                bool adjacentInRoom = false;
+                for (const auto& otherRoom : rooms) {
+                    if (otherRoom.rect.Contains(adjX, adjY)) {
+                        adjacentInRoom = true;
+                        break;
+                    }
+                }
+                
+                // If adjacent cell is not in any room, add wall
+                // (unless there's already an edge there)
+                if (!adjacentInRoom) {
+                    EdgeState currentState = GetEdgeState(edgeId);
+                    if (currentState == EdgeState::None) {
+                        SetEdgeState(edgeId, EdgeState::Wall);
+                    }
+                }
+            }
+        }
+    }
+}
+
 void Model::InitDefaults() {
     InitDefaultPalette();
     InitDefaultKeymap();
@@ -249,9 +347,12 @@ void Model::InitDefaultKeymap() {
     keymap["eraseAlt"] = "E+Mouse1";  // Hold E key + left click to erase
     keymap["fill"] = "F";
     keymap["rect"] = "R";
-    keymap["door"] = "D";
     keymap["marker"] = "M";
     keymap["eyedropper"] = "I";  // Use I key for eyedropper
+    
+    // Edge actions (within Paint tool)
+    keymap["placeWall"] = "W";   // Direct wall placement
+    keymap["placeDoor"] = "D";   // Direct door placement
     
     // Tool switching shortcuts
     keymap["toolMove"] = "V";
@@ -292,7 +393,9 @@ void Model::InitDefaultTheme(const std::string& name) {
         theme.gridLine = Color(0.2f, 0.2f, 0.2f, 1.0f);
         theme.roomOutline = Color(0.8f, 0.8f, 0.8f, 1.0f);
         theme.roomFill = Color(0.15f, 0.15f, 0.15f, 0.8f);
-        theme.doorColor = Color(1.0f, 0.8f, 0.2f, 1.0f);
+        theme.wallColor = Color(0.0f, 0.0f, 0.0f, 1.0f);
+        theme.doorColor = Color(0.4f, 0.4f, 0.4f, 1.0f);
+        theme.edgeHoverColor = Color(0.0f, 1.0f, 0.0f, 0.6f);
         theme.markerColor = Color(0.3f, 0.8f, 0.3f, 1.0f);
         theme.textColor = Color(1.0f, 1.0f, 1.0f, 1.0f);
     } else if (name == "Print-Light") {
@@ -300,7 +403,9 @@ void Model::InitDefaultTheme(const std::string& name) {
         theme.gridLine = Color(0.85f, 0.85f, 0.85f, 1.0f);
         theme.roomOutline = Color(0.2f, 0.2f, 0.2f, 1.0f);
         theme.roomFill = Color(0.95f, 0.95f, 0.95f, 0.5f);
-        theme.doorColor = Color(0.8f, 0.6f, 0.0f, 1.0f);
+        theme.wallColor = Color(0.0f, 0.0f, 0.0f, 1.0f);
+        theme.doorColor = Color(0.6f, 0.6f, 0.6f, 1.0f);
+        theme.edgeHoverColor = Color(0.0f, 0.8f, 0.0f, 0.6f);
         theme.markerColor = Color(0.2f, 0.6f, 0.2f, 1.0f);
         theme.textColor = Color(0.0f, 0.0f, 0.0f, 1.0f);
     }
