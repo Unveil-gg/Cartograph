@@ -37,7 +37,6 @@ std::string GetAssetsDir() {
     const char* base = SDL_GetBasePath();
     if (base) {
         std::string path = std::string(base) + "../Resources/assets/";
-        SDL_free(const_cast<char*>(base));
         if (fs::exists(path)) {
             return path;
         }
@@ -47,7 +46,6 @@ std::string GetAssetsDir() {
     const char* basePath = SDL_GetBasePath();
     if (basePath) {
         std::string path = std::string(basePath) + "assets/";
-        SDL_free(const_cast<char*>(basePath));
         return path;
     }
     return "./assets/";
