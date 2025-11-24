@@ -1187,17 +1187,20 @@ void UI::RenderCanvasPanel(
                         // Paint tiles globally (using "" as roomId)
                         const std::string globalRoomId = "";
                         
-                        // Get tiles to paint (interpolate if dragging)
+                        // Detect if this is first tile of a new stroke
+                        bool isFirstTileOfStroke = !isPainting || 
+                            lastPaintedTileX < 0 || lastPaintedTileY < 0;
+                        
+                        // Get tiles to paint (interpolate only if continuing)
                         std::vector<std::pair<int, int>> tilesToPaint;
-                        if (isPainting && lastPaintedTileX >= 0 && 
-                            lastPaintedTileY >= 0) {
-                            // Interpolate from last position to current
+                        if (!isFirstTileOfStroke) {
+                            // Continuing stroke: interpolate to fill gaps
                             tilesToPaint = GetTilesAlongLine(
                                 lastPaintedTileX, lastPaintedTileY, 
                                 tx, ty
                             );
                         } else {
-                            // First tile
+                            // First tile of new stroke: no interpolation
                             tilesToPaint.push_back({tx, ty});
                         }
                         
@@ -1252,17 +1255,20 @@ void UI::RenderCanvasPanel(
                         // Erase tiles globally (using "" as roomId)
                         const std::string globalRoomId = "";
                         
-                        // Get tiles to erase (interpolate if dragging)
+                        // Detect if this is first tile of a new stroke
+                        bool isFirstTileOfStroke = !isPainting || 
+                            lastPaintedTileX < 0 || lastPaintedTileY < 0;
+                        
+                        // Get tiles to erase (interpolate only if continuing)
                         std::vector<std::pair<int, int>> tilesToErase;
-                        if (isPainting && lastPaintedTileX >= 0 && 
-                            lastPaintedTileY >= 0) {
-                            // Interpolate from last position to current
+                        if (!isFirstTileOfStroke) {
+                            // Continuing stroke: interpolate to fill gaps
                             tilesToErase = GetTilesAlongLine(
                                 lastPaintedTileX, lastPaintedTileY, 
                                 tx, ty
                             );
                         } else {
-                            // First tile
+                            // First tile of new stroke: no interpolation
                             tilesToErase.push_back({tx, ty});
                         }
                         
@@ -1402,16 +1408,19 @@ void UI::RenderCanvasPanel(
                         // Erase tiles globally (using "" as roomId)
                         const std::string globalRoomId = "";
                         
-                        // Get tiles to erase (interpolate if dragging)
+                        // Detect if this is first tile of a new stroke
+                        bool isFirstTileOfStroke = !isPainting || 
+                            lastPaintedTileX < 0 || lastPaintedTileY < 0;
+                        
+                        // Get tiles to erase (interpolate only if continuing)
                         std::vector<std::pair<int, int>> tilesToErase;
-                        if (isPainting && lastPaintedTileX >= 0 && 
-                            lastPaintedTileY >= 0) {
-                            // Interpolate from last position to current
+                        if (!isFirstTileOfStroke) {
+                            // Continuing stroke: interpolate to fill gaps
                             tilesToErase = GetTilesAlongLine(
                                 lastPaintedTileX, lastPaintedTileY, tx, ty
                             );
                         } else {
-                            // First tile
+                            // First tile of new stroke: no interpolation
                             tilesToErase.push_back({tx, ty});
                         }
                         
