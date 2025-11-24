@@ -1322,97 +1322,149 @@ void UI::RenderCanvasPanel(
         }
         else if (currentTool == Tool::Erase) {
             // Erase tool: Left mouse to erase (primary input)
+            // - Hover over edge: highlight and erase on click
+            // - Otherwise: erase tiles
             // Right-click also supported for consistency
-            bool shouldErase = false;
             
-            // Check for left mouse button (primary erase input)
-            if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-                shouldErase = true;
-            }
-            // Also support right-click for two-finger trackpad gestures
-            else if (ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
-                shouldErase = true;
-            }
+            ImVec2 mousePos = ImGui::GetMousePos();
             
-            if (shouldErase) {
-                ImVec2 mousePos = ImGui::GetMousePos();
+            // First, check if we're hovering near an edge
+            EdgeId edgeId;
+            EdgeSide edgeSide;
+            isHoveringEdge = DetectEdgeHover(
+                mousePos.x, mousePos.y, canvas, model.grid,
+                &edgeId, &edgeSide
+            );
+            
+            if (isHoveringEdge) {
+                hoveredEdge = edgeId;
                 
-                // Convert mouse position to tile coordinates
-                int tx, ty;
-                canvas.ScreenToTile(
-                    mousePos.x, mousePos.y,
-                    model.grid.tileWidth, model.grid.tileHeight,
-                    &tx, &ty
-                );
-                
-                // Check if we've moved to a new tile or just started
-                if (!isPainting || tx != lastPaintedTileX || 
-                    ty != lastPaintedTileY) {
+                // Handle edge deletion
+                if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) ||
+                    ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+                    EdgeState currentState = model.GetEdgeState(edgeId);
                     
-                    // Erase tiles globally (using "" as roomId)
-                    const std::string globalRoomId = "";
-                    
-                    // Get tiles to erase (interpolate if dragging)
-                    std::vector<std::pair<int, int>> tilesToErase;
-                    if (isPainting && lastPaintedTileX >= 0 && 
-                        lastPaintedTileY >= 0) {
-                        // Interpolate from last position to current
-                        tilesToErase = GetTilesAlongLine(
-                            lastPaintedTileX, lastPaintedTileY, tx, ty
-                        );
-                    } else {
-                        // First tile
-                        tilesToErase.push_back({tx, ty});
-                    }
-                    
-                    // Erase all tiles along the line
-                    for (const auto& tile : tilesToErase) {
-                        int tileX = tile.first;
-                        int tileY = tile.second;
+                    // Only delete if there's an edge to delete
+                    if (currentState != EdgeState::None) {
+                        ModifyEdgesCommand::EdgeChange change;
+                        change.edgeId = edgeId;
+                        change.oldState = currentState;
+                        change.newState = EdgeState::None;  // Delete edge
                         
-                        int oldTileId = model.GetTileAt(
-                            globalRoomId, tileX, tileY
-                        );
+                        currentEdgeChanges.push_back(change);
                         
-                        // Only erase if there's something to erase
-                        if (oldTileId != 0) {
-                            PaintTilesCommand::TileChange change;
-                            change.roomId = globalRoomId;
-                            change.x = tileX;
-                            change.y = tileY;
-                            change.oldTileId = oldTileId;
-                            change.newTileId = 0;  // 0 = empty/erase
-                            
-                            currentPaintChanges.push_back(change);
-                            
-                            // Apply immediately for visual feedback
-                            model.SetTileAt(globalRoomId, tileX, tileY, 0);
-                        }
+                        // Apply immediately for visual feedback
+                        model.SetEdgeState(edgeId, EdgeState::None);
+                        
+                        isModifyingEdges = true;
                     }
-                    
-                    lastPaintedTileX = tx;
-                    lastPaintedTileY = ty;
-                    isPainting = true;
                 }
-            }
-            
-            // When mouse is released, commit the erase command
-            // Check both left and right mouse for release
-            bool mouseReleased = ImGui::IsMouseReleased(ImGuiMouseButton_Left) ||
-                                 ImGui::IsMouseReleased(ImGuiMouseButton_Right);
-            
-            if (isPainting && mouseReleased) {
-                if (!currentPaintChanges.empty()) {
-                    auto cmd = std::make_unique<PaintTilesCommand>(
-                        currentPaintChanges
+                
+                // When mouse is released, commit edge changes
+                if (isModifyingEdges && 
+                    (ImGui::IsMouseReleased(ImGuiMouseButton_Left) ||
+                     ImGui::IsMouseReleased(ImGuiMouseButton_Right))) {
+                    if (!currentEdgeChanges.empty()) {
+                        auto cmd = std::make_unique<ModifyEdgesCommand>(
+                            currentEdgeChanges
+                        );
+                        history.AddCommand(std::move(cmd), model, false);
+                        currentEdgeChanges.clear();
+                    }
+                    isModifyingEdges = false;
+                }
+            } else {
+                // Not hovering edge, handle tile erasing
+                bool shouldErase = false;
+                
+                // Check for left mouse button (primary erase input)
+                if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+                    shouldErase = true;
+                }
+                // Also support right-click for two-finger trackpad gestures
+                else if (ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
+                    shouldErase = true;
+                }
+                
+                if (shouldErase) {
+                    // Convert mouse position to tile coordinates
+                    int tx, ty;
+                    canvas.ScreenToTile(
+                        mousePos.x, mousePos.y,
+                        model.grid.tileWidth, model.grid.tileHeight,
+                        &tx, &ty
                     );
-                    // Changes already applied, just store for undo/redo
-                    history.AddCommand(std::move(cmd), model, false);
-                    currentPaintChanges.clear();
+                    
+                    // Check if we've moved to a new tile or just started
+                    if (!isPainting || tx != lastPaintedTileX || 
+                        ty != lastPaintedTileY) {
+                        
+                        // Erase tiles globally (using "" as roomId)
+                        const std::string globalRoomId = "";
+                        
+                        // Get tiles to erase (interpolate if dragging)
+                        std::vector<std::pair<int, int>> tilesToErase;
+                        if (isPainting && lastPaintedTileX >= 0 && 
+                            lastPaintedTileY >= 0) {
+                            // Interpolate from last position to current
+                            tilesToErase = GetTilesAlongLine(
+                                lastPaintedTileX, lastPaintedTileY, tx, ty
+                            );
+                        } else {
+                            // First tile
+                            tilesToErase.push_back({tx, ty});
+                        }
+                        
+                        // Erase all tiles along the line
+                        for (const auto& tile : tilesToErase) {
+                            int tileX = tile.first;
+                            int tileY = tile.second;
+                            
+                            int oldTileId = model.GetTileAt(
+                                globalRoomId, tileX, tileY
+                            );
+                            
+                            // Only erase if there's something to erase
+                            if (oldTileId != 0) {
+                                PaintTilesCommand::TileChange change;
+                                change.roomId = globalRoomId;
+                                change.x = tileX;
+                                change.y = tileY;
+                                change.oldTileId = oldTileId;
+                                change.newTileId = 0;  // 0 = empty/erase
+                                
+                                currentPaintChanges.push_back(change);
+                                
+                                // Apply immediately for visual feedback
+                                model.SetTileAt(globalRoomId, tileX, tileY, 0);
+                            }
+                        }
+                        
+                        lastPaintedTileX = tx;
+                        lastPaintedTileY = ty;
+                        isPainting = true;
+                    }
                 }
-                isPainting = false;
-                lastPaintedTileX = -1;
-                lastPaintedTileY = -1;
+                
+                // When mouse is released, commit the tile erase command
+                // Check both left and right mouse for release
+                bool mouseReleased = ImGui::IsMouseReleased(
+                    ImGuiMouseButton_Left
+                ) || ImGui::IsMouseReleased(ImGuiMouseButton_Right);
+                
+                if (isPainting && mouseReleased) {
+                    if (!currentPaintChanges.empty()) {
+                        auto cmd = std::make_unique<PaintTilesCommand>(
+                            currentPaintChanges
+                        );
+                        // Changes already applied, just store for undo/redo
+                        history.AddCommand(std::move(cmd), model, false);
+                        currentPaintChanges.clear();
+                    }
+                    isPainting = false;
+                    lastPaintedTileX = -1;
+                    lastPaintedTileY = -1;
+                }
             }
         }
         else if (currentTool == Tool::Fill) {
