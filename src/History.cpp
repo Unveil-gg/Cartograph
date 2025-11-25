@@ -309,27 +309,28 @@ std::string PlaceMarkerCommand::GetDescription() const {
 DeleteMarkerCommand::DeleteMarkerCommand(
     const std::vector<std::string>& markerIds
 ) {
-    // Will be filled in Execute when we capture marker state
-    m_deletedMarkers.clear();
+    m_markerIds = markerIds;
 }
 
 DeleteMarkerCommand::DeleteMarkerCommand(const std::string& markerId) {
-    // Single marker deletion
-    m_deletedMarkers.clear();
+    m_markerIds.push_back(markerId);
 }
 
 void DeleteMarkerCommand::Execute(Model& model) {
-    // Capture marker state before deleting (for undo)
+    // Capture marker state before deleting (for undo, only first time)
     if (m_deletedMarkers.empty()) {
-        // First execution - capture state
-        for (auto& marker : model.markers) {
-            m_deletedMarkers.push_back(marker);
+        // First execution - capture state of markers to delete
+        for (const auto& id : m_markerIds) {
+            const Marker* marker = model.FindMarker(id);
+            if (marker) {
+                m_deletedMarkers.push_back(*marker);
+            }
         }
     }
     
     // Delete markers
-    for (const auto& marker : m_deletedMarkers) {
-        model.RemoveMarker(marker.id);
+    for (const auto& id : m_markerIds) {
+        model.RemoveMarker(id);
     }
 }
 

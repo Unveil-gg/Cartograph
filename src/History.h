@@ -251,7 +251,8 @@ public:
     std::string GetDescription() const override;
     
 private:
-    std::vector<Marker> m_deletedMarkers;
+    std::vector<std::string> m_markerIds;      // IDs to delete
+    std::vector<Marker> m_deletedMarkers;      // Saved state for undo
 };
 
 /**

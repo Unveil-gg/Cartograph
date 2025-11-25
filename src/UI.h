@@ -159,6 +159,13 @@ public:
     // Edge modification state (for Paint tool)
     bool isModifyingEdges = false;
     std::vector<ModifyEdgesCommand::EdgeChange> currentEdgeChanges;
+    
+    // Marker tool state
+    std::string selectedIconName = "dot";  // Default icon
+    std::string markerLabel = "";
+    Color markerColor = Color(0.3f, 0.8f, 0.3f, 1.0f);  // Green
+    float markerScale = 1.0f;
+    Marker* selectedMarker = nullptr;  // For editing existing markers
     EdgeId hoveredEdge;
     bool isHoveringEdge = false;
     
@@ -187,7 +194,7 @@ private:
     );
     void RenderPalettePanel(Model& model);
     void RenderToolsPanel(Model& model);
-    void RenderPropertiesPanel(Model& model);
+    void RenderPropertiesPanel(Model& model, IconManager& icons);
     void RenderCanvasPanel(
         IRenderer& renderer,
         Model& model, 

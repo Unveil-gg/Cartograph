@@ -128,7 +128,7 @@ void UI::Render(
     // Render all panels (they will dock into the dockspace)
     RenderToolsPanel(model);
     RenderCanvasPanel(renderer, model, canvas, history, icons);
-    RenderPropertiesPanel(model);
+    RenderPropertiesPanel(model, icons);
     RenderStatusBar(model, canvas);
     
     // Render toasts
@@ -590,7 +590,7 @@ void UI::RenderToolsPanel(Model& model) {
     ImGui::End();
 }
 
-void UI::RenderPropertiesPanel(Model& model) {
+void UI::RenderPropertiesPanel(Model& model, IconManager& icons) {
     ImGuiWindowFlags flags = 
         ImGuiWindowFlags_NoMove | 
         ImGuiWindowFlags_NoCollapse;
@@ -809,6 +809,126 @@ void UI::RenderPropertiesPanel(Model& model) {
         }
         
         ImGui::EndPopup();
+    }
+    
+    // Marker properties
+    if (ImGui::CollapsingHeader("Markers", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::Text("Marker Tool Settings");
+        ImGui::Separator();
+        
+        // Label input
+        char labelBuf[128];
+        std::strncpy(labelBuf, markerLabel.c_str(), sizeof(labelBuf) - 1);
+        labelBuf[sizeof(labelBuf) - 1] = '\0';
+        
+        if (ImGui::InputText("Label", labelBuf, sizeof(labelBuf))) {
+            markerLabel = labelBuf;
+            
+            // Update selected marker if editing
+            if (selectedMarker) {
+                selectedMarker->label = markerLabel;
+                selectedMarker->showLabel = !markerLabel.empty();
+                model.MarkDirty();
+            }
+        }
+        
+        // Color picker
+        float colorArray[4] = {
+            markerColor.r, markerColor.g, markerColor.b, markerColor.a
+        };
+        
+        if (ImGui::ColorEdit4("Color", colorArray)) {
+            markerColor = Color(
+                colorArray[0], colorArray[1], 
+                colorArray[2], colorArray[3]
+            );
+            
+            // Update selected marker if editing
+            if (selectedMarker) {
+                selectedMarker->color = markerColor;
+                model.MarkDirty();
+            }
+        }
+        
+        // Scale slider
+        if (ImGui::SliderFloat("Scale", &markerScale, 0.5f, 2.0f)) {
+            // Update selected marker if editing
+            if (selectedMarker) {
+                selectedMarker->scale = markerScale;
+                model.MarkDirty();
+            }
+        }
+        
+        ImGui::Separator();
+        ImGui::Text("Selected Icon: %s", selectedIconName.c_str());
+        
+        // Icon picker
+        if (ImGui::BeginChild("IconPicker", ImVec2(0, 150), true)) {
+            ImGui::Text("Available Icons (%zu)", icons.GetIconCount());
+            ImGui::Separator();
+            
+            // Default icon if no icons loaded
+            if (icons.GetIconCount() == 0) {
+                ImGui::TextDisabled("No icons loaded");
+                
+                bool isSelected = (selectedIconName == "dot");
+                if (ImGui::Selectable("dot (fallback)", isSelected)) {
+                    selectedIconName = "dot";
+                }
+            } else {
+                // Show all loaded icons
+                // Built-in icons first
+                const char* builtInIcons[] = {
+                    "dot", "bench", "chest", "skull"
+                };
+                
+                ImGui::TextColored(ImVec4(0.5f, 0.7f, 1.0f, 1.0f), 
+                                  "Built-in:");
+                
+                for (const char* iconName : builtInIcons) {
+                    const Icon* icon = icons.GetIcon(iconName);
+                    if (icon) {
+                        bool isSelected = (selectedIconName == iconName);
+                        
+                        if (ImGui::Selectable(iconName, isSelected)) {
+                            selectedIconName = iconName;
+                            
+                            // Update selected marker if editing
+                            if (selectedMarker) {
+                                selectedMarker->icon = selectedIconName;
+                                model.MarkDirty();
+                            }
+                        }
+                    }
+                }
+                
+                // Imported icons
+                // (Would need IconManager::GetAllIconNames() to list them)
+                // For now, just show that more icons can be imported
+                if (isImportingIcon) {
+                    ImGui::Separator();
+                    ImGui::TextDisabled("Importing: %s...", 
+                                       importingIconName.c_str());
+                }
+            }
+            
+            ImGui::EndChild();
+        }
+        
+        // Actions
+        ImGui::Separator();
+        
+        if (selectedMarker) {
+            ImGui::Text("Editing marker:");
+            ImGui::TextDisabled("Position: (%.1f, %.1f)", 
+                               selectedMarker->x, selectedMarker->y);
+            
+            if (ImGui::Button("Deselect", ImVec2(-1, 0))) {
+                selectedMarker = nullptr;
+            }
+        } else {
+            ImGui::TextDisabled("Click to place new marker");
+        }
     }
     
     ImGui::End();
@@ -1616,6 +1736,70 @@ void UI::RenderCanvasPanel(
                     currentTool = Tool::Paint;
                 } else {
                     ShowToast("No tile to pick", Toast::Type::Info, 1.5f);
+                }
+            }
+        }
+        else if (currentTool == Tool::Marker) {
+            // Marker tool: Left-click to place/edit markers
+            if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+                ImVec2 mousePos = ImGui::GetMousePos();
+                
+                // Convert to world coordinates
+                float wx, wy;
+                canvas.ScreenToWorld(mousePos.x, mousePos.y, &wx, &wy);
+                
+                // Convert to fractional tile coordinates
+                float tileX = wx / model.grid.tileWidth;
+                float tileY = wy / model.grid.tileHeight;
+                
+                // Snap to center of tile (0.5 offset)
+                tileX = std::floor(tileX) + 0.5f;
+                tileY = std::floor(tileY) + 0.5f;
+                
+                // Check if we clicked near an existing marker
+                Marker* clickedMarker = 
+                    model.FindMarkerNear(tileX, tileY, 0.5f);
+                
+                if (clickedMarker && ImGui::IsKeyDown(ImGuiKey_LeftShift)) {
+                    // Shift+Click: Delete marker
+                    auto cmd = std::make_unique<DeleteMarkerCommand>(
+                        clickedMarker->id
+                    );
+                    history.AddCommand(std::move(cmd), model);
+                    
+                    ShowToast("Marker deleted", Toast::Type::Info);
+                } else if (clickedMarker) {
+                    // Click existing marker: Select for editing
+                    selectedMarker = clickedMarker;
+                    
+                    // Load marker properties into UI
+                    selectedIconName = clickedMarker->icon;
+                    markerLabel = clickedMarker->label;
+                    markerColor = clickedMarker->color;
+                    markerScale = clickedMarker->scale;
+                    
+                    ShowToast("Marker selected", Toast::Type::Info, 1.5f);
+                } else {
+                    // Place new marker
+                    Marker newMarker;
+                    newMarker.id = model.GenerateMarkerId();
+                    newMarker.roomId = "";  // Global for now
+                    newMarker.x = tileX;
+                    newMarker.y = tileY;
+                    newMarker.kind = "custom";
+                    newMarker.label = markerLabel;
+                    newMarker.icon = selectedIconName;
+                    newMarker.color = markerColor;
+                    newMarker.size = 0.6f;
+                    newMarker.scale = markerScale;
+                    newMarker.showLabel = !markerLabel.empty();
+                    
+                    auto cmd = std::make_unique<PlaceMarkerCommand>(
+                        newMarker, true
+                    );
+                    history.AddCommand(std::move(cmd), model);
+                    
+                    ShowToast("Marker placed", Toast::Type::Success, 1.5f);
                 }
             }
         }
