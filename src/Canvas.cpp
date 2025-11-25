@@ -7,7 +7,7 @@
 namespace Cartograph {
 
 Canvas::Canvas()
-    : offsetX(0.0f), offsetY(0.0f), zoom(1.0f), showGrid(true),
+    : offsetX(0.0f), offsetY(0.0f), zoom(2.5f), showGrid(true),
       m_vpX(0), m_vpY(0), m_vpW(0), m_vpH(0)
 {
 }
@@ -89,7 +89,7 @@ void Canvas::TileToWorld(
 }
 
 void Canvas::SetZoom(float newZoom) {
-    zoom = std::clamp(newZoom, 0.1f, 10.0f);
+    zoom = std::clamp(newZoom, 0.25f, 25.0f);
 }
 
 void Canvas::Pan(float dx, float dy) {

@@ -397,7 +397,7 @@ void UI::RenderMenuBar(Model& model, Canvas& canvas, History& history) {
                 canvas.SetZoom(canvas.zoom / 1.2f);
             }
             if (ImGui::MenuItem("Reset Zoom", "0")) {
-                canvas.SetZoom(1.0f);
+                canvas.SetZoom(2.5f);
             }
             ImGui::EndMenu();
         }
