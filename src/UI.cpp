@@ -1187,20 +1187,17 @@ void UI::RenderCanvasPanel(
                         // Paint tiles globally (using "" as roomId)
                         const std::string globalRoomId = "";
                         
-                        // Detect if this is first tile of a new stroke
-                        bool isFirstTileOfStroke = !isPainting || 
-                            lastPaintedTileX < 0 || lastPaintedTileY < 0;
-                        
-                        // Get tiles to paint (interpolate only if continuing)
+                        // Get tiles to paint (interpolate if dragging)
                         std::vector<std::pair<int, int>> tilesToPaint;
-                        if (!isFirstTileOfStroke) {
-                            // Continuing stroke: interpolate to fill gaps
+                        if (isPainting && lastPaintedTileX >= 0 && 
+                            lastPaintedTileY >= 0) {
+                            // Interpolate from last position to current
                             tilesToPaint = GetTilesAlongLine(
                                 lastPaintedTileX, lastPaintedTileY, 
                                 tx, ty
                             );
                         } else {
-                            // First tile of new stroke: no interpolation
+                            // First tile
                             tilesToPaint.push_back({tx, ty});
                         }
                         
@@ -1255,20 +1252,17 @@ void UI::RenderCanvasPanel(
                         // Erase tiles globally (using "" as roomId)
                         const std::string globalRoomId = "";
                         
-                        // Detect if this is first tile of a new stroke
-                        bool isFirstTileOfStroke = !isPainting || 
-                            lastPaintedTileX < 0 || lastPaintedTileY < 0;
-                        
-                        // Get tiles to erase (interpolate only if continuing)
+                        // Get tiles to erase (interpolate if dragging)
                         std::vector<std::pair<int, int>> tilesToErase;
-                        if (!isFirstTileOfStroke) {
-                            // Continuing stroke: interpolate to fill gaps
+                        if (isPainting && lastPaintedTileX >= 0 && 
+                            lastPaintedTileY >= 0) {
+                            // Interpolate from last position to current
                             tilesToErase = GetTilesAlongLine(
                                 lastPaintedTileX, lastPaintedTileY, 
                                 tx, ty
                             );
                         } else {
-                            // First tile of new stroke: no interpolation
+                            // First tile
                             tilesToErase.push_back({tx, ty});
                         }
                         
@@ -1302,27 +1296,6 @@ void UI::RenderCanvasPanel(
                         isPainting = true;
                     }
                 }
-                
-                // When mouse is released, commit the paint command
-                // Check both left and right mouse for release (right = two-finger)
-                bool mouseReleased = ImGui::IsMouseReleased(ImGuiMouseButton_Left) ||
-                                    (twoFingerEraseActive && 
-                                     ImGui::IsMouseReleased(ImGuiMouseButton_Right));
-                
-                if (isPainting && mouseReleased) {
-                    if (!currentPaintChanges.empty()) {
-                        auto cmd = std::make_unique<PaintTilesCommand>(
-                            currentPaintChanges
-                        );
-                        // Changes already applied, just store for undo/redo
-                        history.AddCommand(std::move(cmd), model, false);
-                        currentPaintChanges.clear();
-                    }
-                    isPainting = false;
-                    lastPaintedTileX = -1;
-                    lastPaintedTileY = -1;
-                    twoFingerEraseActive = false;
-                }
                 }  // End of "not hovering edge" block
             }  // End of "regular paint mode" block
         }
@@ -1346,8 +1319,10 @@ void UI::RenderCanvasPanel(
                 hoveredEdge = edgeId;
                 
                 // Handle edge deletion
-                if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) ||
-                    ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+                bool shouldEraseEdge = ImGui::IsMouseDown(ImGuiMouseButton_Left) ||
+                                      ImGui::IsMouseDown(ImGuiMouseButton_Right);
+                
+                if (shouldEraseEdge && !isModifyingEdges) {
                     EdgeState currentState = model.GetEdgeState(edgeId);
                     
                     // Only delete if there's an edge to delete
@@ -1364,20 +1339,6 @@ void UI::RenderCanvasPanel(
                         
                         isModifyingEdges = true;
                     }
-                }
-                
-                // When mouse is released, commit edge changes
-                if (isModifyingEdges && 
-                    (ImGui::IsMouseReleased(ImGuiMouseButton_Left) ||
-                     ImGui::IsMouseReleased(ImGuiMouseButton_Right))) {
-                    if (!currentEdgeChanges.empty()) {
-                        auto cmd = std::make_unique<ModifyEdgesCommand>(
-                            currentEdgeChanges
-                        );
-                        history.AddCommand(std::move(cmd), model, false);
-                        currentEdgeChanges.clear();
-                    }
-                    isModifyingEdges = false;
                 }
             } else {
                 // Not hovering edge, handle tile erasing
@@ -1408,19 +1369,16 @@ void UI::RenderCanvasPanel(
                         // Erase tiles globally (using "" as roomId)
                         const std::string globalRoomId = "";
                         
-                        // Detect if this is first tile of a new stroke
-                        bool isFirstTileOfStroke = !isPainting || 
-                            lastPaintedTileX < 0 || lastPaintedTileY < 0;
-                        
-                        // Get tiles to erase (interpolate only if continuing)
+                        // Get tiles to erase (interpolate if dragging)
                         std::vector<std::pair<int, int>> tilesToErase;
-                        if (!isFirstTileOfStroke) {
-                            // Continuing stroke: interpolate to fill gaps
+                        if (isPainting && lastPaintedTileX >= 0 && 
+                            lastPaintedTileY >= 0) {
+                            // Interpolate from last position to current
                             tilesToErase = GetTilesAlongLine(
                                 lastPaintedTileX, lastPaintedTileY, tx, ty
                             );
                         } else {
-                            // First tile of new stroke: no interpolation
+                            // First tile
                             tilesToErase.push_back({tx, ty});
                         }
                         
@@ -1453,26 +1411,6 @@ void UI::RenderCanvasPanel(
                         lastPaintedTileY = ty;
                         isPainting = true;
                     }
-                }
-                
-                // When mouse is released, commit the tile erase command
-                // Check both left and right mouse for release
-                bool mouseReleased = ImGui::IsMouseReleased(
-                    ImGuiMouseButton_Left
-                ) || ImGui::IsMouseReleased(ImGuiMouseButton_Right);
-                
-                if (isPainting && mouseReleased) {
-                    if (!currentPaintChanges.empty()) {
-                        auto cmd = std::make_unique<PaintTilesCommand>(
-                            currentPaintChanges
-                        );
-                        // Changes already applied, just store for undo/redo
-                        history.AddCommand(std::move(cmd), model, false);
-                        currentPaintChanges.clear();
-                    }
-                    isPainting = false;
-                    lastPaintedTileX = -1;
-                    lastPaintedTileY = -1;
                 }
             }
         }
@@ -1595,6 +1533,41 @@ void UI::RenderCanvasPanel(
                     ShowToast("No tile to pick", Toast::Type::Info, 1.5f);
                 }
             }
+        }
+    }
+    
+    // Handle mouse release for Paint/Erase tools (outside hover check)
+    // This ensures releases are detected even if mouse drifts outside canvas
+    if (currentTool == Tool::Paint || currentTool == Tool::Erase) {
+        // Check for paint/erase tile release
+        bool mouseReleased = ImGui::IsMouseReleased(ImGuiMouseButton_Left) ||
+                             ImGui::IsMouseReleased(ImGuiMouseButton_Right);
+        
+        if (isPainting && mouseReleased) {
+            if (!currentPaintChanges.empty()) {
+                auto cmd = std::make_unique<PaintTilesCommand>(
+                    currentPaintChanges
+                );
+                // Changes already applied, just store for undo/redo
+                history.AddCommand(std::move(cmd), model, false);
+                currentPaintChanges.clear();
+            }
+            isPainting = false;
+            lastPaintedTileX = -1;
+            lastPaintedTileY = -1;
+            twoFingerEraseActive = false;
+        }
+        
+        // Check for edge modification release (Erase tool)
+        if (isModifyingEdges && mouseReleased) {
+            if (!currentEdgeChanges.empty()) {
+                auto cmd = std::make_unique<ModifyEdgesCommand>(
+                    currentEdgeChanges
+                );
+                history.AddCommand(std::move(cmd), model, false);
+                currentEdgeChanges.clear();
+            }
+            isModifyingEdges = false;
         }
     }
     
