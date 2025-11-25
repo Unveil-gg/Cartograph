@@ -1711,41 +1711,60 @@ void UI::RenderCanvasPanel(
         float sh = model.grid.tileHeight * canvas.zoom;
         
         // Draw preview based on tool and state
-        ImU32 previewColor;
+        // TODO: Make these colors customizable in theme/settings
         if (currentTool == Tool::Erase || 
             (currentTool == Tool::Paint && ImGui::IsKeyDown(ImGuiKey_E))) {
-            // Erase preview (red outline)
-            previewColor = ImGui::GetColorU32(ImVec4(1.0f, 0.3f, 0.3f, 0.6f));
+            // Erase preview (red fill + red outline)
+            ImU32 eraseColor = ImGui::GetColorU32(
+                ImVec4(1.0f, 0.3f, 0.3f, 0.6f)
+            );
+            drawList->AddRect(
+                ImVec2(sx, sy),
+                ImVec2(sx + sw, sy + sh),
+                eraseColor,
+                0.0f,
+                0,
+                2.0f
+            );
         } else {
-            // Paint preview (show selected tile color)
+            // Paint preview (brightened tile color + white border)
             Color tileColor(0.8f, 0.8f, 0.8f, 0.4f);
             for (const auto& tile : model.palette) {
                 if (tile.id == selectedTileId) {
                     tileColor = tile.color;
-                    tileColor.a = 0.5f;  // Semi-transparent
                     break;
                 }
             }
-            previewColor = tileColor.ToU32();
-        }
-        
-        // Draw preview outline
-        drawList->AddRect(
-            ImVec2(sx, sy),
-            ImVec2(sx + sw, sy + sh),
-            previewColor,
-            0.0f,
-            0,
-            2.0f
-        );
-        
-        // Draw preview fill for paint mode
-        if (currentTool == Tool::Paint && 
-            !ImGui::IsKeyDown(ImGuiKey_E)) {
+            
+            // Brighten color by 30% for visibility
+            // TODO: Make brightness boost customizable
+            float brightenAmount = 0.3f;
+            Color brightened;
+            brightened.r = std::min(tileColor.r + brightenAmount, 1.0f);
+            brightened.g = std::min(tileColor.g + brightenAmount, 1.0f);
+            brightened.b = std::min(tileColor.b + brightenAmount, 1.0f);
+            brightened.a = 0.6f;  // Semi-transparent
+            
+            // Draw preview fill
             drawList->AddRectFilled(
                 ImVec2(sx, sy),
                 ImVec2(sx + sw, sy + sh),
-                previewColor
+                brightened.ToU32()
+            );
+            
+            // Draw white border for visibility
+            // TODO: Make border color/thickness customizable
+            ImU32 borderColor = ImGui::GetColorU32(
+                ImVec4(1.0f, 1.0f, 1.0f, 0.9f)
+            );
+            float borderThickness = 3.0f;
+            drawList->AddRect(
+                ImVec2(sx, sy),
+                ImVec2(sx + sw, sy + sh),
+                borderColor,
+                0.0f,
+                0,
+                borderThickness
             );
         }
         
