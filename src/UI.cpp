@@ -1767,18 +1767,20 @@ void UI::RenderCanvasPanel(
                     );
                     history.AddCommand(std::move(cmd), model);
                     
+                    selectedMarker = nullptr;  // Clear selection
                     ShowToast("Marker deleted", Toast::Type::Info);
                 } else if (clickedMarker) {
-                    // Click existing marker: Select for editing
+                    // Click existing marker: Select and start drag
                     selectedMarker = clickedMarker;
+                    isDraggingMarker = true;
+                    dragStartX = clickedMarker->x;
+                    dragStartY = clickedMarker->y;
                     
                     // Load marker properties into UI
                     selectedIconName = clickedMarker->icon;
                     markerLabel = clickedMarker->label;
                     markerColor = clickedMarker->color;
                     markerScale = clickedMarker->scale;
-                    
-                    ShowToast("Marker selected", Toast::Type::Info, 1.5f);
                 } else {
                     // Place new marker
                     Marker newMarker;
@@ -1800,6 +1802,44 @@ void UI::RenderCanvasPanel(
                     history.AddCommand(std::move(cmd), model);
                     
                     ShowToast("Marker placed", Toast::Type::Success, 1.5f);
+                }
+            }
+            
+            // Handle marker dragging
+            if (isDraggingMarker && selectedMarker) {
+                if (ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
+                    // Update marker position while dragging
+                    ImVec2 mousePos = ImGui::GetMousePos();
+                    
+                    float wx, wy;
+                    canvas.ScreenToWorld(mousePos.x, mousePos.y, &wx, &wy);
+                    
+                    float tileX = wx / model.grid.tileWidth;
+                    float tileY = wy / model.grid.tileHeight;
+                    
+                    // Snap to center of tile
+                    tileX = std::floor(tileX) + 0.5f;
+                    tileY = std::floor(tileY) + 0.5f;
+                    
+                    // Update marker position
+                    selectedMarker->x = tileX;
+                    selectedMarker->y = tileY;
+                    model.MarkDirty();
+                } else if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+                    // Finish dragging, create command for undo
+                    if (dragStartX != selectedMarker->x || 
+                        dragStartY != selectedMarker->y) {
+                        auto cmd = std::make_unique<MoveMarkersCommand>(
+                            selectedMarker->id,
+                            dragStartX, dragStartY,
+                            selectedMarker->x, selectedMarker->y
+                        );
+                        history.AddCommand(std::move(cmd), model, false);
+                        
+                        ShowToast("Marker moved", Toast::Type::Success, 1.5f);
+                    }
+                    
+                    isDraggingMarker = false;
                 }
             }
         }
@@ -1846,6 +1886,76 @@ void UI::RenderCanvasPanel(
         isSelecting = false;
     }
     
+    // Keyboard shortcuts for markers
+    if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)) {
+        // Copy selected marker (Cmd/Ctrl+C)
+        bool cmdC = ImGui::IsKeyDown(ImGuiKey_LeftCtrl) || 
+                   ImGui::IsKeyDown(ImGuiKey_RightCtrl);
+#ifdef __APPLE__
+        cmdC = cmdC || ImGui::IsKeyDown(ImGuiKey_LeftSuper) || 
+               ImGui::IsKeyDown(ImGuiKey_RightSuper);
+#endif
+        
+        if (cmdC && ImGui::IsKeyPressed(ImGuiKey_C, false)) {
+            if (selectedMarker) {
+                copiedMarkers.clear();
+                copiedMarkers.push_back(*selectedMarker);
+                ShowToast("Marker copied", Toast::Type::Info, 1.5f);
+            }
+        }
+        
+        // Paste marker (Cmd/Ctrl+V)
+        bool cmdV = ImGui::IsKeyDown(ImGuiKey_LeftCtrl) || 
+                   ImGui::IsKeyDown(ImGuiKey_RightCtrl);
+#ifdef __APPLE__
+        cmdV = cmdV || ImGui::IsKeyDown(ImGuiKey_LeftSuper) || 
+               ImGui::IsKeyDown(ImGuiKey_RightSuper);
+#endif
+        
+        if (cmdV && ImGui::IsKeyPressed(ImGuiKey_V, false)) {
+            if (!copiedMarkers.empty()) {
+                // Paste at mouse position or offset from original
+                ImVec2 mousePos = ImGui::GetMousePos();
+                float wx, wy;
+                canvas.ScreenToWorld(mousePos.x, mousePos.y, &wx, &wy);
+                
+                float tileX = wx / model.grid.tileWidth;
+                float tileY = wy / model.grid.tileHeight;
+                
+                // Snap to center
+                tileX = std::floor(tileX) + 0.5f;
+                tileY = std::floor(tileY) + 0.5f;
+                
+                for (const auto& marker : copiedMarkers) {
+                    Marker newMarker = marker;
+                    newMarker.id = model.GenerateMarkerId();
+                    newMarker.x = tileX;
+                    newMarker.y = tileY;
+                    
+                    auto cmd = std::make_unique<PlaceMarkerCommand>(
+                        newMarker, true
+                    );
+                    history.AddCommand(std::move(cmd), model);
+                }
+                
+                ShowToast("Marker pasted", Toast::Type::Success, 1.5f);
+            }
+        }
+        
+        // Delete selected marker (Delete/Backspace key)
+        if (selectedMarker && 
+            (ImGui::IsKeyPressed(ImGuiKey_Delete, false) ||
+             ImGui::IsKeyPressed(ImGuiKey_Backspace, false))) {
+            auto cmd = std::make_unique<DeleteMarkerCommand>(
+                selectedMarker->id
+            );
+            history.AddCommand(std::move(cmd), model);
+            
+            selectedMarker = nullptr;
+            ShowToast("Marker deleted", Toast::Type::Info);
+        }
+    }
+    
     // Draw canvas overlays using ImGui foreground DrawList
     // (foreground ensures previews are drawn on top of tiles)
     ImDrawList* drawList = ImGui::GetForegroundDrawList();
@@ -1855,6 +1965,34 @@ void UI::RenderCanvasPanel(
     drawList->AddRectFilled(canvasPos, 
         ImVec2(canvasPos.x + canvasSize.x, canvasPos.y + canvasSize.y), 
         bgColor);
+    
+    // Update hovered marker (if Marker tool is active)
+    if (currentTool == Tool::Marker && ImGui::IsItemHovered()) {
+        ImVec2 mousePos = ImGui::GetMousePos();
+        float wx, wy;
+        canvas.ScreenToWorld(mousePos.x, mousePos.y, &wx, &wy);
+        
+        float tileX = wx / model.grid.tileWidth;
+        float tileY = wy / model.grid.tileHeight;
+        
+        hoveredMarker = model.FindMarkerNear(tileX, tileY, 0.5f);
+        
+        // Show tooltip for hovered marker
+        if (hoveredMarker && !isDraggingMarker) {
+            ImGui::BeginTooltip();
+            ImGui::Text("Marker: %s", hoveredMarker->label.empty() ? 
+                       "(no label)" : hoveredMarker->label.c_str());
+            ImGui::TextDisabled("Icon: %s", hoveredMarker->icon.c_str());
+            ImGui::TextDisabled("Position: (%.1f, %.1f)", 
+                               hoveredMarker->x, hoveredMarker->y);
+            ImGui::Separator();
+            ImGui::TextDisabled("Click: Select/Move");
+            ImGui::TextDisabled("Shift+Click: Delete");
+            ImGui::EndTooltip();
+        }
+    } else {
+        hoveredMarker = nullptr;
+    }
     
     // Render the actual canvas content (grid, tiles, rooms, doors, markers, overlays)
     canvas.Render(
@@ -1866,7 +2004,9 @@ void UI::RenderCanvasPanel(
         static_cast<int>(canvasSize.x),
         static_cast<int>(canvasSize.y),
         isHoveringEdge ? &hoveredEdge : nullptr,
-        showRoomOverlays  // Pass room overlay toggle state
+        showRoomOverlays,  // Pass room overlay toggle state
+        selectedMarker,    // Pass selected marker for highlight
+        hoveredMarker      // Pass hovered marker for highlight
     );
     
     // Draw selection rectangle if Select tool is active

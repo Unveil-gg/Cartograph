@@ -166,6 +166,15 @@ public:
     Color markerColor = Color(0.3f, 0.8f, 0.3f, 1.0f);  // Green
     float markerScale = 1.0f;
     Marker* selectedMarker = nullptr;  // For editing existing markers
+    Marker* hoveredMarker = nullptr;   // For hover feedback
+    
+    // Marker drag state
+    bool isDraggingMarker = false;
+    float dragStartX = 0.0f;
+    float dragStartY = 0.0f;
+    
+    // Marker clipboard
+    std::vector<Marker> copiedMarkers;
     EdgeId hoveredEdge;
     bool isHoveringEdge = false;
     

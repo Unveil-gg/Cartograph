@@ -98,7 +98,14 @@ bool ExportPng::Export(
     
     // Render
     // TODO: Apply layer visibility from options
-    exportCanvas.Render(renderer, model, icons, 0, 0, width, height);
+    exportCanvas.Render(
+        renderer, model, icons, 
+        0, 0, width, height,
+        nullptr,  // No hovered edge in export
+        true,     // Show room overlays
+        nullptr,  // No selected marker in export
+        nullptr   // No hovered marker in export
+    );
     
     // Read pixels
     std::vector<uint8_t> pixels(width * height * 4);

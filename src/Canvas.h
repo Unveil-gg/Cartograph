@@ -33,7 +33,9 @@ public:
         int viewportX, int viewportY,
         int viewportW, int viewportH,
         const EdgeId* hoveredEdge = nullptr,
-        bool showRoomOverlays = true
+        bool showRoomOverlays = true,
+        const Marker* selectedMarker = nullptr,
+        const Marker* hoveredMarker = nullptr
     );
     
     // Coordinate transformations
@@ -67,7 +69,8 @@ private:
                     const EdgeId* hoveredEdge);
     void RenderDoors(IRenderer& renderer, const Model& model);
     void RenderMarkers(IRenderer& renderer, const Model& model,
-                      IconManager* icons);
+                      IconManager* icons, const Marker* selectedMarker,
+                      const Marker* hoveredMarker);
     void RenderRoomOverlays(IRenderer& renderer, const Model& model);
     
     // Viewport state (set during Render)

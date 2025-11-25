@@ -25,7 +25,9 @@ void Canvas::Render(
     int viewportX, int viewportY,
     int viewportW, int viewportH,
     const EdgeId* hoveredEdge,
-    bool showRoomOverlays
+    bool showRoomOverlays,
+    const Marker* selectedMarker,
+    const Marker* hoveredMarker
 ) {
     m_vpX = viewportX;
     m_vpY = viewportY;
@@ -51,7 +53,7 @@ void Canvas::Render(
     RenderTiles(renderer, model);
     RenderEdges(renderer, model, hoveredEdge);
     RenderDoors(renderer, model);
-    RenderMarkers(renderer, model, icons);
+    RenderMarkers(renderer, model, icons, selectedMarker, hoveredMarker);
     if (showRoomOverlays) {
         RenderRoomOverlays(renderer, model);
     }
@@ -381,7 +383,8 @@ void Canvas::RenderDoors(IRenderer& renderer, const Model& model) {
 }
 
 void Canvas::RenderMarkers(IRenderer& renderer, const Model& model,
-                           IconManager* icons) {
+                           IconManager* icons, const Marker* selectedMarker,
+                           const Marker* hoveredMarker) {
     const int tileWidth = model.grid.tileWidth;
     const int tileHeight = model.grid.tileHeight;
     
@@ -438,6 +441,40 @@ void Canvas::RenderMarkers(IRenderer& renderer, const Model& model,
                 );
             }
             
+            // Draw selection/hover indicators
+            bool isSelected = (selectedMarker && 
+                             selectedMarker->id == marker.id);
+            bool isHovered = (hoveredMarker && 
+                            hoveredMarker->id == marker.id);
+            
+            if (isSelected) {
+                // Draw selection indicator (blue outline)
+                float padding = 4.0f;
+                dl->AddRect(
+                    ImVec2(sx - markerSize/2 - padding, 
+                          sy - markerSize/2 - padding),
+                    ImVec2(sx + markerSize/2 + padding, 
+                          sy + markerSize/2 + padding),
+                    IM_COL32(100, 150, 255, 255),
+                    0.0f,  // No rounding
+                    0,     // No flags
+                    2.0f   // Thickness
+                );
+            } else if (isHovered) {
+                // Draw hover indicator (light outline)
+                float padding = 2.0f;
+                dl->AddRect(
+                    ImVec2(sx - markerSize/2 - padding, 
+                          sy - markerSize/2 - padding),
+                    ImVec2(sx + markerSize/2 + padding, 
+                          sy + markerSize/2 + padding),
+                    IM_COL32(255, 255, 255, 180),
+                    0.0f,  // No rounding
+                    0,     // No flags
+                    1.5f   // Thickness
+                );
+            }
+            
             // Draw label if zoomed in and enabled
             if (zoom > 0.7f && marker.showLabel && !marker.label.empty()) {
                 ImVec2 textPos(sx + markerSize/2 + 4, sy - 8);
@@ -452,6 +489,17 @@ void Canvas::RenderMarkers(IRenderer& renderer, const Model& model,
                 dotSize, dotSize,
                 marker.color
             );
+            
+            // Selection indicator even when zoomed out
+            if (selectedMarker && selectedMarker->id == marker.id) {
+                dl->AddCircle(
+                    ImVec2(sx, sy),
+                    6.0f,
+                    IM_COL32(100, 150, 255, 255),
+                    12,    // Segments
+                    2.0f   // Thickness
+                );
+            }
         }
     }
 }
