@@ -136,7 +136,8 @@ public:
     void Execute(Model& model) override;
     void Undo(Model& model) override;
     std::string GetDescription() const override;
-    bool TryCoalesce(ICommand* other, uint64_t timeDelta, float distanceSq) override;
+    bool TryCoalesce(ICommand* other, uint64_t timeDelta, 
+                     float distanceSq) override;
     
 private:
     std::vector<TileChange> m_changes;
@@ -217,6 +218,65 @@ public:
     
 private:
     std::vector<EdgeChange> m_changes;
+};
+
+/**
+ * Command to place or modify a marker.
+ * If marker ID exists, modifies it; otherwise creates new marker.
+ */
+class PlaceMarkerCommand : public ICommand {
+public:
+    PlaceMarkerCommand(const Marker& marker, bool isNew = true);
+    
+    void Execute(Model& model) override;
+    void Undo(Model& model) override;
+    std::string GetDescription() const override;
+    
+private:
+    Marker m_marker;
+    Marker m_oldMarker;  // For undo when modifying existing
+    bool m_isNew;
+};
+
+/**
+ * Command to delete marker(s).
+ */
+class DeleteMarkerCommand : public ICommand {
+public:
+    DeleteMarkerCommand(const std::vector<std::string>& markerIds);
+    explicit DeleteMarkerCommand(const std::string& markerId);
+    
+    void Execute(Model& model) override;
+    void Undo(Model& model) override;
+    std::string GetDescription() const override;
+    
+private:
+    std::vector<Marker> m_deletedMarkers;
+};
+
+/**
+ * Command to move marker(s).
+ * Supports undo/redo for repositioning.
+ */
+class MoveMarkersCommand : public ICommand {
+public:
+    struct MarkerMove {
+        std::string markerId;
+        float oldX, oldY;
+        float newX, newY;
+    };
+    
+    MoveMarkersCommand(const std::vector<MarkerMove>& moves);
+    MoveMarkersCommand(const std::string& markerId, 
+                       float oldX, float oldY, 
+                       float newX, float newY);
+    
+    void Execute(Model& model) override;
+    void Undo(Model& model) override;
+    std::string GetDescription() const override;
+    
+private:
+    std::vector<MarkerMove> m_moves;
 };
 
 } // namespace Cartograph

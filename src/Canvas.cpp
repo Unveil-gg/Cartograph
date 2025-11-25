@@ -383,28 +383,46 @@ void Canvas::RenderMarkers(IRenderer& renderer, const Model& model) {
     const int tileHeight = model.grid.tileHeight;
     
     for (const auto& marker : model.markers) {
-        float wx, wy;
-        TileToWorld(marker.x, marker.y, tileWidth, tileHeight, &wx, &wy);
+        // Convert fractional tile coords to world coords
+        // marker.x/y are now floats (e.g., 5.5 = center of tile 5)
+        float wx = marker.x * tileWidth;
+        float wy = marker.y * tileHeight;
         
         float sx, sy;
         WorldToScreen(wx, wy, &sx, &sy);
-        // Use average of width and height for marker size
-        float avgSize = (tileWidth + tileHeight) / 2.0f;
-        float size = avgSize * zoom * 0.7f;
         
-        // Draw as a colored circle (approximated with rect for now)
-        renderer.DrawRect(
-            sx - size/2, sy - size/2, 
-            size, size, 
-            marker.color
-        );
+        // Use minimum dimension to keep markers square and prevent overlap
+        float minDim = std::min(tileWidth, tileHeight);
+        float markerSize = minDim * zoom * marker.size * marker.scale;
         
-        // Draw label if zoomed in
-        if (zoom > 0.7f && !marker.label.empty()) {
-            ImDrawList* dl = ImGui::GetBackgroundDrawList();
-            ImVec2 textPos(sx + size/2 + 2, sy);
-            dl->AddText(textPos, marker.color.ToU32(), 
-                        marker.label.c_str());
+        // Clamp to prevent overlap (max 80% of min dimension)
+        float maxSize = minDim * zoom * 0.8f;
+        markerSize = std::min(markerSize, maxSize);
+        
+        // LOD: Draw full marker if zoomed in enough
+        if (zoom >= 0.3f) {
+            // Draw as a colored square (icon rendering in Phase 2)
+            renderer.DrawRect(
+                sx - markerSize/2, sy - markerSize/2, 
+                markerSize, markerSize, 
+                marker.color
+            );
+            
+            // Draw label if zoomed in and enabled
+            if (zoom > 0.7f && marker.showLabel && !marker.label.empty()) {
+                ImDrawList* dl = ImGui::GetBackgroundDrawList();
+                ImVec2 textPos(sx + markerSize/2 + 4, sy - 8);
+                dl->AddText(textPos, marker.color.ToU32(), 
+                           marker.label.c_str());
+            }
+        } else {
+            // LOD: Draw simplified dot when zoomed out
+            float dotSize = 4.0f;  // Fixed pixel size
+            renderer.DrawRect(
+                sx - dotSize/2, sy - dotSize/2,
+                dotSize, dotSize,
+                marker.color
+            );
         }
     }
 }

@@ -480,6 +480,79 @@ void Model::ClearAllCellsForRoom(const std::string& roomId) {
     MarkDirty();
 }
 
+// ============================================================================
+// Marker queries
+// ============================================================================
+
+Marker* Model::FindMarker(const std::string& id) {
+    auto it = std::find_if(markers.begin(), markers.end(),
+        [&id](const Marker& m) { return m.id == id; });
+    return it != markers.end() ? &(*it) : nullptr;
+}
+
+const Marker* Model::FindMarker(const std::string& id) const {
+    auto it = std::find_if(markers.begin(), markers.end(),
+        [&id](const Marker& m) { return m.id == id; });
+    return it != markers.end() ? &(*it) : nullptr;
+}
+
+Marker* Model::FindMarkerNear(float x, float y, float tolerance) {
+    float toleranceSq = tolerance * tolerance;
+    
+    for (auto& marker : markers) {
+        float dx = marker.x - x;
+        float dy = marker.y - y;
+        float distSq = dx * dx + dy * dy;
+        
+        if (distSq <= toleranceSq) {
+            return &marker;
+        }
+    }
+    
+    return nullptr;
+}
+
+std::vector<Marker*> Model::FindMarkersInRect(
+    float minX, float minY, float maxX, float maxY
+) {
+    std::vector<Marker*> result;
+    
+    for (auto& marker : markers) {
+        if (marker.x >= minX && marker.x <= maxX &&
+            marker.y >= minY && marker.y <= maxY) {
+            result.push_back(&marker);
+        }
+    }
+    
+    return result;
+}
+
+void Model::AddMarker(const Marker& marker) {
+    markers.push_back(marker);
+    MarkDirty();
+}
+
+bool Model::RemoveMarker(const std::string& id) {
+    auto it = std::find_if(markers.begin(), markers.end(),
+        [&id](const Marker& m) { return m.id == id; });
+    
+    if (it != markers.end()) {
+        markers.erase(it);
+        MarkDirty();
+        return true;
+    }
+    
+    return false;
+}
+
+std::string Model::GenerateMarkerId() {
+    // Generate unique marker ID using timestamp + counter
+    static int counter = 0;
+    char buf[32];
+    snprintf(buf, sizeof(buf), "marker_%d", counter++);
+    return buf;
+}
+
 void Model::InitDefaults() {
     InitDefaultPalette();
     InitDefaultKeymap();

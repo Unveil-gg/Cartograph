@@ -149,15 +149,28 @@ std::string IOJson::SaveToString(const Model& model) {
     // Markers
     j["markers"] = json::array();
     for (const auto& marker : model.markers) {
-        j["markers"].push_back({
+        json markerJson = {
             {"id", marker.id},
             {"room", marker.roomId},
-            {"pos", json::array({marker.x, marker.y})},
+            {"pos", json::array({marker.x, marker.y})},  // Now floats
             {"kind", marker.kind},
             {"label", marker.label},
             {"icon", marker.icon},
             {"color", marker.color.ToHex(false)}
-        });
+        };
+        
+        // Add optional fields (only if non-default)
+        if (marker.size != 0.6f) {
+            markerJson["size"] = marker.size;
+        }
+        if (marker.scale != 1.0f) {
+            markerJson["scale"] = marker.scale;
+        }
+        if (!marker.showLabel) {
+            markerJson["showLabel"] = false;
+        }
+        
+        j["markers"].push_back(markerJson);
     }
     
     // Keymap
@@ -345,14 +358,30 @@ bool IOJson::LoadFromString(const std::string& jsonStr, Model& outModel) {
                 Marker m;
                 m.id = marker.value("id", "");
                 m.roomId = marker.value("room", "");
+                
+                // Position (now supports float for sub-tile precision)
                 if (marker.contains("pos")) {
-                    m.x = marker["pos"][0];
-                    m.y = marker["pos"][1];
+                    // Handle both int (old format) and float (new format)
+                    if (marker["pos"][0].is_number_float()) {
+                        m.x = marker["pos"][0].get<float>();
+                        m.y = marker["pos"][1].get<float>();
+                    } else {
+                        // Convert int to float for backward compatibility
+                        m.x = static_cast<float>(marker["pos"][0].get<int>());
+                        m.y = static_cast<float>(marker["pos"][1].get<int>());
+                    }
                 }
+                
                 m.kind = marker.value("kind", "");
                 m.label = marker.value("label", "");
                 m.icon = marker.value("icon", "");
                 m.color = Color::FromHex(marker.value("color", "#00ff00"));
+                
+                // Optional fields with defaults
+                m.size = marker.value("size", 0.6f);
+                m.scale = marker.value("scale", 1.0f);
+                m.showLabel = marker.value("showLabel", true);
+                
                 outModel.markers.push_back(m);
             }
         }

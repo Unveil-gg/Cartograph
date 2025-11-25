@@ -251,5 +251,150 @@ std::string ModifyRoomAssignmentsCommand::GetDescription() const {
     return "Assign Room Cells";
 }
 
+// ============================================================================
+// PlaceMarkerCommand
+// ============================================================================
+
+PlaceMarkerCommand::PlaceMarkerCommand(const Marker& marker, bool isNew)
+    : m_marker(marker), m_isNew(isNew)
+{
+    // If modifying existing marker, store old state for undo
+    if (!isNew) {
+        m_oldMarker = marker;  // Will be updated in Execute
+    }
+}
+
+void PlaceMarkerCommand::Execute(Model& model) {
+    if (m_isNew) {
+        // Add new marker
+        model.AddMarker(m_marker);
+    } else {
+        // Modify existing marker - save old state first
+        const Marker* existing = model.FindMarker(m_marker.id);
+        if (existing) {
+            m_oldMarker = *existing;
+        }
+        
+        // Update marker
+        Marker* toUpdate = model.FindMarker(m_marker.id);
+        if (toUpdate) {
+            *toUpdate = m_marker;
+            model.MarkDirty();
+        }
+    }
+}
+
+void PlaceMarkerCommand::Undo(Model& model) {
+    if (m_isNew) {
+        // Remove the marker we added
+        model.RemoveMarker(m_marker.id);
+    } else {
+        // Restore old marker state
+        Marker* toRestore = model.FindMarker(m_marker.id);
+        if (toRestore) {
+            *toRestore = m_oldMarker;
+            model.MarkDirty();
+        }
+    }
+}
+
+std::string PlaceMarkerCommand::GetDescription() const {
+    return m_isNew ? "Place Marker" : "Modify Marker";
+}
+
+// ============================================================================
+// DeleteMarkerCommand
+// ============================================================================
+
+DeleteMarkerCommand::DeleteMarkerCommand(
+    const std::vector<std::string>& markerIds
+) {
+    // Will be filled in Execute when we capture marker state
+    m_deletedMarkers.clear();
+}
+
+DeleteMarkerCommand::DeleteMarkerCommand(const std::string& markerId) {
+    // Single marker deletion
+    m_deletedMarkers.clear();
+}
+
+void DeleteMarkerCommand::Execute(Model& model) {
+    // Capture marker state before deleting (for undo)
+    if (m_deletedMarkers.empty()) {
+        // First execution - capture state
+        for (auto& marker : model.markers) {
+            m_deletedMarkers.push_back(marker);
+        }
+    }
+    
+    // Delete markers
+    for (const auto& marker : m_deletedMarkers) {
+        model.RemoveMarker(marker.id);
+    }
+}
+
+void DeleteMarkerCommand::Undo(Model& model) {
+    // Restore deleted markers
+    for (const auto& marker : m_deletedMarkers) {
+        model.AddMarker(marker);
+    }
+}
+
+std::string DeleteMarkerCommand::GetDescription() const {
+    if (m_deletedMarkers.size() == 1) {
+        return "Delete Marker";
+    } else {
+        return "Delete " + std::to_string(m_deletedMarkers.size()) + 
+               " Markers";
+    }
+}
+
+// ============================================================================
+// MoveMarkersCommand
+// ============================================================================
+
+MoveMarkersCommand::MoveMarkersCommand(const std::vector<MarkerMove>& moves)
+    : m_moves(moves)
+{
+}
+
+MoveMarkersCommand::MoveMarkersCommand(
+    const std::string& markerId,
+    float oldX, float oldY,
+    float newX, float newY
+) {
+    m_moves.push_back({markerId, oldX, oldY, newX, newY});
+}
+
+void MoveMarkersCommand::Execute(Model& model) {
+    for (const auto& move : m_moves) {
+        Marker* marker = model.FindMarker(move.markerId);
+        if (marker) {
+            marker->x = move.newX;
+            marker->y = move.newY;
+        }
+    }
+    model.MarkDirty();
+}
+
+void MoveMarkersCommand::Undo(Model& model) {
+    for (const auto& move : m_moves) {
+        Marker* marker = model.FindMarker(move.markerId);
+        if (marker) {
+            marker->x = move.oldX;
+            marker->y = move.oldY;
+        }
+    }
+    model.MarkDirty();
+}
+
+std::string MoveMarkersCommand::GetDescription() const {
+    if (m_moves.size() == 1) {
+        return "Move Marker";
+    } else {
+        return "Move " + std::to_string(m_moves.size()) + " Markers";
+    }
+}
+
 } // namespace Cartograph
 

@@ -224,11 +224,14 @@ struct Door {
 struct Marker {
     std::string id;
     std::string roomId;
-    int x, y;  // Tile position
+    float x, y;         // Sub-tile position (e.g., 5.5 = centered in tile 5)
     std::string kind;   // "save", "item", "boss", etc.
     std::string label;
     std::string icon;   // Icon name reference
     Color color;
+    float size = 0.6f;  // Size as fraction of tile (0.6 = 60%)
+    float scale = 1.0f; // User-adjustable scaling multiplier
+    bool showLabel = true;
 };
 
 // ============================================================================
@@ -336,6 +339,17 @@ public:
     void SetCellRoom(int x, int y, const std::string& roomId);
     void ClearCellRoom(int x, int y);  // Remove room assignment
     void ClearAllCellsForRoom(const std::string& roomId);  // Clear all cells
+    
+    // Marker queries
+    Marker* FindMarker(const std::string& id);
+    const Marker* FindMarker(const std::string& id) const;
+    Marker* FindMarkerNear(float x, float y, float tolerance);
+    std::vector<Marker*> FindMarkersInRect(
+        float minX, float minY, float maxX, float maxY
+    );
+    void AddMarker(const Marker& marker);
+    bool RemoveMarker(const std::string& id);
+    std::string GenerateMarkerId();
     
     // Initialize defaults
     void InitDefaults();
