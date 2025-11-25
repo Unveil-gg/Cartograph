@@ -123,7 +123,7 @@ void UI::Render(
     
     // Render all panels (they will dock into the dockspace)
     RenderToolsPanel(model);
-    RenderCanvasPanel(renderer, model, canvas, history);
+    RenderCanvasPanel(renderer, model, canvas, history, icons);
     RenderPropertiesPanel(model);
     RenderStatusBar(model, canvas);
     
@@ -854,7 +854,8 @@ void UI::RenderCanvasPanel(
     IRenderer& renderer,
     Model& model, 
     Canvas& canvas, 
-    History& history
+    History& history,
+    IconManager& icons
 ) {
     ImGuiWindowFlags flags = 
         ImGuiWindowFlags_NoMove | 
@@ -1650,6 +1651,7 @@ void UI::RenderCanvasPanel(
     canvas.Render(
         renderer,
         model,
+        &icons,
         static_cast<int>(canvasPos.x),
         static_cast<int>(canvasPos.y),
         static_cast<int>(canvasSize.x),

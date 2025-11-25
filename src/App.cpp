@@ -339,10 +339,11 @@ void App::SaveProjectAs(const std::string& path) {
 }
 
 void App::ExportPng(const std::string& path) {
-    bool success = ExportPng::Export(
+    bool success = Cartograph::ExportPng::Export(
         m_model, 
         m_canvas, 
         *m_renderer, 
+        &m_icons,
         path, 
         m_ui.exportOptions
     );

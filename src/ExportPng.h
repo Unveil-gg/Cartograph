@@ -8,6 +8,7 @@ namespace Cartograph {
 class Model;
 class IRenderer;
 class Canvas;
+class IconManager;
 
 /**
  * Export options for PNG export.
@@ -48,6 +49,7 @@ public:
      * @param model Model to export
      * @param canvas Canvas for rendering
      * @param renderer Renderer
+     * @param icons Icon manager (for rendering markers)
      * @param path Output path
      * @param options Export options
      * @return true on success
@@ -56,6 +58,7 @@ public:
         const Model& model,
         Canvas& canvas,
         IRenderer& renderer,
+        IconManager* icons,
         const std::string& path,
         const ExportOptions& options
     );

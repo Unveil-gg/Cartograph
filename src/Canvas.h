@@ -5,6 +5,7 @@
 namespace Cartograph {
 
 class IRenderer;
+class IconManager;
 
 /**
  * Canvas manages the view transformation and rendering of the map.
@@ -28,6 +29,7 @@ public:
     void Render(
         IRenderer& renderer,
         const Model& model,
+        IconManager* icons,
         int viewportX, int viewportY,
         int viewportW, int viewportH,
         const EdgeId* hoveredEdge = nullptr,
@@ -64,7 +66,8 @@ private:
     void RenderEdges(IRenderer& renderer, const Model& model,
                     const EdgeId* hoveredEdge);
     void RenderDoors(IRenderer& renderer, const Model& model);
-    void RenderMarkers(IRenderer& renderer, const Model& model);
+    void RenderMarkers(IRenderer& renderer, const Model& model,
+                      IconManager* icons);
     void RenderRoomOverlays(IRenderer& renderer, const Model& model);
     
     // Viewport state (set during Render)

@@ -1,5 +1,6 @@
 #include "Canvas.h"
 #include "render/Renderer.h"
+#include "Icons.h"
 #include <imgui.h>
 #include <algorithm>
 #include <cmath>
@@ -20,6 +21,7 @@ void Canvas::Update(Model& model, float deltaTime) {
 void Canvas::Render(
     IRenderer& renderer,
     const Model& model,
+    IconManager* icons,
     int viewportX, int viewportY,
     int viewportW, int viewportH,
     const EdgeId* hoveredEdge,
@@ -49,7 +51,7 @@ void Canvas::Render(
     RenderTiles(renderer, model);
     RenderEdges(renderer, model, hoveredEdge);
     RenderDoors(renderer, model);
-    RenderMarkers(renderer, model);
+    RenderMarkers(renderer, model, icons);
     if (showRoomOverlays) {
         RenderRoomOverlays(renderer, model);
     }
@@ -378,9 +380,12 @@ void Canvas::RenderDoors(IRenderer& renderer, const Model& model) {
     }
 }
 
-void Canvas::RenderMarkers(IRenderer& renderer, const Model& model) {
+void Canvas::RenderMarkers(IRenderer& renderer, const Model& model,
+                           IconManager* icons) {
     const int tileWidth = model.grid.tileWidth;
     const int tileHeight = model.grid.tileHeight;
+    
+    ImDrawList* dl = ImGui::GetForegroundDrawList();
     
     for (const auto& marker : model.markers) {
         // Convert fractional tile coords to world coords
@@ -392,7 +397,7 @@ void Canvas::RenderMarkers(IRenderer& renderer, const Model& model) {
         WorldToScreen(wx, wy, &sx, &sy);
         
         // Use minimum dimension to keep markers square and prevent overlap
-        float minDim = std::min(tileWidth, tileHeight);
+        float minDim = static_cast<float>(std::min(tileWidth, tileHeight));
         float markerSize = minDim * zoom * marker.size * marker.scale;
         
         // Clamp to prevent overlap (max 80% of min dimension)
@@ -401,16 +406,40 @@ void Canvas::RenderMarkers(IRenderer& renderer, const Model& model) {
         
         // LOD: Draw full marker if zoomed in enough
         if (zoom >= 0.3f) {
-            // Draw as a colored square (icon rendering in Phase 2)
-            renderer.DrawRect(
-                sx - markerSize/2, sy - markerSize/2, 
-                markerSize, markerSize, 
-                marker.color
-            );
+            // Try to get icon texture
+            const Icon* icon = nullptr;
+            if (icons && !marker.icon.empty()) {
+                icon = icons->GetIcon(marker.icon);
+            }
+            
+            if (icon && icons->GetAtlasTexture()) {
+                // Draw icon texture with color tint
+                ImVec2 pMin(sx - markerSize/2, sy - markerSize/2);
+                ImVec2 pMax(sx + markerSize/2, sy + markerSize/2);
+                ImVec2 uvMin(icon->u0, icon->v0);
+                ImVec2 uvMax(icon->u1, icon->v1);
+                
+                // Use marker color as tint (or white if transparent)
+                ImU32 tintColor = marker.color.a > 0.0f ? 
+                    marker.color.ToU32() : IM_COL32(255, 255, 255, 255);
+                
+                dl->AddImage(
+                    icons->GetAtlasTexture(),
+                    pMin, pMax,
+                    uvMin, uvMax,
+                    tintColor
+                );
+            } else {
+                // Fallback: Draw colored square if no icon found
+                renderer.DrawRect(
+                    sx - markerSize/2, sy - markerSize/2, 
+                    markerSize, markerSize, 
+                    marker.color
+                );
+            }
             
             // Draw label if zoomed in and enabled
             if (zoom > 0.7f && marker.showLabel && !marker.label.empty()) {
-                ImDrawList* dl = ImGui::GetBackgroundDrawList();
                 ImVec2 textPos(sx + markerSize/2 + 4, sy - 8);
                 dl->AddText(textPos, marker.color.ToU32(), 
                            marker.label.c_str());

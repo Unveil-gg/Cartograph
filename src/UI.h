@@ -172,7 +172,8 @@ private:
         IRenderer& renderer,
         Model& model, 
         Canvas& canvas, 
-        History& history
+        History& history,
+        IconManager& icons
     );
     void RenderStatusBar(Model& model, Canvas& canvas);
     void RenderToasts(float deltaTime);

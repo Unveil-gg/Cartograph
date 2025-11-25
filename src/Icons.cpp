@@ -184,8 +184,35 @@ void IconManager::BuildAtlas() {
         m_icons[icon.name] = icon;
     }
     
-    // TODO: Upload atlas texture to GPU
-    // For now, just clear pending icons
+    // Upload atlas texture to GPU
+    GLuint texId;
+    glGenTextures(1, &texId);
+    glBindTexture(GL_TEXTURE_2D, texId);
+    
+    // Set texture parameters
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    
+    // Upload pixel data
+    glTexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        GL_RGBA,
+        m_atlasWidth,
+        m_atlasHeight,
+        0,
+        GL_RGBA,
+        GL_UNSIGNED_BYTE,
+        atlasPixels.data()
+    );
+    
+    // Unbind
+    glBindTexture(GL_TEXTURE_2D, 0);
+    
+    m_atlasTexture = (ImTextureID)(intptr_t)texId;
+    
     m_pendingIcons.clear();
     m_atlasDirty = false;
 }

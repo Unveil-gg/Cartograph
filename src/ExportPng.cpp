@@ -55,6 +55,7 @@ bool ExportPng::Export(
     const Model& model,
     Canvas& canvas,
     IRenderer& renderer,
+    IconManager* icons,
     const std::string& path,
     const ExportOptions& options
 ) {
@@ -97,7 +98,7 @@ bool ExportPng::Export(
     
     // Render
     // TODO: Apply layer visibility from options
-    exportCanvas.Render(renderer, model, 0, 0, width, height);
+    exportCanvas.Render(renderer, model, icons, 0, 0, width, height);
     
     // Read pixels
     std::vector<uint8_t> pixels(width * height * 4);
