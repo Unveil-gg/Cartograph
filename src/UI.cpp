@@ -1636,8 +1636,9 @@ void UI::RenderCanvasPanel(
         isSelecting = false;
     }
     
-    // Draw canvas content using ImGui DrawList
-    ImDrawList* drawList = ImGui::GetWindowDrawList();
+    // Draw canvas overlays using ImGui foreground DrawList
+    // (foreground ensures previews are drawn on top of tiles)
+    ImDrawList* drawList = ImGui::GetForegroundDrawList();
     
     // Draw background
     ImU32 bgColor = ImGui::GetColorU32(ImVec4(0.15f, 0.15f, 0.15f, 1.0f));
@@ -1745,6 +1746,68 @@ void UI::RenderCanvasPanel(
                 ImVec2(sx, sy),
                 ImVec2(sx + sw, sy + sh),
                 previewColor
+            );
+        }
+        
+        // Draw edge hover preview for Paint tool
+        if (currentTool == Tool::Paint && isHoveringEdge) {
+            // Calculate edge line endpoints based on hovered edge
+            int x1 = hoveredEdge.x1;
+            int y1 = hoveredEdge.y1;
+            int x2 = hoveredEdge.x2;
+            int y2 = hoveredEdge.y2;
+            
+            // Determine if this is a vertical or horizontal edge
+            bool isVertical = (x1 != x2);
+            
+            float wx1, wy1, wx2, wy2;
+            if (isVertical) {
+                // Vertical edge
+                wx1 = std::max(x1, x2) * model.grid.tileWidth;
+                wx2 = wx1;
+                wy1 = std::min(y1, y2) * model.grid.tileHeight;
+                wy2 = wy1 + model.grid.tileHeight;
+            } else {
+                // Horizontal edge
+                wy1 = std::max(y1, y2) * model.grid.tileHeight;
+                wy2 = wy1;
+                wx1 = std::min(x1, x2) * model.grid.tileWidth;
+                wx2 = wx1 + model.grid.tileWidth;
+            }
+            
+            // Convert to screen coordinates
+            float esx1, esy1, esx2, esy2;
+            canvas.WorldToScreen(wx1, wy1, &esx1, &esy1);
+            canvas.WorldToScreen(wx2, wy2, &esx2, &esy2);
+            
+            // Get current edge state
+            EdgeState currentState = model.GetEdgeState(hoveredEdge);
+            
+            // Draw ghost preview showing what will happen
+            ImU32 edgePreviewColor;
+            if (currentState == EdgeState::None) {
+                // No edge exists - show wall preview (green)
+                edgePreviewColor = ImGui::GetColorU32(
+                    ImVec4(0.3f, 1.0f, 0.3f, 0.7f)
+                );
+            } else if (currentState == EdgeState::Wall) {
+                // Wall exists - show door preview (blue)
+                edgePreviewColor = ImGui::GetColorU32(
+                    ImVec4(0.3f, 0.6f, 1.0f, 0.7f)
+                );
+            } else {
+                // Door exists - show none/delete preview (red)
+                edgePreviewColor = ImGui::GetColorU32(
+                    ImVec4(1.0f, 0.3f, 0.3f, 0.7f)
+                );
+            }
+            
+            // Draw preview line (thicker to be visible)
+            drawList->AddLine(
+                ImVec2(esx1, esy1),
+                ImVec2(esx2, esy2),
+                edgePreviewColor,
+                4.0f * canvas.zoom
             );
         }
     }
