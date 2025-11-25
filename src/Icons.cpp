@@ -14,6 +14,10 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb/stb_image.h>
 
+// stb_image_resize2 for icon resizing
+#define STB_IMAGE_RESIZE_IMPLEMENTATION
+#include <stb/stb_image_resize2.h>
+
 namespace fs = std::filesystem;
 
 namespace Cartograph {
@@ -350,16 +354,43 @@ bool IconManager::ProcessIconFromFile(
         return false;
     }
     
-    // TODO: Resize to 64×64 if stb_image_resize2 is available
-    // For now, accept icons at their native size
+    // Resize to standard 64×64 if needed
+    const int targetSize = 64;
     
-    // Copy pixel data
-    size_t dataSize = width * height * 4;
-    outPixels.assign(data, data + dataSize);
-    outWidth = width;
-    outHeight = height;
+    if (width != targetSize || height != targetSize) {
+        // Allocate buffer for resized image
+        std::vector<uint8_t> resizedData(targetSize * targetSize * 4);
+        
+        // Resize using stb_image_resize2
+        // Use SRGB for proper color space handling
+        unsigned char* result = stbir_resize_uint8_srgb(
+            data, width, height, 0,           // Source
+            resizedData.data(), 
+            targetSize, targetSize, 0,        // Destination
+            STBIR_RGBA                        // 4 channels
+        );
+        
+        stbi_image_free(data);
+        
+        if (result == nullptr) {
+            errorMsg = "Failed to resize icon";
+            return false;
+        }
+        
+        // Use resized data
+        outPixels = std::move(resizedData);
+        outWidth = targetSize;
+        outHeight = targetSize;
+    } else {
+        // Already correct size, copy directly
+        size_t dataSize = width * height * 4;
+        outPixels.assign(data, data + dataSize);
+        outWidth = width;
+        outHeight = height;
+        
+        stbi_image_free(data);
+    }
     
-    stbi_image_free(data);
     return true;
 }
 
