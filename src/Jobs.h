@@ -15,7 +15,8 @@ namespace Cartograph {
  */
 enum class JobType {
     SaveProject,
-    ExportPng
+    ExportPng,
+    ProcessIcon
 };
 
 /**

@@ -3,8 +3,10 @@
 #include "Canvas.h"
 #include "History.h"
 #include "Icons.h"
+#include "Jobs.h"
 #include "render/Renderer.h"
 #include "platform/Paths.h"
+#include "platform/Fs.h"
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <algorithm>
@@ -12,6 +14,7 @@
 #include <cstring>
 #include <set>
 #include <cmath>
+#include <filesystem>
 
 namespace Cartograph {
 
@@ -78,6 +81,7 @@ void UI::Render(
     Canvas& canvas,
     History& history,
     IconManager& icons,
+    JobQueue& jobs,
     float deltaTime
 ) {
     // Create fullscreen dockspace window
@@ -105,7 +109,7 @@ void UI::Render(
     ImGui::PopStyleVar(3);
     
     // Render menu bar
-    RenderMenuBar(model, canvas, history);
+    RenderMenuBar(model, canvas, history, icons, jobs);
     
     // Create dockspace
     ImGuiID dockspaceId = ImGui::GetID("CartographDockSpaceID");
@@ -344,7 +348,13 @@ void UI::RenderWelcomeScreen(App& app, Model& model) {
     RenderToasts(0.016f);
 }
 
-void UI::RenderMenuBar(Model& model, Canvas& canvas, History& history) {
+void UI::RenderMenuBar(
+    Model& model,
+    Canvas& canvas,
+    History& history,
+    IconManager& icons,
+    JobQueue& jobs
+) {
     if (ImGui::BeginMenuBar()) {
         if (ImGui::BeginMenu("File")) {
             if (ImGui::MenuItem("New", "Cmd+N")) {
@@ -384,6 +394,21 @@ void UI::RenderMenuBar(Model& model, Canvas& canvas, History& history) {
             if (ImGui::MenuItem("Settings...")) {
                 showSettingsModal = true;
             }
+            ImGui::EndMenu();
+        }
+        
+        if (ImGui::BeginMenu("Assets")) {
+            if (ImGui::MenuItem("Import Icon...")) {
+                ImportIcon(icons, jobs);
+            }
+            
+            // Show loading indicator if importing
+            if (isImportingIcon) {
+                ImGui::Separator();
+                ImGui::TextDisabled("Importing: %s...", 
+                                   importingIconName.c_str());
+            }
+            
             ImGui::EndMenu();
         }
         
@@ -2673,6 +2698,123 @@ void UI::BuildFixedLayout(ImGuiID dockspaceId) {
     
     // Finish building
     ImGui::DockBuilderFinish(dockspaceId);
+}
+
+void UI::ImportIcon(IconManager& iconManager, JobQueue& jobs) {
+    // TODO: Use native file dialog when available
+    // For now, show a simple ImGui input dialog
+    
+    static char pathBuffer[512] = "";
+    static bool showInputDialog = false;
+    
+    if (!showInputDialog) {
+        showInputDialog = true;
+        pathBuffer[0] = '\0';
+    }
+    
+    // Show simple input dialog
+    ImGui::OpenPopup("Import Icon");
+    if (ImGui::BeginPopupModal("Import Icon", nullptr,
+                               ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::Text("Enter path to PNG icon:");
+        ImGui::InputText("##iconpath", pathBuffer, sizeof(pathBuffer));
+        
+        ImGui::Separator();
+        
+        if (ImGui::Button("Import", ImVec2(120, 0))) {
+            std::string path = pathBuffer;
+            
+            if (!path.empty()) {
+                // Extract base name from path
+                namespace fs = std::filesystem;
+                std::string baseName = fs::path(path).stem().string();
+                
+                // Generate unique name
+                std::string iconName = iconManager.GenerateUniqueName(baseName);
+                
+                // Set loading state
+                isImportingIcon = true;
+                importingIconName = iconName;
+                
+                // Enqueue processing job
+                jobs.Enqueue(
+                    JobType::ProcessIcon,
+                    // Work function (runs on worker thread)
+                    [path, iconName]() {
+                        // Process icon in background
+                        std::vector<uint8_t> pixels;
+                        int width, height;
+                        std::string errorMsg;
+                        
+                        bool success = IconManager::ProcessIconFromFile(
+                            path, pixels, width, height, errorMsg
+                        );
+                        
+                        // Store result in thread-local storage for callback
+                        // (This is a simplified approach - in production,
+                        //  use a proper result structure)
+                    },
+                    // Callback (runs on main thread)
+                    [this, &iconManager, iconName, path](
+                        bool success, const std::string& error
+                    ) {
+                        isImportingIcon = false;
+                        
+                        if (success) {
+                            // Process the icon data
+                            // Note: We need to re-process on main thread
+                            // because we can't easily pass data between threads
+                            std::vector<uint8_t> pixels;
+                            int width, height;
+                            std::string errorMsg;
+                            
+                            if (IconManager::ProcessIconFromFile(
+                                    path, pixels, width, height, errorMsg)) {
+                                // Add to icon manager
+                                if (iconManager.AddIconFromMemory(
+                                        iconName, pixels.data(),
+                                        width, height)) {
+                                    // Rebuild atlas with new icon
+                                    iconManager.BuildAtlas();
+                                    
+                                    ShowToast(
+                                        "Icon imported: " + iconName,
+                                        Toast::Type::Success
+                                    );
+                                } else {
+                                    ShowToast(
+                                        "Failed to add icon to atlas",
+                                        Toast::Type::Error
+                                    );
+                                }
+                            } else {
+                                ShowToast(
+                                    "Failed to process icon: " + errorMsg,
+                                    Toast::Type::Error
+                                );
+                            }
+                        } else {
+                            ShowToast(
+                                "Failed to import icon: " + error,
+                                Toast::Type::Error
+                            );
+                        }
+                    }
+                );
+                
+                ImGui::CloseCurrentPopup();
+                showInputDialog = false;
+            }
+        }
+        
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+            ImGui::CloseCurrentPopup();
+            showInputDialog = false;
+        }
+        
+        ImGui::EndPopup();
+    }
 }
 
 } // namespace Cartograph

@@ -210,8 +210,8 @@ void App::Render() {
     if (m_appState == AppState::Welcome) {
         m_ui.RenderWelcomeScreen(*this, m_model);
     } else {
-        m_ui.Render(*m_renderer, m_model, m_canvas, m_history, m_icons, 
-                    0.016f);
+        m_ui.Render(*m_renderer, m_model, m_canvas, m_history, m_icons,
+                    m_jobs, 0.016f);
     }
     
     // Render ImGui

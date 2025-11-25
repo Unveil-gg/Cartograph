@@ -236,5 +236,132 @@ void IconManager::Clear() {
     m_atlasDirty = false;
 }
 
+bool IconManager::AddIconFromMemory(
+    const std::string& name,
+    const uint8_t* pixels,
+    int width,
+    int height
+) {
+    if (!pixels || width <= 0 || height <= 0) {
+        return false;
+    }
+    
+    // Validate icon
+    std::string errorMsg;
+    if (!ValidateIcon(width, height, 0, errorMsg)) {
+        return false;
+    }
+    
+    // Create icon data
+    IconData data;
+    data.name = name;
+    data.width = width;
+    data.height = height;
+    data.pixels.assign(pixels, pixels + width * height * 4);
+    
+    // Add to pending icons
+    m_pendingIcons.push_back(std::move(data));
+    m_atlasDirty = true;
+    
+    return true;
+}
+
+bool IconManager::ValidateIcon(
+    int width,
+    int height,
+    size_t fileSize,
+    std::string& errorMsg
+) {
+    // Check dimensions
+    if (width <= 0 || height <= 0) {
+        errorMsg = "Invalid dimensions";
+        return false;
+    }
+    
+    // Must be square
+    if (width != height) {
+        errorMsg = "Icon must be square (got " + std::to_string(width) + 
+                   "×" + std::to_string(height) + ")";
+        return false;
+    }
+    
+    // Size limits (8x8 to 512x512)
+    if (width < 8 || width > 512) {
+        errorMsg = "Icon size must be between 8×8 and 512×512 (got " + 
+                   std::to_string(width) + "×" + std::to_string(height) + ")";
+        return false;
+    }
+    
+    // File size check (if provided)
+    if (fileSize > 0) {
+        const size_t MAX_FILE_SIZE = 1024 * 1024;  // 1MB
+        if (fileSize > MAX_FILE_SIZE) {
+            errorMsg = "File too large (max 1MB)";
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+std::string IconManager::GenerateUniqueName(
+    const std::string& baseName
+) const {
+    // If base name doesn't exist, use it
+    if (m_icons.find(baseName) == m_icons.end()) {
+        return baseName;
+    }
+    
+    // Try appending _1, _2, etc.
+    for (int i = 1; i < 1000; ++i) {
+        std::string candidate = baseName + "_" + std::to_string(i);
+        if (m_icons.find(candidate) == m_icons.end()) {
+            return candidate;
+        }
+    }
+    
+    // Fallback: use timestamp
+    return baseName + "_" + std::to_string(time(nullptr));
+}
+
+bool IconManager::ProcessIconFromFile(
+    const std::string& path,
+    std::vector<uint8_t>& outPixels,
+    int& outWidth,
+    int& outHeight,
+    std::string& errorMsg
+) {
+    // Load image using stb_image
+    int width, height, channels;
+    unsigned char* data = stbi_load(
+        path.c_str(),
+        &width, &height, &channels,
+        4  // Force RGBA
+    );
+    
+    if (!data) {
+        errorMsg = "Failed to load image";
+        return false;
+    }
+    
+    // Validate dimensions
+    if (!ValidateIcon(width, height, 0, errorMsg)) {
+        stbi_image_free(data);
+        return false;
+    }
+    
+    // TODO: Resize to 64×64 if stb_image_resize2 is available
+    // For now, accept icons at their native size
+    
+    // Copy pixel data
+    size_t dataSize = width * height * 4;
+    outPixels.assign(data, data + dataSize);
+    outWidth = width;
+    outHeight = height;
+    
+    stbi_image_free(data);
+    return true;
+}
+
 } // namespace Cartograph
 

@@ -75,6 +75,61 @@ public:
      */
     void Clear();
     
+    /**
+     * Add an icon from memory (for dynamic imports).
+     * @param name Icon name
+     * @param pixels RGBA8 pixel data
+     * @param width Width in pixels
+     * @param height Height in pixels
+     * @return true on success
+     */
+    bool AddIconFromMemory(
+        const std::string& name,
+        const uint8_t* pixels,
+        int width,
+        int height
+    );
+    
+    /**
+     * Validate icon data.
+     * @param width Icon width
+     * @param height Icon height
+     * @param fileSize File size in bytes (0 to skip)
+     * @param errorMsg Output error message
+     * @return true if valid
+     */
+    static bool ValidateIcon(
+        int width,
+        int height,
+        size_t fileSize,
+        std::string& errorMsg
+    );
+    
+    /**
+     * Generate a unique icon name from a base name.
+     * @param baseName Base name (e.g., "chest")
+     * @return Unique name (e.g., "chest_1" if "chest" exists)
+     */
+    std::string GenerateUniqueName(const std::string& baseName) const;
+    
+    /**
+     * Process icon from file (validation + load).
+     * This is designed to be called from a background thread.
+     * @param path File path
+     * @param outPixels Output pixel data (RGBA8)
+     * @param outWidth Output width
+     * @param outHeight Output height
+     * @param errorMsg Output error message
+     * @return true on success
+     */
+    static bool ProcessIconFromFile(
+        const std::string& path,
+        std::vector<uint8_t>& outPixels,
+        int& outWidth,
+        int& outHeight,
+        std::string& errorMsg
+    );
+    
 private:
     struct IconData {
         std::string name;

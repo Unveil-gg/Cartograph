@@ -14,6 +14,7 @@ namespace Cartograph {
 class Canvas;
 class IconManager;
 class App;
+class JobQueue;
 
 /**
  * Toast notification.
@@ -78,6 +79,7 @@ public:
      * @param canvas Canvas
      * @param history History
      * @param icons Icon manager
+     * @param jobs Job queue for background tasks
      * @param deltaTime Frame delta time
      */
     void Render(
@@ -86,6 +88,7 @@ public:
         Canvas& canvas,
         History& history,
         IconManager& icons,
+        JobQueue& jobs,
         float deltaTime
     );
     
@@ -108,10 +111,21 @@ public:
         float duration = 3.0f
     );
     
+    /**
+     * Import a custom icon.
+     * @param iconManager Icon manager to add icon to
+     * @param jobs Job queue for background processing
+     */
+    void ImportIcon(IconManager& iconManager, JobQueue& jobs);
+    
     // UI state
     bool showExportModal = false;
     ExportOptions exportOptions;
     bool showSettingsModal = false;
+    
+    // Icon import state
+    bool isImportingIcon = false;
+    std::string importingIconName;
     
     // Welcome screen state
     bool showNewProjectModal = false;
@@ -164,7 +178,13 @@ public:
         currentRoomAssignments;
     
 private:
-    void RenderMenuBar(Model& model, Canvas& canvas, History& history);
+    void RenderMenuBar(
+        Model& model,
+        Canvas& canvas,
+        History& history,
+        IconManager& icons,
+        JobQueue& jobs
+    );
     void RenderPalettePanel(Model& model);
     void RenderToolsPanel(Model& model);
     void RenderPropertiesPanel(Model& model);
