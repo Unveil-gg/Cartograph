@@ -1318,7 +1318,7 @@ void UI::RenderCanvasPanel(
             if (isHoveringEdge) {
                 hoveredEdge = edgeId;
                 
-                // Handle edge deletion
+                // Handle edge deletion via hover (precise mode)
                 bool shouldEraseEdge = ImGui::IsMouseDown(ImGuiMouseButton_Left) ||
                                       ImGui::IsMouseDown(ImGuiMouseButton_Right);
                 
@@ -1340,77 +1340,136 @@ void UI::RenderCanvasPanel(
                         isModifyingEdges = true;
                     }
                 }
-            } else {
-                // Not hovering edge, handle tile erasing
-                bool shouldErase = false;
+            }
+            
+            // Handle tile erasing (independent of edge hover state)
+            bool shouldErase = false;
+            
+            // Check for left mouse button (primary erase input)
+            if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+                shouldErase = true;
+            }
+            // Also support right-click for two-finger trackpad gestures
+            else if (ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
+                shouldErase = true;
+            }
+            
+            if (shouldErase) {
+                // Convert mouse position to tile coordinates
+                int tx, ty;
+                canvas.ScreenToTile(
+                    mousePos.x, mousePos.y,
+                    model.grid.tileWidth, model.grid.tileHeight,
+                    &tx, &ty
+                );
                 
-                // Check for left mouse button (primary erase input)
-                if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-                    shouldErase = true;
-                }
-                // Also support right-click for two-finger trackpad gestures
-                else if (ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
-                    shouldErase = true;
-                }
-                
-                if (shouldErase) {
-                    // Convert mouse position to tile coordinates
-                    int tx, ty;
-                    canvas.ScreenToTile(
-                        mousePos.x, mousePos.y,
-                        model.grid.tileWidth, model.grid.tileHeight,
-                        &tx, &ty
-                    );
+                // Check if we've moved to a new tile or just started
+                if (!isPainting || tx != lastPaintedTileX || 
+                    ty != lastPaintedTileY) {
                     
-                    // Check if we've moved to a new tile or just started
-                    if (!isPainting || tx != lastPaintedTileX || 
-                        ty != lastPaintedTileY) {
+                    // Erase tiles globally (using "" as roomId)
+                    const std::string globalRoomId = "";
+                    
+                    // Get tiles to erase (interpolate if dragging)
+                    std::vector<std::pair<int, int>> tilesToErase;
+                    if (isPainting && lastPaintedTileX >= 0 && 
+                        lastPaintedTileY >= 0) {
+                        // Interpolate from last position to current
+                        tilesToErase = GetTilesAlongLine(
+                            lastPaintedTileX, lastPaintedTileY, tx, ty
+                        );
+                    } else {
+                        // First tile
+                        tilesToErase.push_back({tx, ty});
+                    }
+                    
+                    // Track previous tile for edge crossing detection
+                    int prevX = lastPaintedTileX;
+                    int prevY = lastPaintedTileY;
+                    
+                    // Erase all tiles along the line
+                    for (const auto& tile : tilesToErase) {
+                        int tileX = tile.first;
+                        int tileY = tile.second;
                         
-                        // Erase tiles globally (using "" as roomId)
-                        const std::string globalRoomId = "";
+                        int oldTileId = model.GetTileAt(
+                            globalRoomId, tileX, tileY
+                        );
                         
-                        // Get tiles to erase (interpolate if dragging)
-                        std::vector<std::pair<int, int>> tilesToErase;
-                        if (isPainting && lastPaintedTileX >= 0 && 
-                            lastPaintedTileY >= 0) {
-                            // Interpolate from last position to current
-                            tilesToErase = GetTilesAlongLine(
-                                lastPaintedTileX, lastPaintedTileY, tx, ty
-                            );
-                        } else {
-                            // First tile
-                            tilesToErase.push_back({tx, ty});
+                        // Only erase if there's something to erase
+                        if (oldTileId != 0) {
+                            PaintTilesCommand::TileChange change;
+                            change.roomId = globalRoomId;
+                            change.x = tileX;
+                            change.y = tileY;
+                            change.oldTileId = oldTileId;
+                            change.newTileId = 0;  // 0 = empty/erase
+                            
+                            currentPaintChanges.push_back(change);
+                            
+                            // Apply immediately for visual feedback
+                            model.SetTileAt(globalRoomId, tileX, tileY, 0);
                         }
                         
-                        // Erase all tiles along the line
-                        for (const auto& tile : tilesToErase) {
-                            int tileX = tile.first;
-                            int tileY = tile.second;
-                            
-                            int oldTileId = model.GetTileAt(
-                                globalRoomId, tileX, tileY
-                            );
-                            
-                            // Only erase if there's something to erase
-                            if (oldTileId != 0) {
-                                PaintTilesCommand::TileChange change;
-                                change.roomId = globalRoomId;
-                                change.x = tileX;
-                                change.y = tileY;
-                                change.oldTileId = oldTileId;
-                                change.newTileId = 0;  // 0 = empty/erase
+                        // Check for crossed edges when dragging
+                        if (prevX >= 0 && prevY >= 0) {
+                            // Moved horizontally - crossed vertical edge
+                            if (tileX != prevX) {
+                                EdgeSide side = (tileX > prevX) ? 
+                                    EdgeSide::East : EdgeSide::West;
+                                EdgeId crossedEdge = MakeEdgeId(
+                                    prevX, prevY, side
+                                );
+                                EdgeState edgeState = model.GetEdgeState(
+                                    crossedEdge
+                                );
                                 
-                                currentPaintChanges.push_back(change);
+                                if (edgeState != EdgeState::None) {
+                                    ModifyEdgesCommand::EdgeChange change;
+                                    change.edgeId = crossedEdge;
+                                    change.oldState = edgeState;
+                                    change.newState = EdgeState::None;
+                                    
+                                    currentEdgeChanges.push_back(change);
+                                    model.SetEdgeState(
+                                        crossedEdge, EdgeState::None
+                                    );
+                                }
+                            }
+                            
+                            // Moved vertically - crossed horizontal edge
+                            if (tileY != prevY) {
+                                EdgeSide side = (tileY > prevY) ? 
+                                    EdgeSide::South : EdgeSide::North;
+                                EdgeId crossedEdge = MakeEdgeId(
+                                    prevX, prevY, side
+                                );
+                                EdgeState edgeState = model.GetEdgeState(
+                                    crossedEdge
+                                );
                                 
-                                // Apply immediately for visual feedback
-                                model.SetTileAt(globalRoomId, tileX, tileY, 0);
+                                if (edgeState != EdgeState::None) {
+                                    ModifyEdgesCommand::EdgeChange change;
+                                    change.edgeId = crossedEdge;
+                                    change.oldState = edgeState;
+                                    change.newState = EdgeState::None;
+                                    
+                                    currentEdgeChanges.push_back(change);
+                                    model.SetEdgeState(
+                                        crossedEdge, EdgeState::None
+                                    );
+                                }
                             }
                         }
                         
-                        lastPaintedTileX = tx;
-                        lastPaintedTileY = ty;
-                        isPainting = true;
+                        // Update prev for next iteration
+                        prevX = tileX;
+                        prevY = tileY;
                     }
+                    
+                    lastPaintedTileX = tx;
+                    lastPaintedTileY = ty;
+                    isPainting = true;
                 }
             }
         }
