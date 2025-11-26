@@ -11,9 +11,9 @@
 #include <imgui_internal.h>
 #include <algorithm>
 #include <cmath>
+#include <cfloat>
 #include <cstring>
 #include <set>
-#include <cmath>
 #include <filesystem>
 
 namespace Cartograph {
@@ -1751,9 +1751,29 @@ void UI::RenderCanvasPanel(
                 float tileX = wx / model.grid.tileWidth;
                 float tileY = wy / model.grid.tileHeight;
                 
-                // Snap to center of tile (0.5 offset)
-                tileX = std::floor(tileX) + 0.5f;
-                tileY = std::floor(tileY) + 0.5f;
+                // Snap to nearest snap point based on grid preset
+                auto snapPoints = model.GetMarkerSnapPoints();
+                int baseTileX = static_cast<int>(std::floor(tileX));
+                int baseTileY = static_cast<int>(std::floor(tileY));
+                float fractionalX = tileX - baseTileX;
+                float fractionalY = tileY - baseTileY;
+                
+                float minDist = FLT_MAX;
+                float bestSnapX = 0.5f, bestSnapY = 0.5f;
+                
+                for (const auto& snap : snapPoints) {
+                    float dx = fractionalX - snap.first;
+                    float dy = fractionalY - snap.second;
+                    float dist = dx*dx + dy*dy;
+                    if (dist < minDist) {
+                        minDist = dist;
+                        bestSnapX = snap.first;
+                        bestSnapY = snap.second;
+                    }
+                }
+                
+                tileX = baseTileX + bestSnapX;
+                tileY = baseTileY + bestSnapY;
                 
                 // Check if we clicked near an existing marker
                 Marker* clickedMarker = 
@@ -1816,9 +1836,29 @@ void UI::RenderCanvasPanel(
                     float tileX = wx / model.grid.tileWidth;
                     float tileY = wy / model.grid.tileHeight;
                     
-                    // Snap to center of tile
-                    tileX = std::floor(tileX) + 0.5f;
-                    tileY = std::floor(tileY) + 0.5f;
+                    // Snap to nearest snap point based on grid preset
+                    auto snapPoints = model.GetMarkerSnapPoints();
+                    int baseTileX = static_cast<int>(std::floor(tileX));
+                    int baseTileY = static_cast<int>(std::floor(tileY));
+                    float fractionalX = tileX - baseTileX;
+                    float fractionalY = tileY - baseTileY;
+                    
+                    float minDist = FLT_MAX;
+                    float bestSnapX = 0.5f, bestSnapY = 0.5f;
+                    
+                    for (const auto& snap : snapPoints) {
+                        float dx = fractionalX - snap.first;
+                        float dy = fractionalY - snap.second;
+                        float dist = dx*dx + dy*dy;
+                        if (dist < minDist) {
+                            minDist = dist;
+                            bestSnapX = snap.first;
+                            bestSnapY = snap.second;
+                        }
+                    }
+                    
+                    tileX = baseTileX + bestSnapX;
+                    tileY = baseTileY + bestSnapY;
                     
                     // Update marker position
                     selectedMarker->x = tileX;
@@ -1921,9 +1961,29 @@ void UI::RenderCanvasPanel(
                 float tileX = wx / model.grid.tileWidth;
                 float tileY = wy / model.grid.tileHeight;
                 
-                // Snap to center
-                tileX = std::floor(tileX) + 0.5f;
-                tileY = std::floor(tileY) + 0.5f;
+                // Snap to nearest snap point based on grid preset
+                auto snapPoints = model.GetMarkerSnapPoints();
+                int baseTileX = static_cast<int>(std::floor(tileX));
+                int baseTileY = static_cast<int>(std::floor(tileY));
+                float fractionalX = tileX - baseTileX;
+                float fractionalY = tileY - baseTileY;
+                
+                float minDist = FLT_MAX;
+                float bestSnapX = 0.5f, bestSnapY = 0.5f;
+                
+                for (const auto& snap : snapPoints) {
+                    float dx = fractionalX - snap.first;
+                    float dy = fractionalY - snap.second;
+                    float dist = dx*dx + dy*dy;
+                    if (dist < minDist) {
+                        minDist = dist;
+                        bestSnapX = snap.first;
+                        bestSnapY = snap.second;
+                    }
+                }
+                
+                tileX = baseTileX + bestSnapX;
+                tileY = baseTileY + bestSnapY;
                 
                 for (const auto& marker : copiedMarkers) {
                     Marker newMarker = marker;
