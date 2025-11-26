@@ -32,8 +32,7 @@ struct Toast {
  */
 struct NewProjectConfig {
     char projectName[256] = "New Map";
-    int cellWidth = 16;   // cell width in pixels
-    int cellHeight = 16;  // cell height in pixels
+    GridPreset gridPreset = GridPreset::Square;  // Cell type (Square or Rectangle)
     int mapWidth = 256;   // in cells
     int mapHeight = 256;  // in cells
 };

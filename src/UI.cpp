@@ -292,8 +292,7 @@ void UI::RenderWelcomeScreen(App& app, Model& model) {
         showNewProjectModal = true;
         // Reset config to defaults
         std::strcpy(newProjectConfig.projectName, "New Map");
-        newProjectConfig.cellWidth = 16;
-        newProjectConfig.cellHeight = 16;
+        newProjectConfig.gridPreset = GridPreset::Square;
         newProjectConfig.mapWidth = 256;
         newProjectConfig.mapHeight = 256;
         selectedTemplate = ProjectTemplate::Medium;
@@ -2482,24 +2481,64 @@ void UI::RenderSettingsModal(Model& model) {
         ImGui::Separator();
         ImGui::Spacing();
         
-        // Grid Cell Dimensions
-        ImGui::Text("Grid Cell Dimensions:");
+        // Grid Cell Type
+        ImGui::Text("Grid Cell Type:");
         
-        ImGui::SliderInt("Cell Width (px)", &model.grid.tileWidth, 
-            4, 128);
+        bool canChangePreset = model.CanChangeGridPreset();
+        
+        if (!canChangePreset) {
+            ImGui::BeginDisabled();
+        }
+        
+        bool isSquare = (model.grid.preset == GridPreset::Square);
+        if (ImGui::RadioButton("Square (16×16)", isSquare)) {
+            if (canChangePreset) {
+                model.ApplyGridPreset(GridPreset::Square);
+            } else {
+                ShowToast("Cannot change cell type - delete all markers first",
+                    Toast::Type::Warning, 3.0f);
+            }
+        }
         ImGui::SameLine();
-        if (ImGui::Button("?##cellwidth_settings")) {
-            ShowToast("Width of each grid cell in pixels", 
+        if (ImGui::Button("?##square_settings")) {
+            ShowToast("Square cells for top-down games. "
+                     "Markers snap to center only.",
                 Toast::Type::Info, 4.0f);
         }
         
-        ImGui::SliderInt("Cell Height (px)", &model.grid.tileHeight, 
-            4, 128);
+        bool isRectangle = (model.grid.preset == GridPreset::Rectangle);
+        if (ImGui::RadioButton("Rectangle (32×16)", isRectangle)) {
+            if (canChangePreset) {
+                model.ApplyGridPreset(GridPreset::Rectangle);
+            } else {
+                ShowToast("Cannot change cell type - delete all markers first",
+                    Toast::Type::Warning, 3.0f);
+            }
+        }
         ImGui::SameLine();
-        if (ImGui::Button("?##cellheight_settings")) {
-            ShowToast("Height of each grid cell in pixels", 
+        if (ImGui::Button("?##rectangle_settings")) {
+            ShowToast("Rectangular cells for side-scrollers. "
+                     "Markers snap to left/right positions.",
                 Toast::Type::Info, 4.0f);
         }
+        
+        if (!canChangePreset) {
+            ImGui::EndDisabled();
+            ImGui::TextColored(ImVec4(0.9f, 0.6f, 0.3f, 1.0f),
+                "🔒 Locked (%zu marker%s placed)",
+                model.markers.size(),
+                model.markers.size() == 1 ? "" : "s");
+            ImGui::SameLine();
+            if (ImGui::Button("?##locked_settings")) {
+                ShowToast("Delete all markers to change cell type",
+                    Toast::Type::Info, 3.0f);
+            }
+        }
+        
+        // Show current dimensions (read-only info)
+        ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
+            "Cell Dimensions: %d×%d px",
+            model.grid.tileWidth, model.grid.tileHeight);
         
         ImGui::Spacing();
         ImGui::Separator();
@@ -2705,25 +2744,65 @@ void UI::RenderNewProjectModal(App& app, Model& model) {
         ImGui::Separator();
         ImGui::Spacing();
         
-        // Configuration
-        ImGui::Text("Configuration:");
+        // Cell Type Selection
+        ImGui::Text("Choose your map style:");
+        ImGui::Spacing();
         
-        // Cell dimensions
-        ImGui::SliderInt("Cell Width (px)", &newProjectConfig.cellWidth, 
-            8, 64);
-        ImGui::SameLine();
-        if (ImGui::Button("?##cellwidth")) {
-            ShowToast("Width of each grid cell in pixels", 
-                Toast::Type::Info, 4.0f);
+        // Grid preset cards - side by side
+        ImGui::BeginGroup();
+        
+        // Square preset card
+        bool isSquareSelected = (newProjectConfig.gridPreset == GridPreset::Square);
+        if (isSquareSelected) {
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.4f, 0.8f, 0.6f));
+            ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.4f, 0.7f, 1.0f, 1.0f));
         }
         
-        ImGui::SliderInt("Cell Height (px)", &newProjectConfig.cellHeight, 
-            8, 64);
-        ImGui::SameLine();
-        if (ImGui::Button("?##cellheight")) {
-            ShowToast("Height of each grid cell in pixels", 
-                Toast::Type::Info, 4.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(20, 20));
+        if (ImGui::Button("   Square   \n\n    ┌───┐    \n    │ ● │    \n    └───┘    \n\n   16×16    \n\n Top-down  \n  dungeon   ", 
+                         ImVec2(140, 180))) {
+            newProjectConfig.gridPreset = GridPreset::Square;
         }
+        ImGui::PopStyleVar();
+        
+        if (isSquareSelected) {
+            ImGui::PopStyleColor(2);
+        }
+        
+        ImGui::SameLine(0, 20);
+        
+        // Rectangle preset card
+        bool isRectangleSelected = (newProjectConfig.gridPreset == GridPreset::Rectangle);
+        if (isRectangleSelected) {
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.4f, 0.8f, 0.6f));
+            ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.4f, 0.7f, 1.0f, 1.0f));
+        }
+        
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(20, 20));
+        if (ImGui::Button(" Rectangle \n\n ┌──────┐  \n │ ●  ● │  \n └──────┘  \n\n   32×16   \n\n Side-view \nplatformer ", 
+                         ImVec2(140, 180))) {
+            newProjectConfig.gridPreset = GridPreset::Rectangle;
+        }
+        ImGui::PopStyleVar();
+        
+        if (isRectangleSelected) {
+            ImGui::PopStyleColor(2);
+        }
+        
+        ImGui::EndGroup();
+        
+        ImGui::Spacing();
+        
+        // Show cell dimensions info (read-only)
+        const char* presetName = (newProjectConfig.gridPreset == GridPreset::Square) 
+            ? "Square (16×16 px)" 
+            : "Rectangle (32×16 px)";
+        ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
+            "Cell Type: %s", presetName);
+        
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
         
         // Map dimensions with validation
         ImGui::InputInt("Map Width (cells)", &newProjectConfig.mapWidth);
@@ -2744,10 +2823,13 @@ void UI::RenderNewProjectModal(App& app, Model& model) {
         // Preview info
         int totalCells = newProjectConfig.mapWidth * 
             newProjectConfig.mapHeight;
-        int pixelWidth = newProjectConfig.mapWidth * 
-            newProjectConfig.cellWidth;
-        int pixelHeight = newProjectConfig.mapHeight * 
-            newProjectConfig.cellHeight;
+        
+        // Get cell dimensions from preset
+        int cellWidth = (newProjectConfig.gridPreset == GridPreset::Square) ? 16 : 32;
+        int cellHeight = 16;
+        
+        int pixelWidth = newProjectConfig.mapWidth * cellWidth;
+        int pixelHeight = newProjectConfig.mapHeight * cellHeight;
         
         ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
             "Total cells: %d | Canvas size: %dx%d px",
@@ -2759,10 +2841,12 @@ void UI::RenderNewProjectModal(App& app, Model& model) {
         if (ImGui::Button("Create", ImVec2(120, 0))) {
             // Apply configuration to model
             model.meta.title = std::string(newProjectConfig.projectName);
-            model.grid.tileWidth = newProjectConfig.cellWidth;
-            model.grid.tileHeight = newProjectConfig.cellHeight;
+            
+            // Apply grid preset (sets tileWidth/tileHeight automatically)
+            model.ApplyGridPreset(newProjectConfig.gridPreset);
             model.grid.cols = newProjectConfig.mapWidth;
             model.grid.rows = newProjectConfig.mapHeight;
+            model.grid.locked = false;  // New project starts unlocked
             
             // Initialize other defaults
             model.InitDefaultPalette();
@@ -2872,29 +2956,25 @@ void UI::RenderWhatsNewPanel() {
 void UI::ApplyTemplate(ProjectTemplate tmpl) {
     switch (tmpl) {
         case ProjectTemplate::Small:
-            newProjectConfig.cellWidth = 16;
-            newProjectConfig.cellHeight = 16;
+            newProjectConfig.gridPreset = GridPreset::Square;
             newProjectConfig.mapWidth = 128;
             newProjectConfig.mapHeight = 128;
             break;
             
         case ProjectTemplate::Medium:
-            newProjectConfig.cellWidth = 16;
-            newProjectConfig.cellHeight = 16;
+            newProjectConfig.gridPreset = GridPreset::Square;
             newProjectConfig.mapWidth = 256;
             newProjectConfig.mapHeight = 256;
             break;
             
         case ProjectTemplate::Large:
-            newProjectConfig.cellWidth = 16;
-            newProjectConfig.cellHeight = 16;
+            newProjectConfig.gridPreset = GridPreset::Square;
             newProjectConfig.mapWidth = 512;
             newProjectConfig.mapHeight = 512;
             break;
             
         case ProjectTemplate::Metroidvania:
-            newProjectConfig.cellWidth = 8;
-            newProjectConfig.cellHeight = 8;
+            newProjectConfig.gridPreset = GridPreset::Rectangle;
             newProjectConfig.mapWidth = 256;
             newProjectConfig.mapHeight = 256;
             break;
