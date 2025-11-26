@@ -950,11 +950,22 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs)
                 // Get all icon names
                 auto iconNames = icons.GetAllIconNames();
                 
-                // Grid layout: 2 columns
+                // Responsive grid layout
                 float buttonSize = 80.0f;  // Size of each icon button
                 float spacing = 8.0f;
                 float availWidth = ImGui::GetContentRegionAvail().x;
-                int columns = 2;  // Fixed 2-column layout
+                
+                // Calculate responsive columns (min 2, max 4)
+                int columns = std::max(2, 
+                    static_cast<int>((availWidth + spacing) / 
+                                    (buttonSize + spacing)));
+                columns = std::min(columns, 4);
+                
+                // Calculate centering offset
+                float totalWidth = columns * buttonSize + 
+                                  (columns - 1) * spacing;
+                float leftPadding = std::max(0.0f, 
+                    (availWidth - totalWidth) * 0.5f);
                 
                 for (size_t i = 0; i < iconNames.size(); ++i) {
                     const std::string& iconName = iconNames[i];
@@ -964,8 +975,11 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs)
                     
                     ImGui::PushID(static_cast<int>(i));
                     
-                    // Begin column
-                    if (i % columns != 0) {
+                    // Begin new row with left padding for centering
+                    if (i % columns == 0) {
+                        ImGui::SetCursorPosX(
+                            ImGui::GetCursorPosX() + leftPadding);
+                    } else {
                         ImGui::SameLine(0, spacing);
                     }
                     
