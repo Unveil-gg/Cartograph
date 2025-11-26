@@ -935,6 +935,25 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs)
                         ImGui::PopStyleColor(3);
                     }
                     
+                    // Enable drag-drop from icon button
+                    if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
+                        // Set payload with icon name
+                        ImGui::SetDragDropPayload("MARKER_ICON", 
+                            iconName.c_str(), 
+                            iconName.length() + 1);
+                        
+                        // Show preview while dragging
+                        if (icons.GetAtlasTexture()) {
+                            ImVec2 uvMin(icon->u0, icon->v0);
+                            ImVec2 uvMax(icon->u1, icon->v1);
+                            ImGui::Image(icons.GetAtlasTexture(), 
+                                ImVec2(32, 32), uvMin, uvMax);
+                        }
+                        ImGui::TextUnformatted(iconName.c_str());
+                        
+                        ImGui::EndDragDropSource();
+                    }
+                    
                     // Icon name label below button (centered)
                     float textWidth = ImGui::CalcTextSize(iconName.c_str()).x;
                     float offset = (buttonSize - textWidth) * 0.5f;
@@ -1060,6 +1079,68 @@ void UI::RenderCanvasPanel(
     
     // Reserve space for canvas
     ImGui::InvisibleButton("canvas", canvasSize);
+    
+    // Accept drag-drop of marker icons
+    if (ImGui::BeginDragDropTarget()) {
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("MARKER_ICON")) {
+            // Get the icon name from payload
+            const char* droppedIconName = (const char*)payload->Data;
+            
+            // Get mouse position
+            ImVec2 mousePos = ImGui::GetMousePos();
+            
+            // Convert to world coordinates
+            float wx, wy;
+            canvas.ScreenToWorld(mousePos.x, mousePos.y, &wx, &wy);
+            
+            // Convert to fractional tile coordinates
+            float tileX = wx / model.grid.tileWidth;
+            float tileY = wy / model.grid.tileHeight;
+            
+            // Snap to nearest snap point based on grid preset
+            auto snapPoints = model.GetMarkerSnapPoints();
+            int baseTileX = static_cast<int>(std::floor(tileX));
+            int baseTileY = static_cast<int>(std::floor(tileY));
+            float fractionalX = tileX - baseTileX;
+            float fractionalY = tileY - baseTileY;
+            
+            float minDist = FLT_MAX;
+            float bestSnapX = 0.5f, bestSnapY = 0.5f;
+            
+            for (const auto& snap : snapPoints) {
+                float dx = fractionalX - snap.first;
+                float dy = fractionalY - snap.second;
+                float dist = dx*dx + dy*dy;
+                if (dist < minDist) {
+                    minDist = dist;
+                    bestSnapX = snap.first;
+                    bestSnapY = snap.second;
+                }
+            }
+            
+            tileX = baseTileX + bestSnapX;
+            tileY = baseTileY + bestSnapY;
+            
+            // Place marker at drop location
+            Marker newMarker;
+            newMarker.id = model.GenerateMarkerId();
+            newMarker.roomId = "";
+            newMarker.x = tileX;
+            newMarker.y = tileY;
+            newMarker.kind = "custom";
+            newMarker.label = markerLabel;
+            newMarker.icon = droppedIconName;
+            newMarker.color = markerColor;
+            newMarker.size = 0.6f;
+            newMarker.showLabel = !markerLabel.empty();
+            
+            auto cmd = std::make_unique<PlaceMarkerCommand>(newMarker, true);
+            history.AddCommand(std::move(cmd), model);
+            
+            ShowToast("Marker placed", Toast::Type::Success, 1.5f);
+        }
+        ImGui::EndDragDropTarget();
+    }
     
     // Global keyboard shortcuts for tool switching (work even when not hovering)
     if (!ImGui::GetIO().WantCaptureKeyboard) {
@@ -2504,6 +2585,94 @@ void UI::RenderCanvasPanel(
             crossColor,
             1.5f
         );
+    }
+    
+    // Draw drag-drop preview when dragging icon over canvas
+    if (ImGui::IsDragDropActive() && ImGui::IsItemHovered()) {
+        const ImGuiPayload* payload = ImGui::GetDragDropPayload();
+        if (payload && payload->IsDataType("MARKER_ICON")) {
+            ImVec2 mousePos = ImGui::GetMousePos();
+            
+            // Convert to world coordinates
+            float wx, wy;
+            canvas.ScreenToWorld(mousePos.x, mousePos.y, &wx, &wy);
+            
+            // Convert to fractional tile coordinates
+            float tileX = wx / model.grid.tileWidth;
+            float tileY = wy / model.grid.tileHeight;
+            
+            // Snap to nearest snap point
+            auto snapPoints = model.GetMarkerSnapPoints();
+            int baseTileX = static_cast<int>(std::floor(tileX));
+            int baseTileY = static_cast<int>(std::floor(tileY));
+            float fractionalX = tileX - baseTileX;
+            float fractionalY = tileY - baseTileY;
+            
+            float minDist = FLT_MAX;
+            float bestSnapX = 0.5f, bestSnapY = 0.5f;
+            
+            for (const auto& snap : snapPoints) {
+                float dx = fractionalX - snap.first;
+                float dy = fractionalY - snap.second;
+                float dist = dx*dx + dy*dy;
+                if (dist < minDist) {
+                    minDist = dist;
+                    bestSnapX = snap.first;
+                    bestSnapY = snap.second;
+                }
+            }
+            
+            float snappedTileX = baseTileX + bestSnapX;
+            float snappedTileY = baseTileY + bestSnapY;
+            
+            // Convert to screen coordinates
+            float snappedWx = snappedTileX * model.grid.tileWidth;
+            float snappedWy = snappedTileY * model.grid.tileHeight;
+            float snappedSx, snappedSy;
+            canvas.WorldToScreen(snappedWx, snappedWy, &snappedSx, &snappedSy);
+            
+            // Draw ghost marker preview
+            float minDim = static_cast<float>(std::min(model.grid.tileWidth, model.grid.tileHeight));
+            float markerSize = minDim * canvas.zoom * 0.6f;
+            
+            ImU32 ghostColor = ImGui::GetColorU32(ImVec4(
+                markerColor.r, markerColor.g, markerColor.b, 0.5f
+            ));
+            
+            drawList->AddCircleFilled(
+                ImVec2(snappedSx, snappedSy),
+                markerSize / 2.0f,
+                ghostColor,
+                16
+            );
+            
+            // Draw border
+            ImU32 borderColor = ImGui::GetColorU32(ImVec4(1.0f, 1.0f, 1.0f, 0.7f));
+            drawList->AddCircle(
+                ImVec2(snappedSx, snappedSy),
+                markerSize / 2.0f,
+                borderColor,
+                16,
+                2.0f
+            );
+            
+            // Draw "drop here" text
+            const char* dropText = "Drop to place marker";
+            ImVec2 textSize = ImGui::CalcTextSize(dropText);
+            ImVec2 textPos(snappedSx - textSize.x / 2.0f, 
+                          snappedSy + markerSize / 2.0f + 8.0f);
+            
+            // Text background
+            drawList->AddRectFilled(
+                ImVec2(textPos.x - 4, textPos.y - 2),
+                ImVec2(textPos.x + textSize.x + 4, textPos.y + textSize.y + 2),
+                ImGui::GetColorU32(ImVec4(0.0f, 0.0f, 0.0f, 0.7f))
+            );
+            
+            drawList->AddText(textPos, 
+                ImGui::GetColorU32(ImVec4(1.0f, 1.0f, 1.0f, 1.0f)), 
+                dropText);
+        }
     }
     
     ImGui::End();
