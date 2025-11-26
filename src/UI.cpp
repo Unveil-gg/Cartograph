@@ -848,15 +848,6 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons) {
             }
         }
         
-        // Scale slider
-        if (ImGui::SliderFloat("Scale", &markerScale, 0.5f, 2.0f)) {
-            // Update selected marker if editing
-            if (selectedMarker) {
-                selectedMarker->scale = markerScale;
-                model.MarkDirty();
-            }
-        }
-        
         ImGui::Separator();
         ImGui::Text("Selected Icon: %s", selectedIconName.c_str());
         
@@ -1798,7 +1789,6 @@ void UI::RenderCanvasPanel(
                     selectedIconName = clickedMarker->icon;
                     markerLabel = clickedMarker->label;
                     markerColor = clickedMarker->color;
-                    markerScale = clickedMarker->scale;
                 } else {
                     // Place new marker
                     Marker newMarker;
@@ -1811,7 +1801,6 @@ void UI::RenderCanvasPanel(
                     newMarker.icon = selectedIconName;
                     newMarker.color = markerColor;
                     newMarker.size = 0.6f;
-                    newMarker.scale = markerScale;
                     newMarker.showLabel = !markerLabel.empty();
                     
                     auto cmd = std::make_unique<PlaceMarkerCommand>(
@@ -2417,7 +2406,7 @@ void UI::RenderCanvasPanel(
         
         // Draw ghost marker at snapped position (larger, highlighted)
         float minDim = static_cast<float>(std::min(model.grid.tileWidth, model.grid.tileHeight));
-        float markerSize = minDim * canvas.zoom * 0.6f * markerScale;
+        float markerSize = minDim * canvas.zoom * 0.6f;
         
         // Draw ghost marker with pulsing effect
         ImU32 ghostColor = ImGui::GetColorU32(ImVec4(

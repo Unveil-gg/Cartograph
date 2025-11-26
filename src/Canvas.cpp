@@ -401,7 +401,7 @@ void Canvas::RenderMarkers(IRenderer& renderer, const Model& model,
         
         // Use minimum dimension to keep markers square and prevent overlap
         float minDim = static_cast<float>(std::min(tileWidth, tileHeight));
-        float markerSize = minDim * zoom * marker.size * marker.scale;
+        float markerSize = minDim * zoom * marker.size;
         
         // Clamp to prevent overlap (max 80% of min dimension)
         float maxSize = minDim * zoom * 0.8f;

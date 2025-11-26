@@ -180,9 +180,6 @@ std::string IOJson::SaveToString(const Model& model) {
         if (marker.size != 0.6f) {
             markerJson["size"] = marker.size;
         }
-        if (marker.scale != 1.0f) {
-            markerJson["scale"] = marker.scale;
-        }
         if (!marker.showLabel) {
             markerJson["showLabel"] = false;
         }
@@ -417,7 +414,6 @@ bool IOJson::LoadFromString(const std::string& jsonStr, Model& outModel) {
                 
                 // Optional fields with defaults
                 m.size = marker.value("size", 0.6f);
-                m.scale = marker.value("scale", 1.0f);
                 m.showLabel = marker.value("showLabel", true);
                 
                 outModel.markers.push_back(m);

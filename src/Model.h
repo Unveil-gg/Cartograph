@@ -238,7 +238,6 @@ struct Marker {
     std::string icon;   // Icon name reference
     Color color;
     float size = 0.6f;  // Size as fraction of tile (0.6 = 60%)
-    float scale = 1.0f; // User-adjustable scaling multiplier
     bool showLabel = true;
 };
 
