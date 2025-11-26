@@ -855,6 +855,12 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs)
             ImportIcon(icons, jobs);
         }
         
+        // Show loading indicator if importing
+        if (isImportingIcon) {
+            ImGui::SameLine();
+            ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.8f, 1.0f), "Loading...");
+        }
+        
         ImGui::Spacing();
         
         // Handle dropped file (OS-level file drop)
@@ -894,12 +900,16 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs)
                                                             width, height, errorMsg)) {
                             icons.AddIconFromMemory(capturedIconName, pixels.data(), 
                                                    width, height);
-                            icons.BuildAtlas();
+                            // NOTE: BuildAtlas() moved to completion callback (main thread)
+                            // since it performs OpenGL texture operations
                         }
                     },
-                    [this, capturedIconName](bool success, const std::string& error) {
+                    [this, &icons, capturedIconName](bool success, const std::string& error) {
                         isImportingIcon = false;
                         if (success) {
+                            // Build atlas on main thread (OpenGL context required)
+                            icons.BuildAtlas();
+                            
                             ShowToast("Icon imported: " + capturedIconName, 
                                      Toast::Type::Success, 2.0f);
                             // Auto-select the imported icon
@@ -924,7 +934,17 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs)
         ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), 
             "Drag & drop image files here to import");
         if (ImGui::BeginChild("IconPicker", ImVec2(0, 280), true)) {
-            if (icons.GetIconCount() == 0) {
+            // Show loading overlay if importing
+            if (isImportingIcon) {
+                ImVec2 childSize = ImGui::GetWindowSize();
+                ImVec2 textSize = ImGui::CalcTextSize(("Importing: " + importingIconName + "...").c_str());
+                ImGui::SetCursorPos(ImVec2(
+                    (childSize.x - textSize.x) * 0.5f,
+                    (childSize.y - textSize.y) * 0.5f
+                ));
+                ImGui::TextColored(ImVec4(0.6f, 0.8f, 1.0f, 1.0f), 
+                    "Importing: %s...", importingIconName.c_str());
+            } else if (icons.GetIconCount() == 0) {
                 ImGui::TextDisabled("No icons loaded");
                 ImGui::TextDisabled("Click 'Import Icon...' to add icons");
             } else {
