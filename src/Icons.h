@@ -146,8 +146,8 @@ private:
     bool LoadPng(const std::string& path, IconData& out);
     bool LoadSvg(const std::string& path, IconData& out);
     
-    std::unordered_map<std::string, Icon> m_icons;
-    std::vector<IconData> m_pendingIcons;  // Not yet in atlas
+    std::unordered_map<std::string, Icon> m_icons;        // Icon metadata + UVs
+    std::unordered_map<std::string, IconData> m_iconData; // Pixel data (retained)
     ImTextureID m_atlasTexture;
     int m_atlasWidth, m_atlasHeight;
     bool m_atlasDirty;

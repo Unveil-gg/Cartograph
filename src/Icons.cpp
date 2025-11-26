@@ -95,7 +95,8 @@ bool IconManager::LoadIcon(const std::string& path, const std::string& name) {
     }
     
     if (success) {
-        m_pendingIcons.push_back(std::move(data));
+        // Store pixel data permanently for rebuilds
+        m_iconData[iconName] = std::move(data);
         m_atlasDirty = true;
         return true;
     }
@@ -130,9 +131,19 @@ bool IconManager::LoadSvg(const std::string& path, IconData& out) {
 }
 
 void IconManager::BuildAtlas() {
-    if (!m_atlasDirty || m_pendingIcons.empty()) {
+    if (!m_atlasDirty || m_iconData.empty()) {
         return;
     }
+    
+    // Delete old texture if it exists
+    if (m_atlasTexture != 0) {
+        GLuint texId = (GLuint)(intptr_t)m_atlasTexture;
+        glDeleteTextures(1, &texId);
+        m_atlasTexture = 0;
+    }
+    
+    // Clear old icon entries (we'll rebuild them)
+    m_icons.clear();
     
     // Simple atlas packing: arrange icons in a grid
     // TODO: For a production app, use a proper bin-packing algorithm
@@ -140,7 +151,7 @@ void IconManager::BuildAtlas() {
     const int maxIconSize = 64;  // Max icon size
     const int iconsPerRow = 16;
     
-    int numIcons = m_pendingIcons.size();
+    int numIcons = m_iconData.size();
     int numRows = (numIcons + iconsPerRow - 1) / iconsPerRow;
     
     m_atlasWidth = iconsPerRow * maxIconSize;
@@ -149,9 +160,10 @@ void IconManager::BuildAtlas() {
     // Allocate atlas buffer
     std::vector<uint8_t> atlasPixels(m_atlasWidth * m_atlasHeight * 4, 0);
     
-    // Copy icons into atlas
-    for (size_t i = 0; i < m_pendingIcons.size(); ++i) {
-        const auto& iconData = m_pendingIcons[i];
+    // Copy all icons into atlas (rebuild entire atlas)
+    size_t i = 0;
+    for (const auto& pair : m_iconData) {
+        const IconData& iconData = pair.second;
         
         int row = i / iconsPerRow;
         int col = i % iconsPerRow;
@@ -173,7 +185,7 @@ void IconManager::BuildAtlas() {
             }
         }
         
-        // Create icon entry
+        // Create icon entry with updated UVs
         Icon icon;
         icon.name = iconData.name;
         icon.atlasX = atlasX;
@@ -186,9 +198,10 @@ void IconManager::BuildAtlas() {
         icon.v1 = (float)(atlasY + iconData.height) / m_atlasHeight;
         
         m_icons[icon.name] = icon;
+        ++i;
     }
     
-    // Upload atlas texture to GPU
+    // Upload new atlas texture to GPU
     GLuint texId;
     glGenTextures(1, &texId);
     glBindTexture(GL_TEXTURE_2D, texId);
@@ -216,8 +229,6 @@ void IconManager::BuildAtlas() {
     glBindTexture(GL_TEXTURE_2D, 0);
     
     m_atlasTexture = (ImTextureID)(intptr_t)texId;
-    
-    m_pendingIcons.clear();
     m_atlasDirty = false;
 }
 
@@ -239,7 +250,7 @@ std::vector<std::string> IconManager::GetAllIconNames() const {
 
 void IconManager::Clear() {
     m_icons.clear();
-    m_pendingIcons.clear();
+    m_iconData.clear();
     
     // Properly destroy GL texture before clearing texture ID
     if (m_atlasTexture != 0) {
@@ -274,8 +285,8 @@ bool IconManager::AddIconFromMemory(
     data.height = height;
     data.pixels.assign(pixels, pixels + width * height * 4);
     
-    // Add to pending icons
-    m_pendingIcons.push_back(std::move(data));
+    // Store pixel data permanently for rebuilds
+    m_iconData[name] = std::move(data);
     m_atlasDirty = true;
     
     return true;
