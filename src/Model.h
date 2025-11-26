@@ -37,11 +37,19 @@ struct Color {
 // Grid configuration
 // ============================================================================
 
+// Grid preset types determine cell dimensions and marker snap behavior
+enum class GridPreset {
+    Square,      // 16×16 - Center snap only (top-down games)
+    Rectangle    // 32×16 - Dual snap left/right (side-scrollers)
+};
+
 struct GridConfig {
-    int tileWidth = 16;   // pixels per tile width at 1:1 zoom
-    int tileHeight = 16;  // pixels per tile height at 1:1 zoom
+    GridPreset preset = GridPreset::Square;  // Cell type preset
+    int tileWidth = 16;   // pixels per tile width at 1:1 zoom (derived from preset)
+    int tileHeight = 16;  // pixels per tile height at 1:1 zoom (derived from preset)
     int cols = 256;       // grid width in tiles
     int rows = 256;       // grid height in tiles
+    bool locked = false;  // Prevent preset changes after markers placed
     
     // Edge configuration
     bool autoExpandGrid = true;       // Auto-expand when near boundaries
@@ -323,6 +331,11 @@ public:
     
     // Grid expansion
     void ExpandGridIfNeeded(int cellX, int cellY);
+    
+    // Grid preset management
+    bool CanChangeGridPreset() const;  // Check if preset can be changed (no markers)
+    void ApplyGridPreset(GridPreset preset);  // Apply preset and update dimensions
+    std::vector<std::pair<float, float>> GetMarkerSnapPoints() const;  // Get snap points for current preset
     
     // Region management
     void ComputeInferredRegions();    // Flood-fill to detect regions

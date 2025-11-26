@@ -274,6 +274,44 @@ void Model::ExpandGridIfNeeded(int cellX, int cellY) {
     }
 }
 
+bool Model::CanChangeGridPreset() const {
+    // Can't change preset if markers exist
+    return markers.empty();
+}
+
+void Model::ApplyGridPreset(GridPreset preset) {
+    if (!CanChangeGridPreset()) {
+        // Caller should check first, but guard anyway
+        return;
+    }
+    
+    grid.preset = preset;
+    
+    // Update dimensions based on preset
+    switch (preset) {
+        case GridPreset::Square:
+            grid.tileWidth = 16;
+            grid.tileHeight = 16;
+            break;
+        case GridPreset::Rectangle:
+            grid.tileWidth = 32;
+            grid.tileHeight = 16;
+            break;
+    }
+    
+    MarkDirty();
+}
+
+std::vector<std::pair<float, float>> Model::GetMarkerSnapPoints() const {
+    switch (grid.preset) {
+        case GridPreset::Square:
+            return {{0.5f, 0.5f}};  // Center only
+        case GridPreset::Rectangle:
+            return {{0.25f, 0.5f}, {0.75f, 0.5f}};  // Left & right centers
+    }
+    return {{0.5f, 0.5f}};  // Fallback to center
+}
+
 void Model::InvalidateRegions() {
     regionsDirty = true;
 }
@@ -529,6 +567,7 @@ std::vector<Marker*> Model::FindMarkersInRect(
 
 void Model::AddMarker(const Marker& marker) {
     markers.push_back(marker);
+    grid.locked = true;  // Lock grid preset when markers are placed
     MarkDirty();
 }
 
@@ -558,10 +597,13 @@ void Model::InitDefaults() {
     InitDefaultKeymap();
     InitDefaultTheme("Dark");
     
+    // Set default grid preset (Square: 16×16)
+    grid.preset = GridPreset::Square;
     grid.tileWidth = 16;
     grid.tileHeight = 16;
     grid.cols = 256;
     grid.rows = 256;
+    grid.locked = false;
     
     meta.title = "New Map";
     meta.author = "";

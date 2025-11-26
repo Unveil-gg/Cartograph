@@ -8,6 +8,21 @@ using json = nlohmann::json;
 
 namespace Cartograph {
 
+// Helper: Convert GridPreset to string
+static std::string GridPresetToString(GridPreset preset) {
+    switch (preset) {
+        case GridPreset::Square: return "square";
+        case GridPreset::Rectangle: return "rectangle";
+        default: return "square";
+    }
+}
+
+// Helper: Parse GridPreset from string
+static GridPreset GridPresetFromString(const std::string& str) {
+    if (str == "rectangle") return GridPreset::Rectangle;
+    return GridPreset::Square;
+}
+
 // Helper: Convert DoorSide to string
 static std::string DoorSideToString(DoorSide side) {
     switch (side) {
@@ -51,10 +66,12 @@ std::string IOJson::SaveToString(const Model& model) {
     
     // Grid
     j["grid"] = {
+        {"preset", GridPresetToString(model.grid.preset)},
         {"tileWidth", model.grid.tileWidth},
         {"tileHeight", model.grid.tileHeight},
         {"cols", model.grid.cols},
         {"rows", model.grid.rows},
+        {"locked", model.grid.locked},
         {"autoExpandGrid", model.grid.autoExpandGrid},
         {"expansionThreshold", model.grid.expansionThreshold},
         {"expansionFactor", model.grid.expansionFactor},
@@ -205,7 +222,26 @@ bool IOJson::LoadFromString(const std::string& jsonStr, Model& outModel) {
         // Grid
         if (j.contains("grid")) {
             const auto& grid = j["grid"];
-            // Backward compatibility: support old "tileSize" field
+            
+            // Load preset (default to Square if not present)
+            if (grid.contains("preset")) {
+                outModel.grid.preset = GridPresetFromString(
+                    grid.value("preset", "square")
+                );
+            } else {
+                // Infer preset from dimensions for backward compatibility
+                int tw = grid.value("tileWidth", 16);
+                int th = grid.value("tileHeight", 16);
+                if (tw == th) {
+                    outModel.grid.preset = GridPreset::Square;
+                } else if (tw > th) {
+                    outModel.grid.preset = GridPreset::Rectangle;
+                } else {
+                    outModel.grid.preset = GridPreset::Square;  // Default
+                }
+            }
+            
+            // Load dimensions
             if (grid.contains("tileWidth") && grid.contains("tileHeight")) {
                 outModel.grid.tileWidth = grid.value("tileWidth", 16);
                 outModel.grid.tileHeight = grid.value("tileHeight", 16);
@@ -218,8 +254,10 @@ bool IOJson::LoadFromString(const std::string& jsonStr, Model& outModel) {
                 outModel.grid.tileWidth = 16;
                 outModel.grid.tileHeight = 16;
             }
+            
             outModel.grid.cols = grid.value("cols", 256);
             outModel.grid.rows = grid.value("rows", 256);
+            outModel.grid.locked = grid.value("locked", false);
             
             // Edge configuration (optional, with defaults)
             outModel.grid.autoExpandGrid = grid.value("autoExpandGrid", true);
