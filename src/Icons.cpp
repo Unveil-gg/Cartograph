@@ -226,6 +226,17 @@ const Icon* IconManager::GetIcon(const std::string& name) const {
     return (it != m_icons.end()) ? &it->second : nullptr;
 }
 
+std::vector<std::string> IconManager::GetAllIconNames() const {
+    std::vector<std::string> names;
+    names.reserve(m_icons.size());
+    for (const auto& pair : m_icons) {
+        names.push_back(pair.first);
+    }
+    // Sort alphabetically for consistent ordering
+    std::sort(names.begin(), names.end());
+    return names;
+}
+
 void IconManager::Clear() {
     m_icons.clear();
     m_pendingIcons.clear();

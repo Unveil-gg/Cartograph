@@ -71,6 +71,12 @@ public:
     size_t GetIconCount() const { return m_icons.size(); }
     
     /**
+     * Get all icon names.
+     * @return Vector of icon names
+     */
+    std::vector<std::string> GetAllIconNames() const;
+    
+    /**
      * Clear all loaded icons.
      */
     void Clear();

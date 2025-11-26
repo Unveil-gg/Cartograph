@@ -201,7 +201,7 @@ private:
     );
     void RenderPalettePanel(Model& model);
     void RenderToolsPanel(Model& model);
-    void RenderPropertiesPanel(Model& model, IconManager& icons);
+    void RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs);
     void RenderCanvasPanel(
         IRenderer& renderer,
         Model& model, 

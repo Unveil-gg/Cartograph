@@ -128,7 +128,7 @@ void UI::Render(
     // Render all panels (they will dock into the dockspace)
     RenderToolsPanel(model);
     RenderCanvasPanel(renderer, model, canvas, history, icons);
-    RenderPropertiesPanel(model, icons);
+    RenderPropertiesPanel(model, icons, jobs);
     RenderStatusBar(model, canvas);
     
     // Render toasts
@@ -588,7 +588,7 @@ void UI::RenderToolsPanel(Model& model) {
     ImGui::End();
 }
 
-void UI::RenderPropertiesPanel(Model& model, IconManager& icons) {
+void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs) {
     ImGuiWindowFlags flags = 
         ImGuiWindowFlags_NoMove | 
         ImGuiWindowFlags_NoCollapse;
@@ -849,37 +849,68 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons) {
         }
         
         ImGui::Separator();
-        ImGui::Text("Selected Icon: %s", selectedIconName.c_str());
         
-        // Icon picker
-        if (ImGui::BeginChild("IconPicker", ImVec2(0, 150), true)) {
-            ImGui::Text("Available Icons (%zu)", icons.GetIconCount());
-            ImGui::Separator();
-            
-            // Default icon if no icons loaded
+        // Import Icon button at the top
+        if (ImGui::Button("Import Icon...", ImVec2(-1, 0))) {
+            ImportIcon(icons, jobs);
+        }
+        
+        ImGui::Spacing();
+        
+        // Icon picker grid
+        ImGui::Text("Select Icon (%zu available)", icons.GetIconCount());
+        if (ImGui::BeginChild("IconPicker", ImVec2(0, 300), true)) {
             if (icons.GetIconCount() == 0) {
                 ImGui::TextDisabled("No icons loaded");
-                
-                bool isSelected = (selectedIconName == "dot");
-                if (ImGui::Selectable("dot (fallback)", isSelected)) {
-                    selectedIconName = "dot";
-                }
+                ImGui::TextDisabled("Click 'Import Icon...' to add icons");
             } else {
-                // Show all loaded icons
-                // Built-in icons first
-                const char* builtInIcons[] = {
-                    "dot", "bench", "chest", "skull"
-                };
+                // Get all icon names
+                auto iconNames = icons.GetAllIconNames();
                 
-                ImGui::TextColored(ImVec4(0.5f, 0.7f, 1.0f, 1.0f), 
-                                  "Built-in:");
+                // Grid layout: 2 columns
+                float buttonSize = 80.0f;  // Size of each icon button
+                float spacing = 8.0f;
+                float availWidth = ImGui::GetContentRegionAvail().x;
+                int columns = 2;  // Fixed 2-column layout
                 
-                for (const char* iconName : builtInIcons) {
+                for (size_t i = 0; i < iconNames.size(); ++i) {
+                    const std::string& iconName = iconNames[i];
                     const Icon* icon = icons.GetIcon(iconName);
-                    if (icon) {
-                        bool isSelected = (selectedIconName == iconName);
+                    
+                    if (!icon) continue;
+                    
+                    ImGui::PushID(static_cast<int>(i));
+                    
+                    // Begin column
+                    if (i % columns != 0) {
+                        ImGui::SameLine(0, spacing);
+                    }
+                    
+                    ImGui::BeginGroup();
+                    
+                    // Draw icon button
+                    bool isSelected = (selectedIconName == iconName);
+                    
+                    // Highlight selected icon
+                    if (isSelected) {
+                        ImGui::PushStyleColor(ImGuiCol_Button, 
+                            ImVec4(0.2f, 0.4f, 0.8f, 0.6f));
+                        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, 
+                            ImVec4(0.3f, 0.5f, 0.9f, 0.8f));
+                        ImGui::PushStyleColor(ImGuiCol_ButtonActive, 
+                            ImVec4(0.4f, 0.6f, 1.0f, 1.0f));
+                    }
+                    
+                    // Icon image button
+                    if (icons.GetAtlasTexture()) {
+                        ImVec2 uvMin(icon->u0, icon->v0);
+                        ImVec2 uvMax(icon->u1, icon->v1);
                         
-                        if (ImGui::Selectable(iconName, isSelected)) {
+                        if (ImGui::ImageButton(
+                            iconName.c_str(),
+                            icons.GetAtlasTexture(),
+                            ImVec2(buttonSize, buttonSize),
+                            uvMin, uvMax)) {
                             selectedIconName = iconName;
                             
                             // Update selected marker if editing
@@ -888,17 +919,41 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons) {
                                 model.MarkDirty();
                             }
                         }
+                    } else {
+                        // Fallback if no texture
+                        if (ImGui::Button("##icon", ImVec2(buttonSize, buttonSize))) {
+                            selectedIconName = iconName;
+                            
+                            if (selectedMarker) {
+                                selectedMarker->icon = selectedIconName;
+                                model.MarkDirty();
+                            }
+                        }
                     }
+                    
+                    if (isSelected) {
+                        ImGui::PopStyleColor(3);
+                    }
+                    
+                    // Icon name label below button (centered)
+                    float textWidth = ImGui::CalcTextSize(iconName.c_str()).x;
+                    float offset = (buttonSize - textWidth) * 0.5f;
+                    if (offset > 0) {
+                        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + offset);
+                    }
+                    ImGui::TextWrapped("%s", iconName.c_str());
+                    
+                    ImGui::EndGroup();
+                    
+                    ImGui::PopID();
                 }
-                
-                // Imported icons
-                // (Would need IconManager::GetAllIconNames() to list them)
-                // For now, just show that more icons can be imported
-                if (isImportingIcon) {
-                    ImGui::Separator();
-                    ImGui::TextDisabled("Importing: %s...", 
-                                       importingIconName.c_str());
-                }
+            }
+            
+            // Show import progress
+            if (isImportingIcon) {
+                ImGui::Separator();
+                ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.3f, 1.0f),
+                    "Importing: %s...", importingIconName.c_str());
             }
             
             ImGui::EndChild();
