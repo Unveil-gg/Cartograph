@@ -293,9 +293,8 @@ void UI::RenderWelcomeScreen(App& app, Model& model) {
         // Reset config to defaults
         std::strcpy(newProjectConfig.projectName, "New Map");
         newProjectConfig.gridPreset = GridPreset::Square;
-        newProjectConfig.mapWidth = 256;
-        newProjectConfig.mapHeight = 256;
-        selectedTemplate = ProjectTemplate::Medium;
+        newProjectConfig.mapWidth = 100;
+        newProjectConfig.mapHeight = 100;
     }
     
     ImGui::SameLine(0.0f, buttonSpacing);
@@ -1824,6 +1823,38 @@ void UI::RenderCanvasPanel(
                 }
             }
             
+            // Right-click (two-finger) to delete marker
+            if (ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+                ImVec2 mousePos = ImGui::GetMousePos();
+                
+                // Convert to world coordinates
+                float wx, wy;
+                canvas.ScreenToWorld(mousePos.x, mousePos.y, &wx, &wy);
+                
+                // Convert to fractional tile coordinates
+                float tileX = wx / model.grid.tileWidth;
+                float tileY = wy / model.grid.tileHeight;
+                
+                // Check if we right-clicked near an existing marker
+                Marker* clickedMarker = 
+                    model.FindMarkerNear(tileX, tileY, 0.5f);
+                
+                if (clickedMarker) {
+                    // Delete marker
+                    auto cmd = std::make_unique<DeleteMarkerCommand>(
+                        clickedMarker->id
+                    );
+                    history.AddCommand(std::move(cmd), model);
+                    
+                    // Clear selection if we deleted the selected marker
+                    if (selectedMarker && selectedMarker->id == clickedMarker->id) {
+                        selectedMarker = nullptr;
+                    }
+                    
+                    ShowToast("Marker deleted", Toast::Type::Info);
+                }
+            }
+            
             // Handle marker dragging
             if (isDraggingMarker && selectedMarker) {
                 if (ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
@@ -2878,41 +2909,6 @@ void UI::RenderNewProjectModal(App& app, Model& model) {
         ImGui::Text("Project Name:");
         ImGui::InputText("##projectname", newProjectConfig.projectName, 
             sizeof(newProjectConfig.projectName));
-        
-        ImGui::Spacing();
-        
-        // Template selection
-        ImGui::Text("Template:");
-        ImGui::BeginGroup();
-        if (ImGui::RadioButton("Custom", 
-            selectedTemplate == ProjectTemplate::Custom)) {
-            selectedTemplate = ProjectTemplate::Custom;
-        }
-        ImGui::SameLine();
-        if (ImGui::RadioButton("Small (128x128)", 
-            selectedTemplate == ProjectTemplate::Small)) {
-            selectedTemplate = ProjectTemplate::Small;
-            ApplyTemplate(ProjectTemplate::Small);
-        }
-        ImGui::SameLine();
-        if (ImGui::RadioButton("Medium (256x256)", 
-            selectedTemplate == ProjectTemplate::Medium)) {
-            selectedTemplate = ProjectTemplate::Medium;
-            ApplyTemplate(ProjectTemplate::Medium);
-        }
-        
-        if (ImGui::RadioButton("Large (512x512)", 
-            selectedTemplate == ProjectTemplate::Large)) {
-            selectedTemplate = ProjectTemplate::Large;
-            ApplyTemplate(ProjectTemplate::Large);
-        }
-        ImGui::SameLine();
-        if (ImGui::RadioButton("Metroidvania (256x256, 8px)", 
-            selectedTemplate == ProjectTemplate::Metroidvania)) {
-            selectedTemplate = ProjectTemplate::Metroidvania;
-            ApplyTemplate(ProjectTemplate::Metroidvania);
-        }
-        ImGui::EndGroup();
         
         ImGui::Spacing();
         ImGui::Separator();
