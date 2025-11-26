@@ -900,8 +900,6 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs)
                                                             width, height, errorMsg)) {
                             icons.AddIconFromMemory(capturedIconName, pixels.data(), 
                                                    width, height);
-                            // NOTE: BuildAtlas() moved to completion callback (main thread)
-                            // since it performs OpenGL texture operations
                         }
                     },
                     [this, &icons, capturedIconName](bool success, const std::string& error) {
