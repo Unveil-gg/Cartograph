@@ -86,7 +86,11 @@ bool IconManager::LoadIcon(const std::string& path, const std::string& name) {
     std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
     
     bool success = false;
-    if (ext == ".png") {
+    // stb_image supports: PNG, JPEG, BMP, GIF, TGA, PSD, HDR, PIC, PNM
+    if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || 
+        ext == ".bmp" || ext == ".gif" || ext == ".tga" ||
+        ext == ".webp") {
+        // All raster formats use stb_image loader
         success = LoadPng(path, data);
     } else if (ext == ".svg") {
 #ifdef CARTOGRAPH_USE_SVG
@@ -304,16 +308,20 @@ bool IconManager::ValidateIcon(
         return false;
     }
     
-    // Must be square
-    if (width != height) {
-        errorMsg = "Icon must be square (got " + std::to_string(width) + 
-                   "×" + std::to_string(height) + ")";
+    // Size limits: max 2048×2048 input (will be resized to 64×64)
+    const int MAX_INPUT_SIZE = 2048;
+    if (width > MAX_INPUT_SIZE || height > MAX_INPUT_SIZE) {
+        errorMsg = "Icon too large (max " + std::to_string(MAX_INPUT_SIZE) + 
+                   "×" + std::to_string(MAX_INPUT_SIZE) + ", got " +
+                   std::to_string(width) + "×" + std::to_string(height) + ")";
         return false;
     }
     
-    // Size limits (8x8 to 512x512)
-    if (width < 8 || width > 512) {
-        errorMsg = "Icon size must be between 8×8 and 512×512 (got " + 
+    // Minimum size check (avoid tiny images that won't upscale well)
+    const int MIN_INPUT_SIZE = 8;
+    if (width < MIN_INPUT_SIZE || height < MIN_INPUT_SIZE) {
+        errorMsg = "Icon too small (min " + std::to_string(MIN_INPUT_SIZE) + 
+                   "×" + std::to_string(MIN_INPUT_SIZE) + ", got " +
                    std::to_string(width) + "×" + std::to_string(height) + ")";
         return false;
     }
@@ -370,13 +378,13 @@ bool IconManager::ProcessIconFromFile(
         return false;
     }
     
-    // Validate dimensions
+    // Validate dimensions (accepts non-square, will resize to square)
     if (!ValidateIcon(width, height, 0, errorMsg)) {
         stbi_image_free(data);
         return false;
     }
     
-    // Resize to standard 64×64 if needed
+    // Resize to standard 64×64 (non-square images will be scaled to fit)
     const int targetSize = 64;
     
     if (width != targetSize || height != targetSize) {

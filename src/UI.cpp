@@ -16,6 +16,7 @@
 #include <cstring>
 #include <set>
 #include <filesystem>
+#include <stdexcept>
 
 namespace Cartograph {
 
@@ -870,7 +871,8 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs)
             std::string ext = droppedFilePath.substr(droppedFilePath.find_last_of(".") + 1);
             std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
             
-            if (ext == "png" || ext == "jpg" || ext == "jpeg") {
+            if (ext == "png" || ext == "jpg" || ext == "jpeg" || 
+                ext == "bmp" || ext == "gif" || ext == "tga" || ext == "webp") {
                 // Extract filename without extension for icon name
                 size_t lastSlash = droppedFilePath.find_last_of("/\\");
                 size_t lastDot = droppedFilePath.find_last_of(".");
@@ -897,10 +899,14 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs)
                         int width, height;
                         std::string errorMsg;
                         
-                        if (IconManager::ProcessIconFromFile(capturedFilePath, pixels, 
-                                                            width, height, errorMsg)) {
-                            icons.AddIconFromMemory(capturedIconName, pixels.data(), 
-                                                   width, height);
+                        if (!IconManager::ProcessIconFromFile(capturedFilePath, pixels, 
+                                                              width, height, errorMsg)) {
+                            throw std::runtime_error(errorMsg);
+                        }
+                        
+                        if (!icons.AddIconFromMemory(capturedIconName, pixels.data(), 
+                                                    width, height)) {
+                            throw std::runtime_error("Failed to add icon to memory");
                         }
                     },
                     [this, &icons, capturedIconName](bool success, const std::string& error) {
@@ -920,7 +926,7 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs)
                     }
                 );
             } else {
-                ShowToast("Invalid file type. Only PNG and JPG are supported.", 
+                ShowToast("Unsupported format. Use PNG, JPEG, BMP, GIF, TGA, or WebP", 
                          Toast::Type::Warning, 3.0f);
             }
             
@@ -3589,9 +3595,13 @@ void UI::ImportIcon(IconManager& iconManager, JobQueue& jobs) {
     
     // Setup filters for image files
     static SDL_DialogFileFilter filters[] = {
-        { "Image Files", "png;jpg;jpeg" },
+        { "All Images", "png;jpg;jpeg;bmp;gif;tga;webp" },
         { "PNG Files", "png" },
-        { "JPEG Files", "jpg;jpeg" }
+        { "JPEG Files", "jpg;jpeg" },
+        { "BMP Files", "bmp" },
+        { "GIF Files", "gif" },
+        { "TGA Files", "tga" },
+        { "WebP Files", "webp" }
     };
     
     // Callback struct to capture references
@@ -3646,10 +3656,14 @@ void UI::ImportIcon(IconManager& iconManager, JobQueue& jobs) {
                     int width, height;
                     std::string errorMsg;
                     
-                    if (IconManager::ProcessIconFromFile(path, pixels, 
-                                                        width, height, errorMsg)) {
-                        data->iconManager->AddIconFromMemory(
-                            iconName, pixels.data(), width, height);
+                    if (!IconManager::ProcessIconFromFile(path, pixels, 
+                                                          width, height, errorMsg)) {
+                        throw std::runtime_error(errorMsg);
+                    }
+                    
+                    if (!data->iconManager->AddIconFromMemory(
+                            iconName, pixels.data(), width, height)) {
+                        throw std::runtime_error("Failed to add icon to memory");
                     }
                 },
                 [data, iconName](bool success, const std::string& error) {
@@ -3678,7 +3692,7 @@ void UI::ImportIcon(IconManager& iconManager, JobQueue& jobs) {
         // Filters
         filters,
         // Number of filters
-        3,
+        7,
         // Default location
         nullptr,
         // Allow multiple files
