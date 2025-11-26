@@ -9,6 +9,7 @@
 #include "platform/Fs.h"
 #include <imgui.h>
 #include <imgui_internal.h>
+#include <SDL3/SDL_dialog.h>
 #include <algorithm>
 #include <cmath>
 #include <cfloat>
@@ -3570,120 +3571,105 @@ void UI::BuildFixedLayout(ImGuiID dockspaceId) {
 }
 
 void UI::ImportIcon(IconManager& iconManager, JobQueue& jobs) {
-    // TODO: Use native file dialog when available
-    // For now, show a simple ImGui input dialog
+    // Use SDL3 native file dialog
     
-    static char pathBuffer[512] = "";
-    static bool showInputDialog = false;
+    // Setup filters for image files
+    static SDL_DialogFileFilter filters[] = {
+        { "Image Files", "png;jpg;jpeg" },
+        { "PNG Files", "png" },
+        { "JPEG Files", "jpg;jpeg" }
+    };
     
-    if (!showInputDialog) {
-        showInputDialog = true;
-        pathBuffer[0] = '\0';
-    }
+    // Callback struct to capture references
+    struct CallbackData {
+        UI* ui;
+        IconManager* iconManager;
+        JobQueue* jobs;
+    };
     
-    // Show simple input dialog
-    ImGui::OpenPopup("Import Icon");
-    if (ImGui::BeginPopupModal("Import Icon", nullptr,
-                               ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::Text("Enter path to PNG icon:");
-        ImGui::InputText("##iconpath", pathBuffer, sizeof(pathBuffer));
-        
-        ImGui::Separator();
-        
-        if (ImGui::Button("Import", ImVec2(120, 0))) {
-            std::string path = pathBuffer;
+    // Allocate callback data on heap (freed in callback)
+    CallbackData* data = new CallbackData{this, &iconManager, &jobs};
+    
+    // Show native file dialog
+    SDL_ShowOpenFileDialog(
+        // Callback
+        [](void* userdata, const char* const* filelist, int filter) {
+            CallbackData* data = static_cast<CallbackData*>(userdata);
             
-            if (!path.empty()) {
-                // Extract base name from path
-                namespace fs = std::filesystem;
-                std::string baseName = fs::path(path).stem().string();
-                
-                // Generate unique name
-                std::string iconName = iconManager.GenerateUniqueName(baseName);
-                
-                // Set loading state
-                isImportingIcon = true;
-                importingIconName = iconName;
-                
-                // Enqueue processing job
-                jobs.Enqueue(
-                    JobType::ProcessIcon,
-                    // Work function (runs on worker thread)
-                    [path, iconName]() {
-                        // Process icon in background
-                        std::vector<uint8_t> pixels;
-                        int width, height;
-                        std::string errorMsg;
-                        
-                        bool success = IconManager::ProcessIconFromFile(
-                            path, pixels, width, height, errorMsg
-                        );
-                        
-                        // Store result in thread-local storage for callback
-                        // (This is a simplified approach - in production,
-                        //  use a proper result structure)
-                    },
-                    // Callback (runs on main thread)
-                    [this, &iconManager, iconName, path](
-                        bool success, const std::string& error
-                    ) {
-                        isImportingIcon = false;
-                        
-                        if (success) {
-                            // Process the icon data
-                            // Note: We need to re-process on main thread
-                            // because we can't easily pass data between threads
-                            std::vector<uint8_t> pixels;
-                            int width, height;
-                            std::string errorMsg;
-                            
-                            if (IconManager::ProcessIconFromFile(
-                                    path, pixels, width, height, errorMsg)) {
-                                // Add to icon manager
-                                if (iconManager.AddIconFromMemory(
-                                        iconName, pixels.data(),
-                                        width, height)) {
-                                    // Rebuild atlas with new icon
-                                    iconManager.BuildAtlas();
-                                    
-                                    ShowToast(
-                                        "Icon imported: " + iconName,
-                                        Toast::Type::Success
-                                    );
-                                } else {
-                                    ShowToast(
-                                        "Failed to add icon to atlas",
-                                        Toast::Type::Error
-                                    );
-                                }
-                            } else {
-                                ShowToast(
-                                    "Failed to process icon: " + errorMsg,
-                                    Toast::Type::Error
-                                );
-                            }
-                        } else {
-                            ShowToast(
-                                "Failed to import icon: " + error,
-                                Toast::Type::Error
-                            );
-                        }
-                    }
-                );
-                
-                ImGui::CloseCurrentPopup();
-                showInputDialog = false;
+            if (filelist == nullptr) {
+                // Error occurred
+                data->ui->ShowToast("Failed to open file dialog", 
+                                   Toast::Type::Error);
+                delete data;
+                return;
             }
-        }
-        
-        ImGui::SameLine();
-        if (ImGui::Button("Cancel", ImVec2(120, 0))) {
-            ImGui::CloseCurrentPopup();
-            showInputDialog = false;
-        }
-        
-        ImGui::EndPopup();
-    }
+            
+            if (filelist[0] == nullptr) {
+                // User canceled
+                delete data;
+                return;
+            }
+            
+            // User selected a file
+            std::string path = filelist[0];
+            
+            // Extract base name from path
+            namespace fs = std::filesystem;
+            std::string baseName = fs::path(path).stem().string();
+            
+            // Generate unique name
+            std::string iconName = data->iconManager->GenerateUniqueName(baseName);
+            
+            // Set loading state
+            data->ui->isImportingIcon = true;
+            data->ui->importingIconName = iconName;
+            
+            // Enqueue processing job
+            data->jobs->Enqueue(
+                JobType::ProcessIcon,
+                [path, iconName, data]() {
+                    std::vector<uint8_t> pixels;
+                    int width, height;
+                    std::string errorMsg;
+                    
+                    if (IconManager::ProcessIconFromFile(path, pixels, 
+                                                        width, height, errorMsg)) {
+                        data->iconManager->AddIconFromMemory(
+                            iconName, pixels.data(), width, height);
+                    }
+                },
+                [data, iconName](bool success, const std::string& error) {
+                    data->ui->isImportingIcon = false;
+                    
+                    if (success) {
+                        // Build atlas on main thread
+                        data->iconManager->BuildAtlas();
+                        
+                        data->ui->ShowToast("Icon imported: " + iconName, 
+                                          Toast::Type::Success, 2.0f);
+                        data->ui->selectedIconName = iconName;
+                    } else {
+                        data->ui->ShowToast("Failed to import: " + error, 
+                                          Toast::Type::Error, 3.0f);
+                    }
+                    
+                    delete data;
+                }
+            );
+        },
+        // Userdata
+        data,
+        // Window (NULL for now, could pass SDL window)
+        nullptr,
+        // Filters
+        filters,
+        // Number of filters
+        3,
+        // Default location
+        nullptr,
+        // Allow multiple files
+        false
+    );
 }
 
 void UI::HandleDroppedFile(const std::string& filePath) {
