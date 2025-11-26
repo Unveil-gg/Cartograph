@@ -117,6 +117,12 @@ public:
      */
     void ImportIcon(IconManager& iconManager, JobQueue& jobs);
     
+    /**
+     * Handle dropped file (from OS drag-drop).
+     * @param filePath Path to dropped file
+     */
+    void HandleDroppedFile(const std::string& filePath);
+    
     // UI state
     bool showExportModal = false;
     ExportOptions exportOptions;
@@ -125,6 +131,8 @@ public:
     // Icon import state
     bool isImportingIcon = false;
     std::string importingIconName;
+    std::string droppedFilePath;
+    bool hasDroppedFile = false;
     
     // Welcome screen state
     bool showNewProjectModal = false;

@@ -126,6 +126,10 @@ private:
     
     // Frame timing
     double m_lastFrameTime;
+    
+    // File drop handling
+    std::string m_droppedFilePath;
+    bool m_hasDroppedFile;
 };
 
 } // namespace Cartograph

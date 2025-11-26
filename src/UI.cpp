@@ -857,9 +857,73 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs)
         
         ImGui::Spacing();
         
+        // Handle dropped file (OS-level file drop)
+        if (hasDroppedFile) {
+            // Check if it's an image file
+            std::string ext = droppedFilePath.substr(droppedFilePath.find_last_of(".") + 1);
+            std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+            
+            if (ext == "png" || ext == "jpg" || ext == "jpeg") {
+                // Extract filename without extension for icon name
+                size_t lastSlash = droppedFilePath.find_last_of("/\\");
+                size_t lastDot = droppedFilePath.find_last_of(".");
+                std::string baseName = droppedFilePath.substr(
+                    lastSlash + 1, 
+                    lastDot - lastSlash - 1
+                );
+                
+                // Generate unique name
+                std::string iconName = icons.GenerateUniqueName(baseName);
+                
+                // Start async import
+                importingIconName = iconName;
+                isImportingIcon = true;
+                
+                // Capture variables for async processing
+                std::string capturedIconName = iconName;
+                std::string capturedFilePath = droppedFilePath;
+                
+                jobs.Enqueue(
+                    JobType::ProcessIcon,
+                    [capturedIconName, capturedFilePath, &icons]() {
+                        std::vector<uint8_t> pixels;
+                        int width, height;
+                        std::string errorMsg;
+                        
+                        if (IconManager::ProcessIconFromFile(capturedFilePath, pixels, 
+                                                            width, height, errorMsg)) {
+                            icons.AddIconFromMemory(capturedIconName, pixels.data(), 
+                                                   width, height);
+                            icons.BuildAtlas();
+                        }
+                    },
+                    [this, capturedIconName](bool success, const std::string& error) {
+                        isImportingIcon = false;
+                        if (success) {
+                            ShowToast("Icon imported: " + capturedIconName, 
+                                     Toast::Type::Success, 2.0f);
+                            // Auto-select the imported icon
+                            selectedIconName = capturedIconName;
+                        } else {
+                            ShowToast("Failed to import: " + error, 
+                                     Toast::Type::Error, 3.0f);
+                        }
+                    }
+                );
+            } else {
+                ShowToast("Invalid file type. Only PNG and JPG are supported.", 
+                         Toast::Type::Warning, 3.0f);
+            }
+            
+            hasDroppedFile = false;
+            droppedFilePath.clear();
+        }
+        
         // Icon picker grid
         ImGui::Text("Select Icon (%zu available)", icons.GetIconCount());
-        if (ImGui::BeginChild("IconPicker", ImVec2(0, 300), true)) {
+        ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), 
+            "Drag & drop image files here to import");
+        if (ImGui::BeginChild("IconPicker", ImVec2(0, 280), true)) {
             if (icons.GetIconCount() == 0) {
                 ImGui::TextDisabled("No icons loaded");
                 ImGui::TextDisabled("Click 'Import Icon...' to add icons");
@@ -3602,6 +3666,11 @@ void UI::ImportIcon(IconManager& iconManager, JobQueue& jobs) {
         
         ImGui::EndPopup();
     }
+}
+
+void UI::HandleDroppedFile(const std::string& filePath) {
+    droppedFilePath = filePath;
+    hasDroppedFile = true;
 }
 
 } // namespace Cartograph

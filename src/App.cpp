@@ -20,6 +20,7 @@ App::App()
     , m_lastEditTime(0)
     , m_lastAutosaveTime(0)
     , m_lastFrameTime(0)
+    , m_hasDroppedFile(false)
 {
 }
 
@@ -179,6 +180,14 @@ void App::ProcessEvents() {
                     RequestQuit();
                 }
                 break;
+                
+            case SDL_EVENT_DROP_FILE:
+                // File was dropped on the window
+                if (event.drop.data) {
+                    m_droppedFilePath = event.drop.data;
+                    m_hasDroppedFile = true;
+                }
+                break;
         }
     }
 }
@@ -205,6 +214,13 @@ void App::Render() {
         ? Color(0.1f, 0.1f, 0.12f, 1.0f)  // Darker for welcome
         : m_model.theme.background;
     m_renderer->Clear(bgColor);
+    
+    // Handle dropped files
+    if (m_hasDroppedFile) {
+        m_ui.HandleDroppedFile(m_droppedFilePath);
+        m_hasDroppedFile = false;
+        m_droppedFilePath.clear();
+    }
     
     // Render UI based on state
     if (m_appState == AppState::Welcome) {
