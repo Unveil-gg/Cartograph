@@ -92,16 +92,9 @@ void UI::Render(
     // Create fullscreen dockspace window
     ImGuiViewport* viewport = ImGui::GetMainViewport();
     
-    // Adjust position to account for main menu bar
-    ImVec2 dockspacePos = viewport->WorkPos;
-    ImVec2 dockspaceSize = viewport->WorkSize;
-    if (ImGui::GetFrameHeight() > 0) {
-        dockspacePos.y += ImGui::GetFrameHeight();
-        dockspaceSize.y -= ImGui::GetFrameHeight();
-    }
-    
-    ImGui::SetNextWindowPos(dockspacePos);
-    ImGui::SetNextWindowSize(dockspaceSize);
+    // WorkPos/WorkSize already account for main menu bar
+    ImGui::SetNextWindowPos(viewport->WorkPos);
+    ImGui::SetNextWindowSize(viewport->WorkSize);
     ImGui::SetNextWindowViewport(viewport->ID);
     
     ImGuiWindowFlags windowFlags = 
@@ -2364,9 +2357,9 @@ void UI::RenderCanvasPanel(
         }
     }
     
-    // Draw canvas overlays using ImGui foreground DrawList
-    // (foreground ensures previews are drawn on top of tiles)
-    ImDrawList* drawList = ImGui::GetForegroundDrawList();
+    // Draw canvas overlays using window DrawList
+    // (renders above canvas texture but below UI elements like tooltips/menus)
+    ImDrawList* drawList = ImGui::GetWindowDrawList();
     
     // Clip all canvas drawing to window bounds (prevent overlap with other panels)
     ImVec2 canvasMin = ImGui::GetWindowPos();
