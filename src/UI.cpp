@@ -86,14 +86,25 @@ void UI::Render(
     JobQueue& jobs,
     float deltaTime
 ) {
+    // Render menu bar outside dockspace (ensures it's on top)
+    RenderMenuBar(model, canvas, history, icons, jobs);
+    
     // Create fullscreen dockspace window
     ImGuiViewport* viewport = ImGui::GetMainViewport();
-    ImGui::SetNextWindowPos(viewport->WorkPos);
-    ImGui::SetNextWindowSize(viewport->WorkSize);
+    
+    // Adjust position to account for main menu bar
+    ImVec2 dockspacePos = viewport->WorkPos;
+    ImVec2 dockspaceSize = viewport->WorkSize;
+    if (ImGui::GetFrameHeight() > 0) {
+        dockspacePos.y += ImGui::GetFrameHeight();
+        dockspaceSize.y -= ImGui::GetFrameHeight();
+    }
+    
+    ImGui::SetNextWindowPos(dockspacePos);
+    ImGui::SetNextWindowSize(dockspaceSize);
     ImGui::SetNextWindowViewport(viewport->ID);
     
     ImGuiWindowFlags windowFlags = 
-        ImGuiWindowFlags_MenuBar |
         ImGuiWindowFlags_NoDocking |
         ImGuiWindowFlags_NoTitleBar |
         ImGuiWindowFlags_NoCollapse |
@@ -109,9 +120,6 @@ void UI::Render(
     
     ImGui::Begin("CartographDockSpace", nullptr, windowFlags);
     ImGui::PopStyleVar(3);
-    
-    // Render menu bar
-    RenderMenuBar(model, canvas, history, icons, jobs);
     
     // Create dockspace
     ImGuiID dockspaceId = ImGui::GetID("CartographDockSpaceID");
@@ -359,7 +367,7 @@ void UI::RenderMenuBar(
     IconManager& icons,
     JobQueue& jobs
 ) {
-    if (ImGui::BeginMenuBar()) {
+    if (ImGui::BeginMainMenuBar()) {
         if (ImGui::BeginMenu("File")) {
             if (ImGui::MenuItem("New", "Cmd+N")) {
                 // TODO: New project
@@ -437,7 +445,7 @@ void UI::RenderMenuBar(
             ImGui::EndMenu();
         }
         
-        ImGui::EndMenuBar();
+        ImGui::EndMainMenuBar();
     }
 }
 
@@ -545,8 +553,11 @@ void UI::RenderToolsPanel(Model& model, IconManager& icons) {
             clicked = ImGui::Button(toolNames[i], iconButtonSize);
         }
         
-        // Tooltip on button hover
+        // Tooltip on button hover (force to main viewport to avoid clipping)
         if (ImGui::IsItemHovered()) {
+            ImGui::SetNextWindowViewport(ImGui::GetMainViewport()->ID);
+            ImVec2 mousePos = ImGui::GetMousePos();
+            ImGui::SetNextWindowPos(ImVec2(mousePos.x + 15, mousePos.y + 10));
             ImGui::BeginTooltip();
             switch (i) {
                 case 0: // Move
@@ -2357,6 +2368,12 @@ void UI::RenderCanvasPanel(
     // (foreground ensures previews are drawn on top of tiles)
     ImDrawList* drawList = ImGui::GetForegroundDrawList();
     
+    // Clip all canvas drawing to window bounds (prevent overlap with other panels)
+    ImVec2 canvasMin = ImGui::GetWindowPos();
+    ImVec2 canvasMax = ImVec2(canvasMin.x + ImGui::GetWindowSize().x,
+                               canvasMin.y + ImGui::GetWindowSize().y);
+    drawList->PushClipRect(canvasMin, canvasMax, true);
+    
     // Draw background
     ImU32 bgColor = ImGui::GetColorU32(ImVec4(0.15f, 0.15f, 0.15f, 1.0f));
     drawList->AddRectFilled(canvasPos, 
@@ -2856,6 +2873,9 @@ void UI::RenderCanvasPanel(
                 dropText);
         }
     }
+    
+    // Pop clip rect before ending window
+    drawList->PopClipRect();
     
     ImGui::End();
 }
@@ -3602,11 +3622,11 @@ void UI::BuildFixedLayout(ImGuiID dockspaceId) {
         &bottomId, &topRestId
     );
     
-    // Split left: 200px from left for tools (fixed width, non-resizable)
+    // Split left: 220px from left for tools (fixed width, non-resizable)
     ImGuiID leftId = 0;
     ImGuiID remainingId = 0;
     ImGui::DockBuilderSplitNode(
-        topRestId, ImGuiDir_Left, 200.0f / viewport->WorkSize.x, 
+        topRestId, ImGuiDir_Left, 220.0f / viewport->WorkSize.x, 
         &leftId, &remainingId
     );
     
@@ -3615,7 +3635,7 @@ void UI::BuildFixedLayout(ImGuiID dockspaceId) {
     
     if (showPropertiesPanel) {
         // 3-column mode: Split right for properties panel (320px)
-        float rightWidth = 320.0f / (viewport->WorkSize.x - 200.0f);
+        float rightWidth = 320.0f / (viewport->WorkSize.x - 220.0f);
         ImGui::DockBuilderSplitNode(
             remainingId, ImGuiDir_Right, rightWidth,
             &rightId, &centerId
