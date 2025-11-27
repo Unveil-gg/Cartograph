@@ -18,7 +18,10 @@ public:
     // View transformation
     float offsetX = 0.0f;   // Pan offset in world coordinates
     float offsetY = 0.0f;
-    float zoom = 2.5f;      // Zoom level (1.0 = 100%)
+    float zoom = 2.5f;      // Internal zoom level (2.5 = 100% display)
+    
+    // Default zoom level (displayed as 100% to user)
+    static constexpr float DEFAULT_ZOOM = 2.5f;
     
     bool showGrid = true;
     

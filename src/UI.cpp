@@ -2960,7 +2960,9 @@ void UI::RenderStatusBar(Model& model, Canvas& canvas) {
         
         // Middle section: Zoom
         ImGui::SameLine(0, 10);
-        ImGui::Text("Zoom: %.0f%%", canvas.zoom * 100.0f);
+        // Display zoom relative to default (2.5 internal = 100% display)
+        float displayZoom = (canvas.zoom / Canvas::DEFAULT_ZOOM) * 100.0f;
+        ImGui::Text("Zoom: %.0f%%", displayZoom);
         
         // Separator
         ImGui::SameLine(0, 20);
