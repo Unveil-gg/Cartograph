@@ -17,7 +17,29 @@ class App;
 class JobQueue;
 
 /**
- * Toast notification.
+ * Console message type.
+ */
+enum class MessageType {
+    Info,
+    Success,
+    Warning,
+    Error
+};
+
+/**
+ * Console message entry.
+ */
+struct ConsoleMessage {
+    std::string message;
+    MessageType type;
+    double timestamp;  // When message was created
+    
+    ConsoleMessage(const std::string& msg, MessageType t, double ts)
+        : message(msg), type(t), timestamp(ts) {}
+};
+
+/**
+ * Legacy toast notification (deprecated, keeping for compatibility).
  */
 struct Toast {
     std::string message;
@@ -99,16 +121,22 @@ public:
     void RenderWelcomeScreen(App& app, Model& model);
     
     /**
-     * Show a toast notification.
+     * Show a message in the console.
      * @param message Message text
-     * @param type Toast type
-     * @param duration Duration in seconds
+     * @param type Message type
      */
     void ShowToast(
         const std::string& message, 
         Toast::Type type = Toast::Type::Info,
         float duration = 3.0f
     );
+    
+    /**
+     * Add a message to the console.
+     * @param message Message text
+     * @param type Message type
+     */
+    void AddConsoleMessage(const std::string& message, MessageType type);
     
     /**
      * Import a custom icon.
@@ -260,7 +288,9 @@ private:
         EdgeSide* outEdgeSide
     );
     
-    std::vector<Toast> m_toasts;
+    std::vector<Toast> m_toasts;  // Legacy, will be removed
+    std::vector<ConsoleMessage> m_consoleMessages;
+    static constexpr size_t MAX_CONSOLE_MESSAGES = 100;
     float m_statusBarHeight = 24.0f;
     bool m_layoutInitialized = false;
     

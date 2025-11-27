@@ -8,6 +8,7 @@
 #include "IOJson.h"
 #include "platform/Paths.h"
 #include "platform/Fs.h"
+#include "platform/Time.h"
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <SDL3/SDL_dialog.h>
@@ -157,11 +158,33 @@ void UI::ShowToast(
     Toast::Type type,
     float duration
 ) {
+    // Convert Toast::Type to MessageType and add to console
+    MessageType msgType;
+    switch (type) {
+        case Toast::Type::Info:    msgType = MessageType::Info; break;
+        case Toast::Type::Success: msgType = MessageType::Success; break;
+        case Toast::Type::Warning: msgType = MessageType::Warning; break;
+        case Toast::Type::Error:   msgType = MessageType::Error; break;
+        default:                   msgType = MessageType::Info; break;
+    }
+    AddConsoleMessage(message, msgType);
+    
+    // Legacy toast system (deprecated, will be removed)
     Toast toast;
     toast.message = message;
     toast.type = type;
     toast.remainingTime = duration;
     m_toasts.push_back(toast);
+}
+
+void UI::AddConsoleMessage(const std::string& message, MessageType type) {
+    double timestamp = Platform::GetTime();
+    m_consoleMessages.emplace_back(message, type, timestamp);
+    
+    // Keep only last MAX_CONSOLE_MESSAGES
+    if (m_consoleMessages.size() > MAX_CONSOLE_MESSAGES) {
+        m_consoleMessages.erase(m_consoleMessages.begin());
+    }
 }
 
 void UI::RenderWelcomeScreen(App& app, Model& model) {
@@ -2909,69 +2932,58 @@ void UI::RenderStatusBar(Model& model, Canvas& canvas) {
         // Normal status bar
         ImGui::Begin("Cartograph/Console", nullptr, flags);
         
-        // Left section: Current tool
-        const char* toolName = "Unknown";
-        const char* toolHint = "";
-        switch (currentTool) {
-            case Tool::Move:
-                toolName = "Move Tool";
-                toolHint = "Drag to pan | Wheel to zoom";
-                break;
-            case Tool::Select:
-                toolName = "Select Tool";
-                toolHint = "Drag to select region";
-                break;
-            case Tool::Paint:
-                if (roomPaintMode) {
-                    toolName = "Paint Tool (ROOM MODE)";
-                    toolHint = "Click to assign cells | Right-click to unassign";
-                } else {
-                    toolName = "Paint Tool";
-                    toolHint = "Paint tiles | Hover edges: W=Wall D=Door Click=Cycle";
-                }
-                break;
-            case Tool::Erase:
-                toolName = "Erase Tool";
-                toolHint = "Click to erase tiles";
-                break;
-            case Tool::Fill:
-                toolName = "Fill Tool";
-                toolHint = "Click to fill area";
-                break;
-            case Tool::Marker:
-                toolName = "Marker Tool";
-                toolHint = "Click to place marker";
-                break;
-            case Tool::Eyedropper:
-                toolName = "Eyedropper Tool";
-                toolHint = "Click to pick tile color";
-                break;
-        }
+        // Left section: Zoom
+        ImGui::Text("Zoom: %.0f%%", canvas.zoom * 100.0f);
         
-        if (roomPaintMode) {
-            ImGui::TextColored(ImVec4(1.0f, 0.5f, 1.0f, 1.0f), "%s", toolName);
-        } else {
-            ImGui::TextColored(ImVec4(0.5f, 0.8f, 1.0f, 1.0f), "%s", toolName);
-        }
+        // Separator
+        ImGui::SameLine(0, 20);
+        ImGui::TextDisabled("|");
+        
+        // Console message section (remaining space)
         ImGui::SameLine(0, 10);
-        ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "| %s", 
-                          toolHint);
         
-        // Middle section: Zoom
-        ImGui::SameLine(0, 20);
-        ImGui::Text("| Zoom: %.0f%%", canvas.zoom * 100.0f);
-        
-        // Modified indicator
-        if (model.dirty) {
-            ImGui::SameLine(0, 20);
-            ImGui::TextColored(ImVec4(1.0f, 0.7f, 0.3f, 1.0f), 
-                "| ⚠ Modified");
+        if (!m_consoleMessages.empty()) {
+            // Get the most recent message
+            const ConsoleMessage& lastMsg = m_consoleMessages.back();
+            
+            // Choose icon and color based on message type
+            const char* icon = "";
+            ImVec4 color;
+            switch (lastMsg.type) {
+                case MessageType::Info:
+                    icon = "ℹ";
+                    color = ImVec4(0.6f, 0.8f, 1.0f, 1.0f);  // Light blue
+                    break;
+                case MessageType::Success:
+                    icon = "✓";
+                    color = ImVec4(0.3f, 0.9f, 0.3f, 1.0f);  // Green
+                    break;
+                case MessageType::Warning:
+                    icon = "⚠";
+                    color = ImVec4(1.0f, 0.7f, 0.3f, 1.0f);  // Orange
+                    break;
+                case MessageType::Error:
+                    icon = "✖";
+                    color = ImVec4(1.0f, 0.3f, 0.3f, 1.0f);  // Red
+                    break;
+            }
+            
+            // Display message with icon
+            ImGui::TextColored(color, "%s", icon);
+            ImGui::SameLine(0, 5);
+            
+            // Calculate time since message (for fading effect)
+            double age = Platform::GetTime() - lastMsg.timestamp;
+            if (age > 5.0) {
+                // Fade out old messages
+                ImGui::TextDisabled("%s", lastMsg.message.c_str());
+            } else {
+                ImGui::Text("%s", lastMsg.message.c_str());
+            }
+        } else {
+            // No messages yet
+            ImGui::TextDisabled("Ready");
         }
-        
-        // Right section: Tool shortcuts
-        ImGui::SameLine(0, 20);
-        ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), 
-            "| Paint: B | Edges: W=Wall D=Door | V=Move F=Fill E=Erase I=Eyedropper");
     }
     
     ImGui::PopStyleVar();
