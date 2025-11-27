@@ -3582,9 +3582,6 @@ void UI::RenderNewProjectModal(App& app, Model& model) {
             
             // Transition to editor
             app.ShowEditor();
-            
-            ShowToast("Project created: " + model.meta.title, 
-                Toast::Type::Success);
         }
         
         ImGui::SameLine();
