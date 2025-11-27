@@ -128,7 +128,7 @@ void UI::Render(
     ImGui::End();
     
     // Render all panels (they will dock into the dockspace)
-    RenderToolsPanel(model);
+    RenderToolsPanel(model, icons);
     RenderCanvasPanel(renderer, model, canvas, history, icons);
     RenderPropertiesPanel(model, icons, jobs);
     RenderStatusBar(model, canvas);
@@ -466,7 +466,7 @@ void UI::RenderPalettePanel(Model& model) {
     ImGui::End();
 }
 
-void UI::RenderToolsPanel(Model& model) {
+void UI::RenderToolsPanel(Model& model, IconManager& icons) {
     ImGuiWindowFlags flags = 
         ImGuiWindowFlags_NoMove | 
         ImGuiWindowFlags_NoCollapse;
@@ -481,27 +481,67 @@ void UI::RenderToolsPanel(Model& model) {
         "Marker", "Eyedropper"
     };
     
-    const char* toolShortcuts[] = {
-        "V", "S", "B", "", "F", "", "I"
+    const char* toolIconNames[] = {
+        "move", "square-dashed", "paintbrush", "eraser", "paint-bucket",
+        "map-pinned", "pipette"
     };
+    
+    const char* toolShortcuts[] = {
+        "V", "S", "B", "E", "F", "M", "I"
+    };
+    
+    // Icon button size and spacing
+    const ImVec2 iconButtonSize(36.0f, 36.0f);
+    const float iconSpacing = 6.0f;
+    const float panelPadding = 8.0f;
+    
+    // Calculate how many icons fit per row
+    float availableWidth = ImGui::GetContentRegionAvail().x;
+    int iconsPerRow = static_cast<int>(
+        (availableWidth + iconSpacing) / (iconButtonSize.x + iconSpacing)
+    );
+    if (iconsPerRow < 1) iconsPerRow = 1;
+    
+    // Add padding
+    ImGui::Dummy(ImVec2(0, panelPadding * 0.5f));
     
     for (int i = 0; i < 7; ++i) {
         bool selected = (static_cast<int>(currentTool) == i);
         
-        // Show tool name with optional shortcut
-        char toolLabel[64];
-        if (toolShortcuts[i][0] != '\0') {
-            snprintf(toolLabel, sizeof(toolLabel), "%s [%s]", 
-                     toolNames[i], toolShortcuts[i]);
+        ImGui::PushID(i);
+        
+        // Get icon for this tool
+        const Icon* icon = icons.GetIcon(toolIconNames[i]);
+        
+        // Prominent selection highlight
+        if (selected) {
+            ImGui::PushStyleColor(ImGuiCol_Button, 
+                ImVec4(0.26f, 0.59f, 0.98f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, 
+                ImVec4(0.36f, 0.69f, 1.0f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, 
+                ImVec4(0.16f, 0.49f, 0.88f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_Border, 
+                ImVec4(0.5f, 0.8f, 1.0f, 1.0f));
+            ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 3.0f);
+        }
+        
+        bool clicked = false;
+        
+        if (icon) {
+            // Draw icon button with UV coordinates
+            ImTextureID texId = icons.GetAtlasTexture();
+            ImVec2 uv0(icon->u0, icon->v0);
+            ImVec2 uv1(icon->u1, icon->v1);
+            
+            clicked = ImGui::ImageButton(toolIconNames[i], texId, 
+                                         iconButtonSize, uv0, uv1);
         } else {
-            snprintf(toolLabel, sizeof(toolLabel), "%s", toolNames[i]);
+            // Fallback to text button if icon not found
+            clicked = ImGui::Button(toolNames[i], iconButtonSize);
         }
         
-        if (ImGui::Selectable(toolLabel, selected)) {
-            currentTool = static_cast<Tool>(i);
-        }
-        
-        // Add tooltip with more info
+        // Tooltip on button hover
         if (ImGui::IsItemHovered()) {
             ImGui::BeginTooltip();
             switch (i) {
@@ -531,7 +571,19 @@ void UI::RenderToolsPanel(Model& model) {
                     ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
                         "Click to erase tiles");
                     break;
-                case 8: // Eyedropper
+                case 4: // Fill
+                    ImGui::Text("Fill Tool [F]");
+                    ImGui::Separator();
+                    ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
+                        "Click to fill area");
+                    break;
+                case 5: // Marker
+                    ImGui::Text("Marker Tool [M]");
+                    ImGui::Separator();
+                    ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
+                        "Click to place marker");
+                    break;
+                case 6: // Eyedropper
                     ImGui::Text("Eyedropper Tool [I]");
                     ImGui::Separator();
                     ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
@@ -546,6 +598,22 @@ void UI::RenderToolsPanel(Model& model) {
             }
             ImGui::EndTooltip();
         }
+        
+        if (selected) {
+            ImGui::PopStyleVar();
+            ImGui::PopStyleColor(4);
+        }
+        
+        if (clicked) {
+            currentTool = static_cast<Tool>(i);
+        }
+        
+        // Grid layout: add spacing and wrap to next row
+        if ((i + 1) % iconsPerRow != 0 && i < 6) {
+            ImGui::SameLine(0, iconSpacing);
+        }
+        
+        ImGui::PopID();
     }
     
     ImGui::Spacing();

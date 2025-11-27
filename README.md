@@ -201,7 +201,8 @@ Contributions welcome! Please:
 ## Credits
 
 - **Unveil Team**: Core development
-- **Kenney**: Default icon pack (CC0)
+- **Lucide**: Tool icons (ISC License)
+- **Kenney**: Default marker icon pack (CC0)
 - **Omar Cornut**: Dear ImGui
 - **Sam Lantinga**: SDL
 - **Niels Lohmann**: nlohmann/json
