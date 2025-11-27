@@ -400,11 +400,17 @@ void UI::RenderMenuBar(
             if (ImGui::MenuItem("Open...", "Cmd+O")) {
                 // TODO: Open project
             }
-            if (ImGui::MenuItem("Save", "Cmd+S")) {
-                // TODO: Save project
+            ImGui::Separator();
+            if (ImGui::MenuItem("Save Project", "Cmd+S")) {
+                // TODO: Save project as JSON
             }
-            if (ImGui::MenuItem("Save As...")) {
-                // TODO: Save As
+            if (ImGui::MenuItem("Save Project As...")) {
+                // TODO: Save project as JSON (with dialog)
+            }
+            ImGui::Separator();
+            if (ImGui::MenuItem("Export Package (.cart)...", 
+                               "Cmd+Shift+E")) {
+                // TODO: Export as .cart package with embedded icons
             }
             ImGui::Separator();
             if (ImGui::MenuItem("Export PNG...", "Cmd+E")) {

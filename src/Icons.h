@@ -164,6 +164,27 @@ public:
         std::string& errorMsg
     );
     
+    /**
+     * Get custom icon data for persistence.
+     * Returns icons in the "marker" category.
+     * @return Vector of icon name and pixel data pairs
+     */
+    std::vector<std::pair<std::string, const std::vector<uint8_t>*>> 
+        GetCustomIconData() const;
+    
+    /**
+     * Get icon dimensions.
+     * @param name Icon name
+     * @param outWidth Output width
+     * @param outHeight Output height
+     * @return true if icon exists
+     */
+    bool GetIconDimensions(
+        const std::string& name,
+        int& outWidth,
+        int& outHeight
+    ) const;
+    
 private:
     struct IconData {
         std::string name;

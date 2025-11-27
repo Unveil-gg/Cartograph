@@ -333,7 +333,7 @@ void App::OpenProject(const std::string& path) {
     
     // Try to load as .cart package (C++17 compatible check)
     if (path.size() >= 5 && path.substr(path.size() - 5) == ".cart") {
-        success = Package::Load(path, newModel);
+        success = Package::Load(path, newModel, &m_icons);
     } else {
         // Load as raw JSON
         success = IOJson::LoadFromFile(path, newModel);
@@ -364,7 +364,7 @@ void App::SaveProjectAs(const std::string& path) {
     
     // C++17 compatible check
     if (path.size() >= 5 && path.substr(path.size() - 5) == ".cart") {
-        success = Package::Save(m_model, path);
+        success = Package::Save(m_model, path, &m_icons);
     } else {
         success = IOJson::SaveToFile(m_model, path);
     }

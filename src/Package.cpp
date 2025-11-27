@@ -1,12 +1,17 @@
 #include "Package.h"
 #include "Model.h"
 #include "IOJson.h"
+#include "Icons.h"
 #include "platform/Fs.h"
 #include <nlohmann/json.hpp>
 
 // minizip-ng compatibility layer provides zip.h and unzip.h
 #include "zip.h"
 #include "unzip.h"
+
+// stb_image_write for PNG encoding
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <stb/stb_image_write.h>
 
 using json = nlohmann::json;
 
@@ -21,7 +26,11 @@ std::string Package::CreateManifest(const Model& model) {
     return j.dump(2);
 }
 
-bool Package::Save(const Model& model, const std::string& path) {
+bool Package::Save(
+    const Model& model, 
+    const std::string& path,
+    IconManager* icons
+) {
     // Create ZIP file
     zipFile zf = zipOpen(path.c_str(), APPEND_STATUS_CREATE);
     if (!zf) {
@@ -29,10 +38,10 @@ bool Package::Save(const Model& model, const std::string& path) {
     }
     
     bool success = true;
+    zip_fileinfo fi = {};
     
     // Add manifest.json
     std::string manifest = CreateManifest(model);
-    zip_fileinfo fi = {};
     if (zipOpenNewFileInZip(zf, "manifest.json", &fi, 
                             nullptr, 0, nullptr, 0, nullptr,
                             Z_DEFLATED, Z_DEFAULT_COMPRESSION) == ZIP_OK) {
@@ -53,13 +62,55 @@ bool Package::Save(const Model& model, const std::string& path) {
         success = false;
     }
     
-    // TODO: Add thumbnail, custom icons, themes
+    // Add custom icons
+    if (icons) {
+        auto customIcons = icons->GetCustomIconData();
+        for (const auto& iconPair : customIcons) {
+            const std::string& iconName = iconPair.first;
+            const std::vector<uint8_t>* pixels = iconPair.second;
+            
+            if (!pixels || pixels->empty()) continue;
+            
+            // Get icon dimensions
+            int width, height;
+            if (!icons->GetIconDimensions(iconName, width, height)) {
+                continue;
+            }
+            
+            // Encode to PNG using stb_image_write
+            int pngSize;
+            unsigned char* pngData = stbi_write_png_to_mem(
+                pixels->data(), 0, width, height, 4, &pngSize
+            );
+            
+            if (pngData) {
+                // Add to ZIP as icons/{name}.png
+                std::string zipPath = "icons/" + iconName + ".png";
+                if (zipOpenNewFileInZip(zf, zipPath.c_str(), &fi,
+                                       nullptr, 0, nullptr, 0, nullptr,
+                                       Z_DEFLATED, 
+                                       Z_DEFAULT_COMPRESSION) == ZIP_OK) {
+                    zipWriteInFileInZip(zf, pngData, pngSize);
+                    zipCloseFileInZip(zf);
+                }
+                
+                // Free PNG data
+                STBIW_FREE(pngData);
+            }
+        }
+    }
+    
+    // TODO: Add thumbnail, themes
     
     zipClose(zf, nullptr);
     return success;
 }
 
-bool Package::Load(const std::string& path, Model& outModel) {
+bool Package::Load(
+    const std::string& path, 
+    Model& outModel,
+    IconManager* icons
+) {
     // Open ZIP file
     unzFile uf = unzOpen(path.c_str());
     if (!uf) {
@@ -73,16 +124,20 @@ bool Package::Load(const std::string& path, Model& outModel) {
         do {
             char filename[256];
             unz_file_info fileInfo;
-            if (unzGetCurrentFileInfo(uf, &fileInfo, filename, sizeof(filename),
+            if (unzGetCurrentFileInfo(uf, &fileInfo, filename, 
+                                     sizeof(filename),
                                      nullptr, 0, nullptr, 0) != UNZ_OK) {
                 continue;
             }
             
+            std::string fname(filename);
+            
             // Look for project.json
-            if (std::string(filename) == "project.json") {
+            if (fname == "project.json") {
                 if (unzOpenCurrentFile(uf) == UNZ_OK) {
                     std::vector<char> buffer(fileInfo.uncompressed_size);
-                    int read = unzReadCurrentFile(uf, buffer.data(), buffer.size());
+                    int read = unzReadCurrentFile(uf, buffer.data(), 
+                                                 buffer.size());
                     unzCloseCurrentFile(uf);
                     
                     if (read > 0) {
@@ -93,11 +148,54 @@ bool Package::Load(const std::string& path, Model& outModel) {
                     }
                 }
             }
+            // Look for custom icons (icons/*.png)
+            else if (icons && fname.substr(0, 6) == "icons/" && 
+                     fname.size() > 10 && 
+                     fname.substr(fname.size() - 4) == ".png") {
+                if (unzOpenCurrentFile(uf) == UNZ_OK) {
+                    std::vector<uint8_t> buffer(fileInfo.uncompressed_size);
+                    int read = unzReadCurrentFile(uf, buffer.data(), 
+                                                 buffer.size());
+                    unzCloseCurrentFile(uf);
+                    
+                    if (read > 0) {
+                        // Extract icon name from path (icons/name.png -> name)
+                        std::string iconName = fname.substr(6, 
+                                                           fname.size() - 10);
+                        
+                        // Process the PNG data
+                        std::vector<uint8_t> pixels;
+                        int width, height;
+                        std::string errorMsg;
+                        
+                        // Use stb_image to decode PNG from memory
+                        int channels;
+                        unsigned char* data = stbi_load_from_memory(
+                            buffer.data(), buffer.size(),
+                            &width, &height, &channels, 4
+                        );
+                        
+                        if (data) {
+                            // Add to icon manager
+                            icons->AddIconFromMemory(
+                                iconName, data, width, height, "marker"
+                            );
+                            stbi_image_free(data);
+                        }
+                    }
+                }
+            }
             
         } while (unzGoToNextFile(uf) == UNZ_OK);
     }
     
     unzClose(uf);
+    
+    // Rebuild atlas if icons were loaded
+    if (icons && foundProject) {
+        icons->BuildAtlas();
+    }
+    
     return foundProject;
 }
 

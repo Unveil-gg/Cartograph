@@ -488,5 +488,33 @@ bool IconManager::RenameIcon(
     return true;
 }
 
+std::vector<std::pair<std::string, const std::vector<uint8_t>*>>
+IconManager::GetCustomIconData() const {
+    std::vector<std::pair<std::string, const std::vector<uint8_t>*>> result;
+    
+    for (const auto& pair : m_iconData) {
+        // Only include custom marker icons (not built-in tool icons)
+        if (pair.second.category == "marker") {
+            result.push_back({pair.first, &pair.second.pixels});
+        }
+    }
+    
+    return result;
+}
+
+bool IconManager::GetIconDimensions(
+    const std::string& name,
+    int& outWidth,
+    int& outHeight
+) const {
+    auto it = m_iconData.find(name);
+    if (it != m_iconData.end()) {
+        outWidth = it->second.width;
+        outHeight = it->second.height;
+        return true;
+    }
+    return false;
+}
+
 } // namespace Cartograph
 

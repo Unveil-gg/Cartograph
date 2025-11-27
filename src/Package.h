@@ -6,6 +6,7 @@
 namespace Cartograph {
 
 class Model;
+class IconManager;
 
 /**
  * .cart package file handler.
@@ -22,17 +23,27 @@ public:
      * Save model to a .cart package file.
      * @param model Model to save
      * @param path Output path (.cart)
+     * @param icons Optional icon manager for custom icons
      * @return true on success
      */
-    static bool Save(const Model& model, const std::string& path);
+    static bool Save(
+        const Model& model, 
+        const std::string& path,
+        IconManager* icons = nullptr
+    );
     
     /**
      * Load model from a .cart package file.
      * @param path Input path (.cart)
      * @param outModel Output model
+     * @param icons Optional icon manager to load custom icons into
      * @return true on success
      */
-    static bool Load(const std::string& path, Model& outModel);
+    static bool Load(
+        const std::string& path, 
+        Model& outModel,
+        IconManager* icons = nullptr
+    );
     
     /**
      * Create a manifest.json string.
