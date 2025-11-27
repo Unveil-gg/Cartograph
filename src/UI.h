@@ -141,6 +141,9 @@ public:
     std::vector<RecentProject> recentProjects;
     bool showWhatsNew = false;
     
+    // Panel visibility
+    bool showPropertiesPanel = false;  // Toggleable via View menu
+    
     // Selected palette tile
     int selectedTileId = 1;
     

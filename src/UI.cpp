@@ -128,10 +128,14 @@ void UI::Render(
     ImGui::End();
     
     // Render all panels (they will dock into the dockspace)
-    RenderToolsPanel(model, icons);
+    // Canvas first (background layer), then side panels (on top for tooltips)
     RenderCanvasPanel(renderer, model, canvas, history, icons);
-    RenderPropertiesPanel(model, icons, jobs);
     RenderStatusBar(model, canvas);
+    RenderToolsPanel(model, icons);
+    
+    if (showPropertiesPanel) {
+        RenderPropertiesPanel(model, icons, jobs);
+    }
     
     // Render toasts
     RenderToasts(deltaTime);
@@ -413,6 +417,12 @@ void UI::RenderMenuBar(
         }
         
         if (ImGui::BeginMenu("View")) {
+            if (ImGui::MenuItem("Show Properties Panel", "Cmd+P", 
+                               showPropertiesPanel)) {
+                showPropertiesPanel = !showPropertiesPanel;
+                m_layoutInitialized = false;  // Trigger layout rebuild
+            }
+            ImGui::Separator();
             ImGui::MenuItem("Show Grid", "G", &canvas.showGrid);
             ImGui::Separator();
             if (ImGui::MenuItem("Zoom In", "=")) {
@@ -494,13 +504,7 @@ void UI::RenderToolsPanel(Model& model, IconManager& icons) {
     const ImVec2 iconButtonSize(36.0f, 36.0f);
     const float iconSpacing = 6.0f;
     const float panelPadding = 8.0f;
-    
-    // Calculate how many icons fit per row
-    float availableWidth = ImGui::GetContentRegionAvail().x;
-    int iconsPerRow = static_cast<int>(
-        (availableWidth + iconSpacing) / (iconButtonSize.x + iconSpacing)
-    );
-    if (iconsPerRow < 1) iconsPerRow = 1;
+    const int TOOLS_PER_ROW = 4;  // Fixed 4-column grid
     
     // Add padding
     ImGui::Dummy(ImVec2(0, panelPadding * 0.5f));
@@ -608,8 +612,8 @@ void UI::RenderToolsPanel(Model& model, IconManager& icons) {
             currentTool = static_cast<Tool>(i);
         }
         
-        // Grid layout: add spacing and wrap to next row
-        if ((i + 1) % iconsPerRow != 0 && i < 6) {
+        // Fixed 4-column grid layout
+        if ((i + 1) % TOOLS_PER_ROW != 0 && i < 6) {
             ImGui::SameLine(0, iconSpacing);
         }
         
@@ -1315,6 +1319,13 @@ void UI::RenderCanvasPanel(
     
     // Global keyboard shortcuts for tool switching (work even when not hovering)
     if (!ImGui::GetIO().WantCaptureKeyboard) {
+        // Toggle properties panel: Cmd+P (Mac) / Ctrl+P (Win/Linux)
+        if (ImGui::IsKeyPressed(ImGuiKey_P) && 
+            (ImGui::GetIO().KeyCtrl || ImGui::GetIO().KeySuper)) {
+            showPropertiesPanel = !showPropertiesPanel;
+            m_layoutInitialized = false;  // Trigger layout rebuild
+        }
+        
         if (ImGui::IsKeyPressed(ImGuiKey_V)) {
             currentTool = Tool::Move;
         }
@@ -3583,16 +3594,7 @@ void UI::BuildFixedLayout(ImGuiID dockspaceId) {
     ImGuiViewport* viewport = ImGui::GetMainViewport();
     ImGui::DockBuilderSetNodeSize(dockspaceId, viewport->WorkSize);
     
-    // Split the dockspace into fixed regions
-    // Layout structure:
-    //   TopRest
-    //   ├─ Left (300px)
-    //   └─ RightRest
-    //      ├─ Center (remaining)
-    //      └─ Right (360px)
-    //   Bottom (28px - thin status bar)
-    
-    // Split bottom: 28px from bottom for thin status bar
+    // Split bottom: 28px from bottom for status bar
     ImGuiID bottomId = 0;
     ImGuiID topRestId = 0;
     ImGui::DockBuilderSplitNode(
@@ -3600,40 +3602,45 @@ void UI::BuildFixedLayout(ImGuiID dockspaceId) {
         &bottomId, &topRestId
     );
     
-    // Split left: 300px from left
+    // Split left: 200px from left for tools (fixed width, non-resizable)
     ImGuiID leftId = 0;
-    ImGuiID rightRestId = 0;
+    ImGuiID remainingId = 0;
     ImGui::DockBuilderSplitNode(
-        topRestId, ImGuiDir_Left, 300.0f / viewport->WorkSize.x, 
-        &leftId, &rightRestId
+        topRestId, ImGuiDir_Left, 200.0f / viewport->WorkSize.x, 
+        &leftId, &remainingId
     );
     
-    // Split right: 360px from right
+    ImGuiID centerId = remainingId;  // Default: center takes all remaining space
     ImGuiID rightId = 0;
-    ImGuiID centerId = 0;
-    float rightWidth = 360.0f / (viewport->WorkSize.x - 300.0f);
-    ImGui::DockBuilderSplitNode(
-        rightRestId, ImGuiDir_Right, rightWidth,
-        &rightId, &centerId
-    );
+    
+    if (showPropertiesPanel) {
+        // 3-column mode: Split right for properties panel (320px)
+        float rightWidth = 320.0f / (viewport->WorkSize.x - 200.0f);
+        ImGui::DockBuilderSplitNode(
+            remainingId, ImGuiDir_Right, rightWidth,
+            &rightId, &centerId
+        );
+    }
     
     // Dock windows into their respective nodes
     ImGui::DockBuilderDockWindow("Cartograph/Tools", leftId);
     ImGui::DockBuilderDockWindow("Cartograph/Canvas", centerId);
-    ImGui::DockBuilderDockWindow("Cartograph/Inspector", rightId);
     ImGui::DockBuilderDockWindow("Cartograph/Console", bottomId);
     
-    // Configure node flags to prevent user modifications
-    // Note: These flags limit what users can do with the docked windows
+    if (showPropertiesPanel) {
+        ImGui::DockBuilderDockWindow("Cartograph/Inspector", rightId);
+    }
+    
+    // Configure node flags
     ImGuiDockNode* leftNode = ImGui::DockBuilderGetNode(leftId);
     ImGuiDockNode* centerNode = ImGui::DockBuilderGetNode(centerId);
-    ImGuiDockNode* rightNode = ImGui::DockBuilderGetNode(rightId);
     ImGuiDockNode* bottomNode = ImGui::DockBuilderGetNode(bottomId);
     
     if (leftNode) {
         leftNode->LocalFlags |= ImGuiDockNodeFlags_NoTabBar;
         leftNode->LocalFlags |= ImGuiDockNodeFlags_NoWindowMenuButton;
         leftNode->LocalFlags |= ImGuiDockNodeFlags_NoCloseButton;
+        leftNode->LocalFlags |= ImGuiDockNodeFlags_NoResize;  // Non-resizable
     }
     
     if (centerNode) {
@@ -3642,16 +3649,20 @@ void UI::BuildFixedLayout(ImGuiID dockspaceId) {
         centerNode->LocalFlags |= ImGuiDockNodeFlags_NoCloseButton;
     }
     
-    if (rightNode) {
-        rightNode->LocalFlags |= ImGuiDockNodeFlags_NoTabBar;
-        rightNode->LocalFlags |= ImGuiDockNodeFlags_NoWindowMenuButton;
-        rightNode->LocalFlags |= ImGuiDockNodeFlags_NoCloseButton;
+    if (showPropertiesPanel) {
+        ImGuiDockNode* rightNode = ImGui::DockBuilderGetNode(rightId);
+        if (rightNode) {
+            rightNode->LocalFlags |= ImGuiDockNodeFlags_NoTabBar;
+            rightNode->LocalFlags |= ImGuiDockNodeFlags_NoWindowMenuButton;
+            rightNode->LocalFlags |= ImGuiDockNodeFlags_NoCloseButton;
+        }
     }
     
     if (bottomNode) {
         bottomNode->LocalFlags |= ImGuiDockNodeFlags_NoTabBar;
         bottomNode->LocalFlags |= ImGuiDockNodeFlags_NoWindowMenuButton;
         bottomNode->LocalFlags |= ImGuiDockNodeFlags_NoCloseButton;
+        bottomNode->LocalFlags |= ImGuiDockNodeFlags_NoResize;  // Non-resizable
     }
     
     // Finish building
