@@ -176,6 +176,11 @@ public:
     // Selected palette tile
     int selectedTileId = 1;
     
+    // Hovered tile coordinates (for status bar)
+    int hoveredTileX = -1;
+    int hoveredTileY = -1;
+    bool isHoveringCanvas = false;
+    
     // Current tool
     enum class Tool {
         Move, Select, Paint, Erase, Fill, Marker, Eyedropper

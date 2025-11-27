@@ -2402,6 +2402,21 @@ void UI::RenderCanvasPanel(
         ImVec2(canvasPos.x + canvasSize.x, canvasPos.y + canvasSize.y), 
         bgColor);
     
+    // Update hovered tile coordinates (for status bar)
+    if (ImGui::IsItemHovered()) {
+        isHoveringCanvas = true;
+        ImVec2 mousePos = ImGui::GetMousePos();
+        canvas.ScreenToTile(
+            mousePos.x, mousePos.y,
+            model.grid.tileWidth, model.grid.tileHeight,
+            &hoveredTileX, &hoveredTileY
+        );
+    } else {
+        isHoveringCanvas = false;
+        hoveredTileX = -1;
+        hoveredTileY = -1;
+    }
+    
     // Update hovered marker (if Marker tool is active)
     if (currentTool == Tool::Marker && ImGui::IsItemHovered()) {
         ImVec2 mousePos = ImGui::GetMousePos();
@@ -2932,7 +2947,19 @@ void UI::RenderStatusBar(Model& model, Canvas& canvas) {
         // Normal status bar
         ImGui::Begin("Cartograph/Console", nullptr, flags);
         
-        // Left section: Zoom
+        // Left section: Tile coordinates (if hovering canvas)
+        if (isHoveringCanvas && hoveredTileX >= 0 && hoveredTileY >= 0) {
+            ImGui::Text("Tile: %d, %d", hoveredTileX, hoveredTileY);
+        } else {
+            ImGui::TextDisabled("Tile: --, --");
+        }
+        
+        // Separator
+        ImGui::SameLine(0, 20);
+        ImGui::TextDisabled("|");
+        
+        // Middle section: Zoom
+        ImGui::SameLine(0, 10);
         ImGui::Text("Zoom: %.0f%%", canvas.zoom * 100.0f);
         
         // Separator

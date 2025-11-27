@@ -25,6 +25,7 @@ App::App()
     , m_lastFrameTime(0)
     , m_hasDroppedFile(false)
     , m_hasAutosaveRecovery(false)
+    , m_lastDirtyState(false)
 {
 }
 
@@ -214,6 +215,12 @@ void App::Update(float deltaTime) {
     if (m_model.dirty) {
         m_lastEditTime = Platform::GetTime();
     }
+    
+    // Update window title if dirty state changed
+    if (m_model.dirty != m_lastDirtyState) {
+        m_lastDirtyState = m_model.dirty;
+        UpdateWindowTitle();
+    }
 }
 
 void App::Render() {
@@ -317,6 +324,7 @@ void App::NewProject() {
     m_model.InitDefaults();
     m_currentFilePath.clear();
     m_history.Clear();
+    UpdateWindowTitle();
 }
 
 void App::OpenProject(const std::string& path) {
@@ -335,6 +343,7 @@ void App::OpenProject(const std::string& path) {
         m_model = newModel;
         m_currentFilePath = path;
         m_history.Clear();
+        UpdateWindowTitle();
         m_ui.ShowToast("Opened: " + path, Toast::Type::Success);
     } else {
         m_ui.ShowToast("Failed to open: " + path, Toast::Type::Error);
@@ -364,6 +373,7 @@ void App::SaveProjectAs(const std::string& path) {
         m_currentFilePath = path;
         m_model.ClearDirty();
         CleanupAutosave();  // Remove autosave after successful manual save
+        UpdateWindowTitle();
         m_ui.ShowToast("Saved: " + path, Toast::Type::Success);
     } else {
         m_ui.ShowToast("Failed to save: " + path, Toast::Type::Error);
@@ -446,6 +456,41 @@ void App::CleanupAutosave() {
     } catch (...) {
         // Ignore errors - file might not exist
     }
+}
+
+void App::UpdateWindowTitle() {
+    if (!m_window) return;
+    
+    std::string title;
+    
+    // Get filename from path, or "Untitled" if no file
+    std::string filename;
+    if (m_currentFilePath.empty()) {
+        filename = "Untitled";
+    } else {
+        // Extract filename from path
+        size_t lastSlash = m_currentFilePath.find_last_of("/\\");
+        if (lastSlash != std::string::npos) {
+            filename = m_currentFilePath.substr(lastSlash + 1);
+        } else {
+            filename = m_currentFilePath;
+        }
+    }
+    
+    // Add modified indicator using platform convention
+    if (m_model.dirty) {
+#ifdef __APPLE__
+        // macOS uses bullet before filename
+        title = "• " + filename + " - Cartograph";
+#else
+        // Windows/Linux use asterisk after filename
+        title = "*" + filename + " - Cartograph";
+#endif
+    } else {
+        title = filename + " - Cartograph";
+    }
+    
+    SDL_SetWindowTitle(m_window, title.c_str());
 }
 
 } // namespace Cartograph

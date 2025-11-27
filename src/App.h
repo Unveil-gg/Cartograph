@@ -86,6 +86,9 @@ public:
     void SaveProjectAs(const std::string& path);
     void ExportPng(const std::string& path);
     
+    // Window management
+    void UpdateWindowTitle();
+    
 private:
     void ProcessEvents();
     void Update(float deltaTime);
@@ -122,6 +125,7 @@ private:
     bool m_running;
     AppState m_appState;
     std::string m_currentFilePath;
+    bool m_lastDirtyState;  // Track dirty state for window title updates
     
     // Autosave
     double m_lastEditTime;
