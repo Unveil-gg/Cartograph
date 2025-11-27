@@ -363,6 +363,10 @@ public:
     bool RemoveMarker(const std::string& id);
     std::string GenerateMarkerId();
     
+    // Update marker icon references
+    int UpdateMarkerIconNames(const std::string& oldName, 
+                              const std::string& newName);
+    
     // Initialize defaults
     void InitDefaults();
     void InitDefaultPalette();

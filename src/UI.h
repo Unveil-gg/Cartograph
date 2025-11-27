@@ -162,6 +162,11 @@ public:
     std::string droppedFilePath;
     bool hasDroppedFile = false;
     
+    // Icon rename state
+    bool showRenameIconModal = false;
+    std::string renameIconOldName;
+    char renameIconNewName[64] = "";
+    
     // Welcome screen state
     bool showNewProjectModal = false;
     NewProjectConfig newProjectConfig;
@@ -258,6 +263,7 @@ private:
     void RenderToasts(float deltaTime);
     void RenderExportModal(Model& model, Canvas& canvas);
     void RenderSettingsModal(Model& model);
+    void RenderRenameIconModal(Model& model, IconManager& icons);
     
     // Welcome screen components
     void RenderNewProjectModal(App& app, Model& model);

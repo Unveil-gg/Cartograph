@@ -151,6 +151,9 @@ void UI::Render(
     if (showSettingsModal) {
         RenderSettingsModal(model);
     }
+    if (showRenameIconModal) {
+        RenderRenameIconModal(model, icons);
+    }
 }
 
 void UI::ShowToast(
@@ -941,6 +944,26 @@ void UI::RenderToolsPanel(Model& model, IconManager& icons, JobQueue& jobs) {
                         ImGui::TextUnformatted(iconName.c_str());
                         
                         ImGui::EndDragDropSource();
+                    }
+                    
+                    // Right-click context menu for custom icons
+                    if (icon->category == "marker" && 
+                        ImGui::BeginPopupContextItem(
+                            ("icon_ctx_" + iconName).c_str())) {
+                        ImGui::TextDisabled("Icon: %s", iconName.c_str());
+                        ImGui::Separator();
+                        
+                        if (ImGui::MenuItem("Rename...")) {
+                            showRenameIconModal = true;
+                            renameIconOldName = iconName;
+                            std::strncpy(renameIconNewName, 
+                                        iconName.c_str(), 
+                                        sizeof(renameIconNewName) - 1);
+                            renameIconNewName[sizeof(renameIconNewName) - 1] 
+                                = '\0';
+                        }
+                        
+                        ImGui::EndPopup();
                     }
                     
                     // Icon name label below button (centered)
@@ -3348,6 +3371,73 @@ void UI::RenderSettingsModal(Model& model) {
         
         if (ImGui::Button("Close", ImVec2(120, 0))) {
             showSettingsModal = false;
+            ImGui::CloseCurrentPopup();
+        }
+        
+        ImGui::EndPopup();
+    }
+}
+
+void UI::RenderRenameIconModal(Model& model, IconManager& icons) {
+    ImGui::OpenPopup("Rename Icon");
+    
+    ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, 
+        ImVec2(0.5f, 0.5f));
+    
+    if (ImGui::BeginPopupModal("Rename Icon", nullptr, 
+        ImGuiWindowFlags_AlwaysAutoResize)) {
+        
+        ImGui::Text("Rename Icon");
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        ImGui::Text("Current name: %s", renameIconOldName.c_str());
+        ImGui::Spacing();
+        
+        // New name input
+        ImGui::InputText("New name", renameIconNewName, 
+                        sizeof(renameIconNewName));
+        
+        ImGui::Spacing();
+        ImGui::Separator();
+        
+        if (ImGui::Button("Rename", ImVec2(120, 0))) {
+            std::string newName(renameIconNewName);
+            std::string errorMsg;
+            
+            // Validate and rename
+            if (icons.RenameIcon(renameIconOldName, newName, errorMsg)) {
+                // Update all markers using this icon
+                int count = model.UpdateMarkerIconNames(
+                    renameIconOldName, newName);
+                
+                // Update selected icon if it was the renamed one
+                if (selectedIconName == renameIconOldName) {
+                    selectedIconName = newName;
+                }
+                
+                showRenameIconModal = false;
+                ImGui::CloseCurrentPopup();
+                
+                std::string msg = "Icon renamed";
+                if (count > 0) {
+                    msg += " (" + std::to_string(count) + " marker";
+                    if (count > 1) msg += "s";
+                    msg += " updated)";
+                }
+                ShowToast(msg, Toast::Type::Success);
+            } else {
+                // Show error
+                ShowToast("Rename failed: " + errorMsg, 
+                         Toast::Type::Error, 3.0f);
+            }
+        }
+        
+        ImGui::SameLine();
+        
+        if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+            showRenameIconModal = false;
             ImGui::CloseCurrentPopup();
         }
         

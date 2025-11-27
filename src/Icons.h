@@ -151,6 +151,19 @@ public:
         std::string& errorMsg
     );
     
+    /**
+     * Rename an existing icon.
+     * @param oldName Current icon name
+     * @param newName New icon name
+     * @param errorMsg Output error message
+     * @return true on success
+     */
+    bool RenameIcon(
+        const std::string& oldName,
+        const std::string& newName,
+        std::string& errorMsg
+    );
+    
 private:
     struct IconData {
         std::string name;

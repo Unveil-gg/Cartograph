@@ -584,6 +584,25 @@ bool Model::RemoveMarker(const std::string& id) {
     return false;
 }
 
+int Model::UpdateMarkerIconNames(
+    const std::string& oldName,
+    const std::string& newName
+) {
+    int count = 0;
+    for (auto& marker : markers) {
+        if (marker.icon == oldName) {
+            marker.icon = newName;
+            count++;
+        }
+    }
+    
+    if (count > 0) {
+        MarkDirty();
+    }
+    
+    return count;
+}
+
 std::string Model::GenerateMarkerId() {
     // Generate unique marker ID using timestamp + counter
     static int counter = 0;

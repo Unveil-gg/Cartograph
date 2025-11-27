@@ -446,5 +446,47 @@ bool IconManager::ProcessIconFromFile(
     return true;
 }
 
+bool IconManager::RenameIcon(
+    const std::string& oldName,
+    const std::string& newName,
+    std::string& errorMsg
+) {
+    // Validate old name exists
+    if (m_icons.find(oldName) == m_icons.end()) {
+        errorMsg = "Icon '" + oldName + "' not found";
+        return false;
+    }
+    
+    // Validate new name doesn't exist
+    if (m_icons.find(newName) != m_icons.end()) {
+        errorMsg = "Icon '" + newName + "' already exists";
+        return false;
+    }
+    
+    // Validate new name is not empty
+    if (newName.empty()) {
+        errorMsg = "Icon name cannot be empty";
+        return false;
+    }
+    
+    // Update m_icons map
+    auto iconNode = m_icons.extract(oldName);
+    if (!iconNode.empty()) {
+        iconNode.key() = newName;
+        iconNode.mapped().name = newName;
+        m_icons.insert(std::move(iconNode));
+    }
+    
+    // Update m_iconData map
+    auto dataNode = m_iconData.extract(oldName);
+    if (!dataNode.empty()) {
+        dataNode.key() = newName;
+        dataNode.mapped().name = newName;
+        m_iconData.insert(std::move(dataNode));
+    }
+    
+    return true;
+}
+
 } // namespace Cartograph
 
