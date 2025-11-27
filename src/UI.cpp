@@ -135,7 +135,7 @@ void UI::Render(
     // Canvas first (background layer), then side panels (on top for tooltips)
     RenderCanvasPanel(renderer, model, canvas, history, icons);
     RenderStatusBar(model, canvas);
-    RenderToolsPanel(model, icons);
+    RenderToolsPanel(model, icons, jobs);
     
     if (showPropertiesPanel) {
         RenderPropertiesPanel(model, icons, jobs);
@@ -506,7 +506,7 @@ void UI::RenderPalettePanel(Model& model) {
     ImGui::End();
 }
 
-void UI::RenderToolsPanel(Model& model, IconManager& icons) {
+void UI::RenderToolsPanel(Model& model, IconManager& icons, JobQueue& jobs) {
     ImGuiWindowFlags flags = 
         ImGuiWindowFlags_NoMove | 
         ImGuiWindowFlags_NoCollapse;
@@ -689,7 +689,300 @@ void UI::RenderToolsPanel(Model& model, IconManager& icons) {
         }
     }
     
-    // TODO: Add icons palette section here
+    // Show marker options when Marker tool is active
+    if (currentTool == Tool::Marker) {
+        ImGui::Text("Marker Settings");
+        ImGui::Separator();
+        
+        // Label input
+        char labelBuf[128];
+        std::strncpy(labelBuf, markerLabel.c_str(), sizeof(labelBuf) - 1);
+        labelBuf[sizeof(labelBuf) - 1] = '\0';
+        
+        if (ImGui::InputText("Label", labelBuf, sizeof(labelBuf))) {
+            markerLabel = labelBuf;
+            
+            // Update selected marker if editing
+            if (selectedMarker) {
+                selectedMarker->label = markerLabel;
+                selectedMarker->showLabel = !markerLabel.empty();
+                model.MarkDirty();
+            }
+        }
+        
+        // Color picker
+        float colorArray[4] = {
+            markerColor.r, markerColor.g, markerColor.b, markerColor.a
+        };
+        
+        if (ImGui::ColorEdit4("Color", colorArray)) {
+            markerColor = Color(
+                colorArray[0], colorArray[1], 
+                colorArray[2], colorArray[3]
+            );
+            
+            // Update selected marker if editing
+            if (selectedMarker) {
+                selectedMarker->color = markerColor;
+                model.MarkDirty();
+            }
+        }
+        
+        ImGui::Separator();
+        
+        // Import Icon button at the top
+        if (ImGui::Button("Import Icon...", ImVec2(-1, 0))) {
+            ImportIcon(icons, jobs);
+        }
+        
+        // Show loading indicator if importing
+        if (isImportingIcon) {
+            ImGui::SameLine();
+            ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.8f, 1.0f), "Loading...");
+        }
+        
+        ImGui::Spacing();
+        
+        // Handle dropped file (OS-level file drop)
+        if (hasDroppedFile) {
+            // Check if it's an image file
+            std::string ext = droppedFilePath.substr(
+                droppedFilePath.find_last_of(".") + 1);
+            std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+            
+            if (ext == "png" || ext == "jpg" || ext == "jpeg" || 
+                ext == "bmp" || ext == "gif" || ext == "tga" || ext == "webp") {
+                // Extract filename without extension for icon name
+                size_t lastSlash = droppedFilePath.find_last_of("/\\");
+                size_t lastDot = droppedFilePath.find_last_of(".");
+                std::string baseName = droppedFilePath.substr(
+                    lastSlash + 1, 
+                    lastDot - lastSlash - 1
+                );
+                
+                // Generate unique name
+                std::string iconName = icons.GenerateUniqueName(baseName);
+                
+                // Start async import
+                importingIconName = iconName;
+                isImportingIcon = true;
+                
+                // Capture variables for async processing
+                std::string capturedIconName = iconName;
+                std::string capturedFilePath = droppedFilePath;
+                
+                jobs.Enqueue(
+                    JobType::ProcessIcon,
+                    [capturedIconName, capturedFilePath, &icons]() {
+                        std::vector<uint8_t> pixels;
+                        int width, height;
+                        std::string errorMsg;
+                        
+                        if (!IconManager::ProcessIconFromFile(
+                                capturedFilePath, pixels, 
+                                width, height, errorMsg)) {
+                            throw std::runtime_error(errorMsg);
+                        }
+                        
+                        if (!icons.AddIconFromMemory(capturedIconName, 
+                                                     pixels.data(), 
+                                                     width, height, "marker")) {
+                            throw std::runtime_error(
+                                "Failed to add icon to memory");
+                        }
+                    },
+                    [this, &icons, capturedIconName](
+                        bool success, const std::string& error) {
+                        isImportingIcon = false;
+                        if (success) {
+                            // Build atlas on main thread (OpenGL required)
+                            icons.BuildAtlas();
+                            
+                            ShowToast("Icon imported: " + capturedIconName, 
+                                     Toast::Type::Success, 2.0f);
+                            // Auto-select the imported icon
+                            selectedIconName = capturedIconName;
+                        } else {
+                            ShowToast("Failed to import: " + error, 
+                                     Toast::Type::Error, 3.0f);
+                        }
+                    }
+                );
+            } else {
+                ShowToast("Unsupported format. Use PNG, JPEG, BMP, GIF, "
+                         "TGA, or WebP", 
+                         Toast::Type::Warning, 3.0f);
+            }
+            
+            hasDroppedFile = false;
+            droppedFilePath.clear();
+        }
+        
+        // Icon picker grid
+        ImGui::Text("Select Icon (%zu available)", icons.GetIconCount());
+        ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), 
+            "Drag & drop image files here to import");
+        if (ImGui::BeginChild("IconPicker", ImVec2(0, 280), true)) {
+            // Show loading overlay if importing
+            if (isImportingIcon) {
+                ImVec2 childSize = ImGui::GetWindowSize();
+                ImVec2 textSize = ImGui::CalcTextSize(
+                    ("Importing: " + importingIconName + "...").c_str());
+                ImGui::SetCursorPos(ImVec2(
+                    (childSize.x - textSize.x) * 0.5f,
+                    (childSize.y - textSize.y) * 0.5f
+                ));
+                ImGui::TextColored(ImVec4(0.6f, 0.8f, 1.0f, 1.0f), 
+                    "Importing: %s...", importingIconName.c_str());
+            } else if (icons.GetIconCount() == 0) {
+                ImGui::TextDisabled("No icons loaded");
+                ImGui::TextDisabled("Click 'Import Icon...' to add icons");
+            } else {
+                // Get marker icon names (exclude tool icons)
+                auto iconNames = icons.GetIconNamesByCategory("marker");
+                
+                // Responsive grid layout
+                float buttonSize = 80.0f;  // Size of each icon button
+                float spacing = 8.0f;
+                float availWidth = ImGui::GetContentRegionAvail().x;
+                
+                // Calculate responsive columns (min 2, max 4)
+                int columns = std::max(2, 
+                    static_cast<int>((availWidth + spacing) / 
+                                    (buttonSize + spacing)));
+                columns = std::min(columns, 4);
+                
+                // Calculate centering offset
+                float totalWidth = columns * buttonSize + 
+                                  (columns - 1) * spacing;
+                float leftPadding = std::max(0.0f, 
+                    (availWidth - totalWidth) * 0.5f);
+                
+                for (size_t i = 0; i < iconNames.size(); ++i) {
+                    const std::string& iconName = iconNames[i];
+                    const Icon* icon = icons.GetIcon(iconName);
+                    
+                    if (!icon) continue;
+                    
+                    ImGui::PushID(static_cast<int>(i));
+                    
+                    // Begin new row with left padding for centering
+                    if (i % columns == 0) {
+                        ImGui::SetCursorPosX(
+                            ImGui::GetCursorPosX() + leftPadding);
+                    } else {
+                        ImGui::SameLine(0, spacing);
+                    }
+                    
+                    ImGui::BeginGroup();
+                    
+                    // Draw icon button
+                    bool isSelected = (selectedIconName == iconName);
+                    
+                    // Highlight selected icon
+                    if (isSelected) {
+                        ImGui::PushStyleColor(ImGuiCol_Button, 
+                            ImVec4(0.2f, 0.4f, 0.8f, 0.6f));
+                        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, 
+                            ImVec4(0.3f, 0.5f, 0.9f, 0.8f));
+                        ImGui::PushStyleColor(ImGuiCol_ButtonActive, 
+                            ImVec4(0.4f, 0.6f, 1.0f, 1.0f));
+                    }
+                    
+                    // Icon image button
+                    if (icons.GetAtlasTexture()) {
+                        ImVec2 uvMin(icon->u0, icon->v0);
+                        ImVec2 uvMax(icon->u1, icon->v1);
+                        
+                        if (ImGui::ImageButton(
+                            iconName.c_str(),
+                            icons.GetAtlasTexture(),
+                            ImVec2(buttonSize, buttonSize),
+                            uvMin, uvMax)) {
+                            selectedIconName = iconName;
+                            
+                            // Update selected marker if editing
+                            if (selectedMarker) {
+                                selectedMarker->icon = selectedIconName;
+                                model.MarkDirty();
+                            }
+                        }
+                    } else {
+                        // Fallback if no texture
+                        if (ImGui::Button("##icon", 
+                                         ImVec2(buttonSize, buttonSize))) {
+                            selectedIconName = iconName;
+                            
+                            if (selectedMarker) {
+                                selectedMarker->icon = selectedIconName;
+                                model.MarkDirty();
+                            }
+                        }
+                    }
+                    
+                    if (isSelected) {
+                        ImGui::PopStyleColor(3);
+                    }
+                    
+                    // Enable drag-drop from icon button
+                    if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
+                        // Set payload with icon name
+                        ImGui::SetDragDropPayload("MARKER_ICON", 
+                            iconName.c_str(), 
+                            iconName.length() + 1);
+                        
+                        // Show preview while dragging
+                        if (icons.GetAtlasTexture()) {
+                            ImVec2 uvMin(icon->u0, icon->v0);
+                            ImVec2 uvMax(icon->u1, icon->v1);
+                            ImGui::Image(icons.GetAtlasTexture(), 
+                                ImVec2(32, 32), uvMin, uvMax);
+                        }
+                        ImGui::TextUnformatted(iconName.c_str());
+                        
+                        ImGui::EndDragDropSource();
+                    }
+                    
+                    // Icon name label below button (centered)
+                    float textWidth = ImGui::CalcTextSize(iconName.c_str()).x;
+                    float offset = (buttonSize - textWidth) * 0.5f;
+                    if (offset > 0) {
+                        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + offset);
+                    }
+                    ImGui::TextWrapped("%s", iconName.c_str());
+                    
+                    ImGui::EndGroup();
+                    
+                    ImGui::PopID();
+                }
+            }
+            
+            // Show import progress
+            if (isImportingIcon) {
+                ImGui::Separator();
+                ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.3f, 1.0f),
+                    "Importing: %s...", importingIconName.c_str());
+            }
+            
+            ImGui::EndChild();
+        }
+        
+        // Actions
+        ImGui::Separator();
+        
+        if (selectedMarker) {
+            ImGui::Text("Editing marker:");
+            ImGui::TextDisabled("Position: (%.1f, %.1f)", 
+                               selectedMarker->x, selectedMarker->y);
+            
+            if (ImGui::Button("Deselect", ImVec2(-1, 0))) {
+                selectedMarker = nullptr;
+            }
+        } else {
+            ImGui::TextDisabled("Click to place new marker");
+        }
+    }
+    
     // TODO: Add layers toggles here
     
     ImGui::End();
@@ -916,291 +1209,8 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs)
         ImGui::EndPopup();
     }
     
-    // Marker properties
-    if (ImGui::CollapsingHeader("Markers", ImGuiTreeNodeFlags_DefaultOpen)) {
-        ImGui::Text("Marker Tool Settings");
-        ImGui::Separator();
-        
-        // Label input
-        char labelBuf[128];
-        std::strncpy(labelBuf, markerLabel.c_str(), sizeof(labelBuf) - 1);
-        labelBuf[sizeof(labelBuf) - 1] = '\0';
-        
-        if (ImGui::InputText("Label", labelBuf, sizeof(labelBuf))) {
-            markerLabel = labelBuf;
-            
-            // Update selected marker if editing
-            if (selectedMarker) {
-                selectedMarker->label = markerLabel;
-                selectedMarker->showLabel = !markerLabel.empty();
-                model.MarkDirty();
-            }
-        }
-        
-        // Color picker
-        float colorArray[4] = {
-            markerColor.r, markerColor.g, markerColor.b, markerColor.a
-        };
-        
-        if (ImGui::ColorEdit4("Color", colorArray)) {
-            markerColor = Color(
-                colorArray[0], colorArray[1], 
-                colorArray[2], colorArray[3]
-            );
-            
-            // Update selected marker if editing
-            if (selectedMarker) {
-                selectedMarker->color = markerColor;
-                model.MarkDirty();
-            }
-        }
-        
-        ImGui::Separator();
-        
-        // Import Icon button at the top
-        if (ImGui::Button("Import Icon...", ImVec2(-1, 0))) {
-            ImportIcon(icons, jobs);
-        }
-        
-        // Show loading indicator if importing
-        if (isImportingIcon) {
-            ImGui::SameLine();
-            ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.8f, 1.0f), "Loading...");
-        }
-        
-        ImGui::Spacing();
-        
-        // Handle dropped file (OS-level file drop)
-        if (hasDroppedFile) {
-            // Check if it's an image file
-            std::string ext = droppedFilePath.substr(droppedFilePath.find_last_of(".") + 1);
-            std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-            
-            if (ext == "png" || ext == "jpg" || ext == "jpeg" || 
-                ext == "bmp" || ext == "gif" || ext == "tga" || ext == "webp") {
-                // Extract filename without extension for icon name
-                size_t lastSlash = droppedFilePath.find_last_of("/\\");
-                size_t lastDot = droppedFilePath.find_last_of(".");
-                std::string baseName = droppedFilePath.substr(
-                    lastSlash + 1, 
-                    lastDot - lastSlash - 1
-                );
-                
-                // Generate unique name
-                std::string iconName = icons.GenerateUniqueName(baseName);
-                
-                // Start async import
-                importingIconName = iconName;
-                isImportingIcon = true;
-                
-                // Capture variables for async processing
-                std::string capturedIconName = iconName;
-                std::string capturedFilePath = droppedFilePath;
-                
-                jobs.Enqueue(
-                    JobType::ProcessIcon,
-                    [capturedIconName, capturedFilePath, &icons]() {
-                        std::vector<uint8_t> pixels;
-                        int width, height;
-                        std::string errorMsg;
-                        
-                        if (!IconManager::ProcessIconFromFile(capturedFilePath, pixels, 
-                                                              width, height, errorMsg)) {
-                            throw std::runtime_error(errorMsg);
-                        }
-                        
-                        if (!icons.AddIconFromMemory(capturedIconName, pixels.data(), 
-                                                    width, height, "marker")) {
-                            throw std::runtime_error("Failed to add icon to memory");
-                        }
-                    },
-                    [this, &icons, capturedIconName](bool success, const std::string& error) {
-                        isImportingIcon = false;
-                        if (success) {
-                            // Build atlas on main thread (OpenGL context required)
-                            icons.BuildAtlas();
-                            
-                            ShowToast("Icon imported: " + capturedIconName, 
-                                     Toast::Type::Success, 2.0f);
-                            // Auto-select the imported icon
-                            selectedIconName = capturedIconName;
-                        } else {
-                            ShowToast("Failed to import: " + error, 
-                                     Toast::Type::Error, 3.0f);
-                        }
-                    }
-                );
-            } else {
-                ShowToast("Unsupported format. Use PNG, JPEG, BMP, GIF, TGA, or WebP", 
-                         Toast::Type::Warning, 3.0f);
-            }
-            
-            hasDroppedFile = false;
-            droppedFilePath.clear();
-        }
-        
-        // Icon picker grid
-        ImGui::Text("Select Icon (%zu available)", icons.GetIconCount());
-        ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), 
-            "Drag & drop image files here to import");
-        if (ImGui::BeginChild("IconPicker", ImVec2(0, 280), true)) {
-            // Show loading overlay if importing
-            if (isImportingIcon) {
-                ImVec2 childSize = ImGui::GetWindowSize();
-                ImVec2 textSize = ImGui::CalcTextSize(("Importing: " + importingIconName + "...").c_str());
-                ImGui::SetCursorPos(ImVec2(
-                    (childSize.x - textSize.x) * 0.5f,
-                    (childSize.y - textSize.y) * 0.5f
-                ));
-                ImGui::TextColored(ImVec4(0.6f, 0.8f, 1.0f, 1.0f), 
-                    "Importing: %s...", importingIconName.c_str());
-            } else if (icons.GetIconCount() == 0) {
-                ImGui::TextDisabled("No icons loaded");
-                ImGui::TextDisabled("Click 'Import Icon...' to add icons");
-            } else {
-                // Get marker icon names (exclude tool icons)
-                auto iconNames = icons.GetIconNamesByCategory("marker");
-                
-                // Responsive grid layout
-                float buttonSize = 80.0f;  // Size of each icon button
-                float spacing = 8.0f;
-                float availWidth = ImGui::GetContentRegionAvail().x;
-                
-                // Calculate responsive columns (min 2, max 4)
-                int columns = std::max(2, 
-                    static_cast<int>((availWidth + spacing) / 
-                                    (buttonSize + spacing)));
-                columns = std::min(columns, 4);
-                
-                // Calculate centering offset
-                float totalWidth = columns * buttonSize + 
-                                  (columns - 1) * spacing;
-                float leftPadding = std::max(0.0f, 
-                    (availWidth - totalWidth) * 0.5f);
-                
-                for (size_t i = 0; i < iconNames.size(); ++i) {
-                    const std::string& iconName = iconNames[i];
-                    const Icon* icon = icons.GetIcon(iconName);
-                    
-                    if (!icon) continue;
-                    
-                    ImGui::PushID(static_cast<int>(i));
-                    
-                    // Begin new row with left padding for centering
-                    if (i % columns == 0) {
-                        ImGui::SetCursorPosX(
-                            ImGui::GetCursorPosX() + leftPadding);
-                    } else {
-                        ImGui::SameLine(0, spacing);
-                    }
-                    
-                    ImGui::BeginGroup();
-                    
-                    // Draw icon button
-                    bool isSelected = (selectedIconName == iconName);
-                    
-                    // Highlight selected icon
-                    if (isSelected) {
-                        ImGui::PushStyleColor(ImGuiCol_Button, 
-                            ImVec4(0.2f, 0.4f, 0.8f, 0.6f));
-                        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, 
-                            ImVec4(0.3f, 0.5f, 0.9f, 0.8f));
-                        ImGui::PushStyleColor(ImGuiCol_ButtonActive, 
-                            ImVec4(0.4f, 0.6f, 1.0f, 1.0f));
-                    }
-                    
-                    // Icon image button
-                    if (icons.GetAtlasTexture()) {
-                        ImVec2 uvMin(icon->u0, icon->v0);
-                        ImVec2 uvMax(icon->u1, icon->v1);
-                        
-                        if (ImGui::ImageButton(
-                            iconName.c_str(),
-                            icons.GetAtlasTexture(),
-                            ImVec2(buttonSize, buttonSize),
-                            uvMin, uvMax)) {
-                            selectedIconName = iconName;
-                            
-                            // Update selected marker if editing
-                            if (selectedMarker) {
-                                selectedMarker->icon = selectedIconName;
-                                model.MarkDirty();
-                            }
-                        }
-                    } else {
-                        // Fallback if no texture
-                        if (ImGui::Button("##icon", ImVec2(buttonSize, buttonSize))) {
-                            selectedIconName = iconName;
-                            
-                            if (selectedMarker) {
-                                selectedMarker->icon = selectedIconName;
-                                model.MarkDirty();
-                            }
-                        }
-                    }
-                    
-                    if (isSelected) {
-                        ImGui::PopStyleColor(3);
-                    }
-                    
-                    // Enable drag-drop from icon button
-                    if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
-                        // Set payload with icon name
-                        ImGui::SetDragDropPayload("MARKER_ICON", 
-                            iconName.c_str(), 
-                            iconName.length() + 1);
-                        
-                        // Show preview while dragging
-                        if (icons.GetAtlasTexture()) {
-                            ImVec2 uvMin(icon->u0, icon->v0);
-                            ImVec2 uvMax(icon->u1, icon->v1);
-                            ImGui::Image(icons.GetAtlasTexture(), 
-                                ImVec2(32, 32), uvMin, uvMax);
-                        }
-                        ImGui::TextUnformatted(iconName.c_str());
-                        
-                        ImGui::EndDragDropSource();
-                    }
-                    
-                    // Icon name label below button (centered)
-                    float textWidth = ImGui::CalcTextSize(iconName.c_str()).x;
-                    float offset = (buttonSize - textWidth) * 0.5f;
-                    if (offset > 0) {
-                        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + offset);
-                    }
-                    ImGui::TextWrapped("%s", iconName.c_str());
-                    
-                    ImGui::EndGroup();
-                    
-                    ImGui::PopID();
-                }
-            }
-            
-            // Show import progress
-            if (isImportingIcon) {
-                ImGui::Separator();
-                ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.3f, 1.0f),
-                    "Importing: %s...", importingIconName.c_str());
-            }
-            
-            ImGui::EndChild();
-        }
-        
-        // Actions
-        ImGui::Separator();
-        
-        if (selectedMarker) {
-            ImGui::Text("Editing marker:");
-            ImGui::TextDisabled("Position: (%.1f, %.1f)", 
-                               selectedMarker->x, selectedMarker->y);
-            
-            if (ImGui::Button("Deselect", ImVec2(-1, 0))) {
-                selectedMarker = nullptr;
-            }
-        } else {
-            ImGui::TextDisabled("Click to place new marker");
-        }
-    }
+    // Note: Marker tool settings moved to Tools panel (shown when Marker 
+    // tool is selected)
     
     ImGui::End();
 }
@@ -2074,9 +2084,8 @@ void UI::RenderCanvasPanel(
                     
                     // Auto-switch to Paint tool after picking
                     currentTool = Tool::Paint;
-                } else {
-                    ShowToast("No tile to pick", Toast::Type::Info, 1.5f);
                 }
+                // Note: "No tile to pick" message shown in console only
             }
         }
         else if (currentTool == Tool::Marker) {
