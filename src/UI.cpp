@@ -5,6 +5,7 @@
 #include "Icons.h"
 #include "Jobs.h"
 #include "render/Renderer.h"
+#include "IOJson.h"
 #include "platform/Paths.h"
 #include "platform/Fs.h"
 #include <imgui.h>
@@ -13,6 +14,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cfloat>
+#include <filesystem>
 #include <cstring>
 #include <set>
 #include <filesystem>
@@ -347,6 +349,10 @@ void UI::RenderWelcomeScreen(App& app, Model& model) {
     
     if (showWhatsNew) {
         RenderWhatsNewPanel();
+    }
+    
+    if (showAutosaveRecoveryModal) {
+        RenderAutosaveRecoveryModal(app, model);
     }
     
     // Render toasts
@@ -3529,6 +3535,70 @@ void UI::RenderWhatsNewPanel() {
         }
     }
     ImGui::End();
+}
+
+void UI::RenderAutosaveRecoveryModal(App& app, Model& model) {
+    ImGui::SetNextWindowSize(ImVec2(480, 200), ImGuiCond_Always);
+    ImGui::OpenPopup("Autosave Recovery");
+    
+    ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    
+    if (ImGui::BeginPopupModal("Autosave Recovery", nullptr, 
+                               ImGuiWindowFlags_AlwaysAutoResize | 
+                               ImGuiWindowFlags_NoMove)) {
+        ImGui::TextColored(ImVec4(1.0f, 0.7f, 0.3f, 1.0f), 
+                          "Unsaved Work Detected");
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        ImGui::TextWrapped(
+            "Cartograph detected unsaved work from a previous session. "
+            "Would you like to recover it?");
+        ImGui::Spacing();
+        ImGui::TextDisabled(
+            "Note: Recovering will load the autosaved data. You can "
+            "manually save it when ready.");
+        
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        float buttonWidth = 120.0f;
+        
+        if (ImGui::Button("Recover", ImVec2(buttonWidth, 0))) {
+            // Load autosave
+            std::string autosavePath = Platform::GetAutosaveDir() + "autosave.json";
+            Model recoveredModel;
+            if (IOJson::LoadFromFile(autosavePath, recoveredModel)) {
+                model = recoveredModel;
+                model.MarkDirty();  // Mark as dirty so user must save
+                ShowToast("Recovered from autosave", Toast::Type::Success);
+                app.ShowEditor();
+            } else {
+                ShowToast("Failed to load autosave", Toast::Type::Error);
+            }
+            showAutosaveRecoveryModal = false;
+            ImGui::CloseCurrentPopup();
+        }
+        
+        ImGui::SameLine(0, 10);
+        
+        if (ImGui::Button("Discard", ImVec2(buttonWidth, 0))) {
+            // Clean up autosave and continue
+            std::string autosaveDir = Platform::GetAutosaveDir();
+            try {
+                std::filesystem::remove(autosaveDir + "autosave.json");
+                std::filesystem::remove(autosaveDir + "metadata.json");
+            } catch (...) {
+                // Ignore errors
+            }
+            showAutosaveRecoveryModal = false;
+            ImGui::CloseCurrentPopup();
+        }
+        
+        ImGui::EndPopup();
+    }
 }
 
 void UI::ApplyTemplate(ProjectTemplate tmpl) {

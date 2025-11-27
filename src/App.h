@@ -99,6 +99,11 @@ private:
     void StopAutosave();
     void DoAutosave();
     
+    // Autosave recovery
+    void CheckAutosaveRecovery();
+    void SaveAutosaveMetadata();
+    void CleanupAutosave();
+    
     // SDL window and OpenGL context
     SDL_Window* m_window;
     SDL_GLContext m_glContext;
@@ -123,6 +128,7 @@ private:
     double m_lastAutosaveTime;
     const double AUTOSAVE_DEBOUNCE = 5.0;   // 5 seconds after edit
     const double AUTOSAVE_INTERVAL = 30.0;  // Or every 30 seconds
+    bool m_hasAutosaveRecovery;            // Autosave available for recovery
     
     // Frame timing
     double m_lastFrameTime;

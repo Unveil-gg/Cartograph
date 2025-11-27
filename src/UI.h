@@ -140,6 +140,7 @@ public:
     ProjectTemplate selectedTemplate = ProjectTemplate::Medium;
     std::vector<RecentProject> recentProjects;
     bool showWhatsNew = false;
+    bool showAutosaveRecoveryModal = false;
     
     // Panel visibility
     bool showPropertiesPanel = false;  // Toggleable via View menu
@@ -230,6 +231,7 @@ private:
     void RenderRecentProjectsList(App& app);
     void RenderProjectTemplates();
     void RenderWhatsNewPanel();
+    void RenderAutosaveRecoveryModal(App& app, Model& model);
     void ApplyTemplate(ProjectTemplate tmpl);
     void LoadRecentProjects();
     void AddRecentProject(const std::string& path);

@@ -1,6 +1,7 @@
 #include "App.h"
 #include "render/GlRenderer.h"
 #include "platform/Paths.h"
+#include "platform/Fs.h"
 #include "platform/Time.h"
 #include "IOJson.h"
 #include "Package.h"
@@ -9,6 +10,8 @@
 #include <imgui.h>
 #include <imgui_impl_sdl3.h>
 #include <imgui_impl_opengl3.h>
+#include <nlohmann/json.hpp>
+#include <filesystem>
 
 namespace Cartograph {
 
@@ -21,6 +24,7 @@ App::App()
     , m_lastAutosaveTime(0)
     , m_lastFrameTime(0)
     , m_hasDroppedFile(false)
+    , m_hasAutosaveRecovery(false)
 {
 }
 
@@ -90,6 +94,12 @@ bool App::Init(const std::string& title, int width, int height) {
     m_appState = AppState::Welcome;
     m_lastFrameTime = Platform::GetTime();
     
+    // Check for autosave recovery
+    CheckAutosaveRecovery();
+    if (m_hasAutosaveRecovery) {
+        m_ui.showAutosaveRecoveryModal = true;
+    }
+    
     return true;
 }
 
@@ -115,6 +125,9 @@ int App::Run() {
 
 void App::Shutdown() {
     if (!m_window) return;
+    
+    // Mark clean shutdown in autosave metadata
+    SaveAutosaveMetadata();
     
     m_jobs.Stop();
     
@@ -292,7 +305,8 @@ void App::DoAutosave() {
         std::string path = autosaveDir + "autosave.json";
         if (IOJson::SaveToFile(m_model, path)) {
             m_lastAutosaveTime = now;
-            m_ui.ShowToast("Autosaved", Toast::Type::Success, 2.0f);
+            SaveAutosaveMetadata();
+            // Silent autosave - no UI feedback
         }
     }
 }
@@ -349,6 +363,7 @@ void App::SaveProjectAs(const std::string& path) {
     if (success) {
         m_currentFilePath = path;
         m_model.ClearDirty();
+        CleanupAutosave();  // Remove autosave after successful manual save
         m_ui.ShowToast("Saved: " + path, Toast::Type::Success);
     } else {
         m_ui.ShowToast("Failed to save: " + path, Toast::Type::Error);
@@ -369,6 +384,67 @@ void App::ExportPng(const std::string& path) {
         m_ui.ShowToast("Exported: " + path, Toast::Type::Success);
     } else {
         m_ui.ShowToast("Failed to export: " + path, Toast::Type::Error);
+    }
+}
+
+void App::CheckAutosaveRecovery() {
+    std::string autosaveDir = Platform::GetAutosaveDir();
+    std::string autosavePath = autosaveDir + "autosave.json";
+    std::string metadataPath = autosaveDir + "metadata.json";
+    
+    // Check if autosave file exists
+    auto autosaveContent = Platform::ReadFile(autosavePath);
+    if (!autosaveContent) {
+        return;  // No autosave to recover
+    }
+    
+    // Check metadata for clean shutdown flag
+    auto metadataContent = Platform::ReadFile(metadataPath);
+    bool wasCleanShutdown = true;  // Default to clean if no metadata
+    
+    if (metadataContent) {
+        try {
+            nlohmann::json meta = nlohmann::json::parse(*metadataContent);
+            wasCleanShutdown = meta.value("cleanShutdown", true);
+        } catch (...) {
+            // Metadata parse error, assume unclean
+            wasCleanShutdown = false;
+        }
+    }
+    
+    // If shutdown wasn't clean, mark for recovery
+    if (!wasCleanShutdown) {
+        m_hasAutosaveRecovery = true;
+    }
+}
+
+void App::SaveAutosaveMetadata() {
+    std::string autosaveDir = Platform::GetAutosaveDir();
+    Platform::EnsureDirectoryExists(autosaveDir);
+    
+    std::string metadataPath = autosaveDir + "metadata.json";
+    
+    nlohmann::json meta;
+    meta["projectPath"] = m_currentFilePath;
+    meta["timestamp"] = static_cast<int64_t>(Platform::GetTime());
+    meta["cleanShutdown"] = !m_model.dirty;  // Clean if no unsaved changes
+    
+    std::string content = meta.dump(2);
+    Platform::WriteTextFile(metadataPath, content);
+}
+
+void App::CleanupAutosave() {
+    std::string autosaveDir = Platform::GetAutosaveDir();
+    std::string autosavePath = autosaveDir + "autosave.json";
+    std::string metadataPath = autosaveDir + "metadata.json";
+    
+    // Delete autosave files
+    // Note: Platform::DeleteFile doesn't exist yet, so we'll use filesystem
+    try {
+        std::filesystem::remove(autosavePath);
+        std::filesystem::remove(metadataPath);
+    } catch (...) {
+        // Ignore errors - file might not exist
     }
 }
 
