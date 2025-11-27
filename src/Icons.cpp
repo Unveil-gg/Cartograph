@@ -37,7 +37,9 @@ IconManager::~IconManager() {
     }
 }
 
-int IconManager::LoadFromDirectory(const std::string& dir, bool recursive) {
+int IconManager::LoadFromDirectory(const std::string& dir, 
+                                   const std::string& category,
+                                   bool recursive) {
     if (!fs::exists(dir) || !fs::is_directory(dir)) {
         return 0;
     }
@@ -53,7 +55,7 @@ int IconManager::LoadFromDirectory(const std::string& dir, bool recursive) {
         
         if (ext == ".png" || ext == ".svg") {
             std::string name = entry.path().stem().string();
-            if (LoadIcon(entry.path().string(), name)) {
+            if (LoadIcon(entry.path().string(), name, category)) {
                 count++;
             }
         }
@@ -73,7 +75,9 @@ int IconManager::LoadFromDirectory(const std::string& dir, bool recursive) {
     return count;
 }
 
-bool IconManager::LoadIcon(const std::string& path, const std::string& name) {
+bool IconManager::LoadIcon(const std::string& path, 
+                           const std::string& name,
+                           const std::string& category) {
     std::string iconName = name;
     if (iconName.empty()) {
         iconName = fs::path(path).stem().string();
@@ -81,6 +85,7 @@ bool IconManager::LoadIcon(const std::string& path, const std::string& name) {
     
     IconData data;
     data.name = iconName;
+    data.category = category;
     
     std::string ext = fs::path(path).extension().string();
     std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
@@ -192,6 +197,7 @@ void IconManager::BuildAtlas() {
         // Create icon entry with updated UVs
         Icon icon;
         icon.name = iconData.name;
+        icon.category = iconData.category;
         icon.atlasX = atlasX;
         icon.atlasY = atlasY;
         icon.width = iconData.width;
@@ -252,6 +258,20 @@ std::vector<std::string> IconManager::GetAllIconNames() const {
     return names;
 }
 
+std::vector<std::string> IconManager::GetIconNamesByCategory(
+    const std::string& category
+) const {
+    std::vector<std::string> names;
+    for (const auto& pair : m_icons) {
+        if (pair.second.category == category) {
+            names.push_back(pair.first);
+        }
+    }
+    // Sort alphabetically for consistent ordering
+    std::sort(names.begin(), names.end());
+    return names;
+}
+
 void IconManager::Clear() {
     m_icons.clear();
     m_iconData.clear();
@@ -270,7 +290,8 @@ bool IconManager::AddIconFromMemory(
     const std::string& name,
     const uint8_t* pixels,
     int width,
-    int height
+    int height,
+    const std::string& category
 ) {
     if (!pixels || width <= 0 || height <= 0) {
         return false;
@@ -285,6 +306,7 @@ bool IconManager::AddIconFromMemory(
     // Create icon data
     IconData data;
     data.name = name;
+    data.category = category;
     data.width = width;
     data.height = height;
     data.pixels.assign(pixels, pixels + width * height * 4);

@@ -16,6 +16,7 @@ namespace Cartograph {
  */
 struct Icon {
     std::string name;
+    std::string category;   // Icon category: "tool", "marker"
     int atlasX, atlasY;     // Position in atlas
     int width, height;      // Icon dimensions
     float u0, v0, u1, v1;   // UV coordinates
@@ -34,10 +35,13 @@ public:
     /**
      * Load icons from a directory.
      * @param dir Directory path
+     * @param category Icon category ("tool" or "marker")
      * @param recursive Search subdirectories
      * @return Number of icons loaded
      */
-    int LoadFromDirectory(const std::string& dir, bool recursive = true);
+    int LoadFromDirectory(const std::string& dir, 
+                          const std::string& category,
+                          bool recursive = true);
     
     /**
      * Load a single icon file.
@@ -77,6 +81,15 @@ public:
     std::vector<std::string> GetAllIconNames() const;
     
     /**
+     * Get icon names filtered by category.
+     * @param category Icon category to filter by
+     * @return Vector of icon names in the specified category
+     */
+    std::vector<std::string> GetIconNamesByCategory(
+        const std::string& category
+    ) const;
+    
+    /**
      * Clear all loaded icons.
      */
     void Clear();
@@ -87,13 +100,15 @@ public:
      * @param pixels RGBA8 pixel data
      * @param width Width in pixels
      * @param height Height in pixels
+     * @param category Icon category ("tool" or "marker")
      * @return true on success
      */
     bool AddIconFromMemory(
         const std::string& name,
         const uint8_t* pixels,
         int width,
-        int height
+        int height,
+        const std::string& category = "marker"
     );
     
     /**
@@ -139,12 +154,15 @@ public:
 private:
     struct IconData {
         std::string name;
+        std::string category;
         int width, height;
         std::vector<uint8_t> pixels;  // RGBA8
     };
     
     bool LoadPng(const std::string& path, IconData& out);
     bool LoadSvg(const std::string& path, IconData& out);
+    bool LoadIcon(const std::string& path, const std::string& name, 
+                  const std::string& category);
     
     std::unordered_map<std::string, Icon> m_icons;        // Icon metadata + UVs
     std::unordered_map<std::string, IconData> m_iconData; // Pixel data (retained)

@@ -973,7 +973,7 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs)
                         }
                         
                         if (!icons.AddIconFromMemory(capturedIconName, pixels.data(), 
-                                                    width, height)) {
+                                                    width, height, "marker")) {
                             throw std::runtime_error("Failed to add icon to memory");
                         }
                     },
@@ -1021,8 +1021,8 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs)
                 ImGui::TextDisabled("No icons loaded");
                 ImGui::TextDisabled("Click 'Import Icon...' to add icons");
             } else {
-                // Get all icon names
-                auto iconNames = icons.GetAllIconNames();
+                // Get marker icon names (exclude tool icons)
+                auto iconNames = icons.GetIconNamesByCategory("marker");
                 
                 // Responsive grid layout
                 float buttonSize = 80.0f;  // Size of each icon button
@@ -3730,7 +3730,7 @@ void UI::ImportIcon(IconManager& iconManager, JobQueue& jobs) {
                     }
                     
                     if (!data->iconManager->AddIconFromMemory(
-                            iconName, pixels.data(), width, height)) {
+                            iconName, pixels.data(), width, height, "marker")) {
                         throw std::runtime_error("Failed to add icon to memory");
                     }
                 },

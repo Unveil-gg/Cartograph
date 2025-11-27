@@ -76,8 +76,8 @@ bool App::Init(const std::string& title, int width, int height) {
     
     // Load icons from assets
     std::string assetsDir = Platform::GetAssetsDir();
-    m_icons.LoadFromDirectory(assetsDir + "icons/", true);
-    m_icons.LoadFromDirectory(assetsDir + "tools/", false);
+    m_icons.LoadFromDirectory(assetsDir + "icons/", "marker", true);
+    m_icons.LoadFromDirectory(assetsDir + "tools/", "tool", false);
     m_icons.BuildAtlas();
     
     // Setup UI (dockspace will be set up when entering editor)
