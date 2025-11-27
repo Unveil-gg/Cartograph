@@ -5,6 +5,7 @@
 #include "platform/Time.h"
 #include "IOJson.h"
 #include "Package.h"
+#include "ProjectFolder.h"
 #include "ExportPng.h"
 #include <SDL3/SDL.h>
 #include <imgui.h>
@@ -331,11 +332,15 @@ void App::OpenProject(const std::string& path) {
     Model newModel;
     bool success = false;
     
-    // Try to load as .cart package (C++17 compatible check)
+    // Detect format and load accordingly
     if (path.size() >= 5 && path.substr(path.size() - 5) == ".cart") {
+        // Load as .cart package (ZIP)
         success = Package::Load(path, newModel, &m_icons);
+    } else if (ProjectFolder::IsProjectFolder(path)) {
+        // Load as project folder
+        success = ProjectFolder::Load(path, newModel, &m_icons);
     } else {
-        // Load as raw JSON
+        // Load as raw JSON (legacy format)
         success = IOJson::LoadFromFile(path, newModel);
     }
     
@@ -362,11 +367,13 @@ void App::SaveProject() {
 void App::SaveProjectAs(const std::string& path) {
     bool success = false;
     
-    // C++17 compatible check
+    // Detect save format and save accordingly
     if (path.size() >= 5 && path.substr(path.size() - 5) == ".cart") {
+        // Save as .cart package (ZIP with embedded icons)
         success = Package::Save(m_model, path, &m_icons);
     } else {
-        success = IOJson::SaveToFile(m_model, path);
+        // Save as project folder (git-friendly format)
+        success = ProjectFolder::Save(m_model, path, &m_icons);
     }
     
     if (success) {
@@ -377,6 +384,34 @@ void App::SaveProjectAs(const std::string& path) {
         m_ui.ShowToast("Saved: " + path, Toast::Type::Success);
     } else {
         m_ui.ShowToast("Failed to save: " + path, Toast::Type::Error);
+    }
+}
+
+void App::SaveProjectFolder(const std::string& folderPath) {
+    bool success = ProjectFolder::Save(m_model, folderPath, &m_icons);
+    
+    if (success) {
+        m_currentFilePath = folderPath;
+        m_model.ClearDirty();
+        CleanupAutosave();
+        UpdateWindowTitle();
+        m_ui.ShowToast("Saved project folder: " + folderPath, 
+                      Toast::Type::Success);
+    } else {
+        m_ui.ShowToast("Failed to save project folder: " + folderPath, 
+                      Toast::Type::Error);
+    }
+}
+
+void App::ExportPackage(const std::string& cartPath) {
+    bool success = Package::Save(m_model, cartPath, &m_icons);
+    
+    if (success) {
+        m_ui.ShowToast("Exported package: " + cartPath, 
+                      Toast::Type::Success);
+    } else {
+        m_ui.ShowToast("Failed to export package: " + cartPath, 
+                      Toast::Type::Error);
     }
 }
 

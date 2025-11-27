@@ -90,7 +90,7 @@ void UI::Render(
     float deltaTime
 ) {
     // Render menu bar outside dockspace (ensures it's on top)
-    RenderMenuBar(model, canvas, history, icons, jobs);
+    RenderMenuBar(app, model, canvas, history, icons, jobs);
     
     // Create fullscreen dockspace window
     ImGuiViewport* viewport = ImGui::GetMainViewport();
@@ -386,6 +386,7 @@ void UI::RenderWelcomeScreen(App& app, Model& model) {
 }
 
 void UI::RenderMenuBar(
+    App& app,
     Model& model,
     Canvas& canvas,
     History& history,
@@ -402,15 +403,17 @@ void UI::RenderMenuBar(
             }
             ImGui::Separator();
             if (ImGui::MenuItem("Save Project", "Cmd+S")) {
-                // TODO: Save project as JSON
+                // TODO: Quick save (use current path)
             }
-            if (ImGui::MenuItem("Save Project As...")) {
-                // TODO: Save project as JSON (with dialog)
+            if (ImGui::MenuItem("Save Project As...", "Cmd+Shift+S")) {
+                // Save as project folder (git-friendly)
+                ShowSaveProjectDialog(app);
             }
             ImGui::Separator();
             if (ImGui::MenuItem("Export Package (.cart)...", 
                                "Cmd+Shift+E")) {
-                // TODO: Export as .cart package with embedded icons
+                // Export as .cart package (single file distribution)
+                ShowExportPackageDialog(app);
             }
             ImGui::Separator();
             if (ImGui::MenuItem("Export PNG...", "Cmd+E")) {
@@ -4001,6 +4004,81 @@ void UI::ImportIcon(IconManager& iconManager, JobQueue& jobs) {
         // Default location
         nullptr,
         // Allow multiple files
+        false
+    );
+}
+
+void UI::ShowSaveProjectDialog(App& app) {
+    // TODO: For now, just use a hardcoded path as placeholder
+    // In production, use SDL3's folder picker when available
+    // or show a modal to input folder name
+    ShowToast("Save Project As dialog - Not yet implemented", 
+             Toast::Type::Info);
+    
+    // Placeholder: Would show folder picker and call:
+    // app.SaveProjectFolder(selectedFolderPath);
+}
+
+void UI::ShowExportPackageDialog(App& app) {
+    // Callback struct
+    struct CallbackData {
+        UI* ui;
+        App* app;
+    };
+    
+    // Allocate callback data on heap (freed in callback)
+    CallbackData* data = new CallbackData{this, &app};
+    
+    // Setup filter for .cart files
+    static SDL_DialogFileFilter filter = { 
+        "Cartograph Package", "cart" 
+    };
+    
+    // Show native save file dialog
+    SDL_ShowSaveFileDialog(
+        // Callback
+        [](void* userdata, const char* const* filelist, int filterIndex) {
+            CallbackData* data = static_cast<CallbackData*>(userdata);
+            
+            if (filelist == nullptr) {
+                // Error occurred
+                data->ui->ShowToast("Failed to open save dialog", 
+                                   Toast::Type::Error);
+                delete data;
+                return;
+            }
+            
+            if (filelist[0] == nullptr) {
+                // User canceled
+                delete data;
+                return;
+            }
+            
+            // User selected a path
+            std::string path = filelist[0];
+            
+            // Ensure .cart extension
+            if (path.size() < 5 || 
+                path.substr(path.size() - 5) != ".cart") {
+                path += ".cart";
+            }
+            
+            // Export package
+            data->app->ExportPackage(path);
+            
+            delete data;
+        },
+        // Userdata
+        data,
+        // Window (NULL for now)
+        nullptr,
+        // Filters
+        &filter,
+        // Number of filters
+        1,
+        // Default location
+        nullptr,
+        // Allow overwrite
         false
     );
 }

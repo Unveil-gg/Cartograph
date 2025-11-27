@@ -33,6 +33,7 @@ set(CARTOGRAPH_SOURCES
     src/History.cpp
     src/IOJson.cpp
     src/Package.cpp
+    src/ProjectFolder.cpp
     src/ExportPng.cpp
     src/Icons.cpp
     src/Keymap.cpp
@@ -51,6 +52,7 @@ set(CARTOGRAPH_HEADERS
     src/History.h
     src/IOJson.h
     src/Package.h
+    src/ProjectFolder.h
     src/ExportPng.h
     src/Icons.h
     src/Keymap.h

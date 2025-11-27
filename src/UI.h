@@ -146,6 +146,18 @@ public:
     void ImportIcon(IconManager& iconManager, JobQueue& jobs);
     
     /**
+     * Show save dialog for project folder format.
+     * @param app App instance to save through
+     */
+    void ShowSaveProjectDialog(App& app);
+    
+    /**
+     * Show save dialog for package export (.cart).
+     * @param app App instance to export through
+     */
+    void ShowExportPackageDialog(App& app);
+    
+    /**
      * Handle dropped file (from OS drag-drop).
      * @param filePath Path to dropped file
      */
@@ -243,6 +255,7 @@ public:
     
 private:
     void RenderMenuBar(
+        App& app,
         Model& model,
         Canvas& canvas,
         History& history,

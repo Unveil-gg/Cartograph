@@ -84,6 +84,8 @@ public:
     void OpenProject(const std::string& path);
     void SaveProject();
     void SaveProjectAs(const std::string& path);
+    void SaveProjectFolder(const std::string& folderPath);
+    void ExportPackage(const std::string& cartPath);
     void ExportPng(const std::string& path);
     
     // Window management
