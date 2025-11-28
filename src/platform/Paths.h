@@ -20,9 +20,9 @@ std::string GetAutosaveDir();
 
 /**
  * Get the default projects directory (where new projects are created).
- * macOS: ~/Documents/Cartograph Maps/
- * Windows: %USERPROFILE%\Documents\Cartograph Maps\
- * Linux: ~/Documents/Cartograph Maps/
+ * macOS: ~/Documents/Cartograph/
+ * Windows: %USERPROFILE%\Documents\Cartograph\
+ * Linux: ~/Documents/Cartograph/
  * @return Path to default projects directory
  */
 std::string GetDefaultProjectsDir();

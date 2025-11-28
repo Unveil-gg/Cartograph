@@ -35,17 +35,17 @@ std::string GetDefaultProjectsDir() {
 #ifdef __APPLE__
     const char* home = getenv("HOME");
     if (home) {
-        return std::string(home) + "/Documents/Cartograph Maps/";
+        return std::string(home) + "/Documents/Cartograph/";
     }
 #elif defined(_WIN32)
     const char* userprofile = getenv("USERPROFILE");
     if (userprofile) {
-        return std::string(userprofile) + "\\Documents\\Cartograph Maps\\";
+        return std::string(userprofile) + "\\Documents\\Cartograph\\";
     }
 #else
     const char* home = getenv("HOME");
     if (home) {
-        return std::string(home) + "/Documents/Cartograph Maps/";
+        return std::string(home) + "/Documents/Cartograph/";
     }
 #endif
     return "./projects/";

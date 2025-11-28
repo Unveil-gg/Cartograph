@@ -97,6 +97,13 @@ bool App::Init(const std::string& title, int width, int height) {
     m_appState = AppState::Welcome;
     m_lastFrameTime = Platform::GetTime();
     
+    // Ensure default directories exist
+    std::string defaultProjects = Platform::GetDefaultProjectsDir();
+    Platform::EnsureDirectoryExists(defaultProjects);
+    
+    std::string userDataDir = Platform::GetUserDataDir();
+    Platform::EnsureDirectoryExists(userDataDir);
+    
     // Load recent projects for welcome screen
     m_ui.LoadRecentProjects();
     
@@ -350,8 +357,10 @@ void App::NewProject(const std::string& savePath) {
     if (!savePath.empty()) {
         // Ensure directory exists
         if (!Platform::EnsureDirectoryExists(savePath)) {
-            m_ui.ShowToast("Failed to create project directory", 
-                          Toast::Type::Error);
+            m_ui.ShowToast(
+                "Failed to create project directory:\n" + savePath + 
+                "\n\nCheck permissions and try a different location.", 
+                Toast::Type::Error, 5.0f);
             m_currentFilePath.clear();
             UpdateWindowTitle();
             return;
