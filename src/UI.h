@@ -95,6 +95,7 @@ public:
     
     /**
      * Render all UI panels (editor mode).
+     * @param app Application instance
      * @param renderer Renderer for drawing canvas
      * @param model Current model
      * @param canvas Canvas
@@ -104,6 +105,7 @@ public:
      * @param deltaTime Frame delta time
      */
     void Render(
+        App& app,
         IRenderer& renderer,
         Model& model,
         Canvas& canvas,

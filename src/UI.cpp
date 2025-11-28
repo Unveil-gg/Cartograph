@@ -4114,9 +4114,7 @@ void UI::ShowExportPackageDialog(App& app) {
         // Number of filters
         1,
         // Default location
-        nullptr,
-        // Allow overwrite
-        false
+        nullptr
     );
 }
 
