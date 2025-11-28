@@ -3461,10 +3461,6 @@ void UI::RenderNewProjectModal(App& app, Model& model) {
     if (ImGui::BeginPopupModal("New Project", nullptr, 
         ImGuiWindowFlags_AlwaysAutoResize)) {
         
-        ImGui::Text("Create a New Map Project");
-        ImGui::Separator();
-        ImGui::Spacing();
-        
         // Project name
         ImGui::Text("Project Name:");
         if (ImGui::InputText("##projectname", newProjectConfig.projectName, 
@@ -3483,7 +3479,7 @@ void UI::RenderNewProjectModal(App& app, Model& model) {
                              ImVec4(0.15f, 0.15f, 0.15f, 1.0f));
         ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 4.0f);
         ImGui::BeginChild("##savelocationdisplay", 
-                         ImVec2(500, 30), 
+                         ImVec2(450, 30), 
                          true, 
                          ImGuiWindowFlags_NoScrollbar);
         
@@ -3505,7 +3501,7 @@ void UI::RenderNewProjectModal(App& app, Model& model) {
         ImGui::Separator();
         ImGui::Spacing();
         
-        // Cell Type Selection
+        // Map Style Selection
         ImGui::Text("Choose your map style:");
         ImGui::Spacing();
         
@@ -3515,18 +3511,20 @@ void UI::RenderNewProjectModal(App& app, Model& model) {
         // Square preset card
         bool isSquareSelected = (newProjectConfig.gridPreset == GridPreset::Square);
         if (isSquareSelected) {
-            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.4f, 0.8f, 0.6f));
-            ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.4f, 0.7f, 1.0f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.5f, 0.9f, 0.8f));
+            ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.5f, 0.8f, 1.0f, 1.0f));
+            ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 3.0f);
         }
         
-        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(20, 20));
-        if (ImGui::Button("   Square   \n\n    ┌───┐    \n    │ ● │    \n    └───┘    \n\n   16×16    \n\n Top-down  \n  dungeon   ", 
-                         ImVec2(140, 180))) {
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10, 10));
+        if (ImGui::Button("Square\n16×16 px", 
+                         ImVec2(120, 50))) {
             newProjectConfig.gridPreset = GridPreset::Square;
         }
         ImGui::PopStyleVar();
         
         if (isSquareSelected) {
+            ImGui::PopStyleVar();
             ImGui::PopStyleColor(2);
         }
         
@@ -3535,37 +3533,31 @@ void UI::RenderNewProjectModal(App& app, Model& model) {
         // Rectangle preset card
         bool isRectangleSelected = (newProjectConfig.gridPreset == GridPreset::Rectangle);
         if (isRectangleSelected) {
-            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.4f, 0.8f, 0.6f));
-            ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.4f, 0.7f, 1.0f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.5f, 0.9f, 0.8f));
+            ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.5f, 0.8f, 1.0f, 1.0f));
+            ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 3.0f);
         }
         
-        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(20, 20));
-        if (ImGui::Button(" Rectangle \n\n ┌──────┐  \n │ ●  ● │  \n └──────┘  \n\n   32×16   \n\n Side-view \nplatformer ", 
-                         ImVec2(140, 180))) {
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10, 10));
+        if (ImGui::Button("Rectangle\n32×16 px", 
+                         ImVec2(120, 50))) {
             newProjectConfig.gridPreset = GridPreset::Rectangle;
         }
         ImGui::PopStyleVar();
         
         if (isRectangleSelected) {
+            ImGui::PopStyleVar();
             ImGui::PopStyleColor(2);
         }
         
         ImGui::EndGroup();
         
         ImGui::Spacing();
-        
-        // Show cell dimensions info (read-only)
-        const char* presetName = (newProjectConfig.gridPreset == GridPreset::Square) 
-            ? "Square (16×16 px)" 
-            : "Rectangle (32×16 px)";
-        ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
-            "Cell Type: %s", presetName);
-        
-        ImGui::Spacing();
         ImGui::Separator();
         ImGui::Spacing();
         
         // Map dimensions with validation
+        ImGui::PushItemWidth(150.0f);
         ImGui::InputInt("Map Width (cells)", &newProjectConfig.mapWidth);
         if (newProjectConfig.mapWidth < 16) newProjectConfig.mapWidth = 16;
         if (newProjectConfig.mapWidth > 1024) 
@@ -3576,9 +3568,8 @@ void UI::RenderNewProjectModal(App& app, Model& model) {
             newProjectConfig.mapHeight = 16;
         if (newProjectConfig.mapHeight > 1024) 
             newProjectConfig.mapHeight = 1024;
+        ImGui::PopItemWidth();
         
-        ImGui::Spacing();
-        ImGui::Separator();
         ImGui::Spacing();
         
         // Preview info
