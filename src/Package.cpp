@@ -9,9 +9,9 @@
 #include "zip.h"
 #include "unzip.h"
 
-// stb_image_write for PNG encoding
-#define STB_IMAGE_WRITE_IMPLEMENTATION
+// stb_image_write for PNG encoding (implementation in ExportPng.cpp)
 #include <stb/stb_image_write.h>
+// stb_image for PNG decoding (implementation in Icons.cpp)
 #include <stb/stb_image.h>
 
 using json = nlohmann::json;
@@ -65,6 +65,17 @@ bool Package::Save(
     
     // Add custom icons
     if (icons) {
+        // Memory writer callback for stb_image_write
+        struct MemoryWriter {
+            std::vector<uint8_t> data;
+            
+            static void callback(void* context, void* data, int size) {
+                MemoryWriter* writer = static_cast<MemoryWriter*>(context);
+                uint8_t* bytes = static_cast<uint8_t*>(data);
+                writer->data.insert(writer->data.end(), bytes, bytes + size);
+            }
+        };
+        
         auto customIcons = icons->GetCustomIconData();
         for (const auto& iconPair : customIcons) {
             const std::string& iconName = iconPair.first;
@@ -78,25 +89,27 @@ bool Package::Save(
                 continue;
             }
             
-            // Encode to PNG using stb_image_write
-            int pngSize;
-            unsigned char* pngData = stbi_write_png_to_mem(
-                pixels->data(), 0, width, height, 4, &pngSize
+            // Encode to PNG using callback-based API
+            MemoryWriter writer;
+            int result = stbi_write_png_to_func(
+                MemoryWriter::callback,
+                &writer,
+                width, height, 4,
+                pixels->data(),
+                0  // stride (0 = tightly packed)
             );
             
-            if (pngData) {
+            if (result && !writer.data.empty()) {
                 // Add to ZIP as icons/{name}.png
                 std::string zipPath = "icons/" + iconName + ".png";
                 if (zipOpenNewFileInZip(zf, zipPath.c_str(), &fi,
                                        nullptr, 0, nullptr, 0, nullptr,
                                        Z_DEFLATED, 
                                        Z_DEFAULT_COMPRESSION) == ZIP_OK) {
-                    zipWriteInFileInZip(zf, pngData, pngSize);
+                    zipWriteInFileInZip(zf, writer.data.data(), 
+                                       writer.data.size());
                     zipCloseFileInZip(zf);
                 }
-                
-                // Free PNG data
-                STBIW_FREE(pngData);
             }
         }
     }
