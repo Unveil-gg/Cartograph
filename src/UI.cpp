@@ -1385,8 +1385,6 @@ void UI::RenderCanvasPanel(
             
             auto cmd = std::make_unique<PlaceMarkerCommand>(newMarker, true);
             history.AddCommand(std::move(cmd), model);
-            
-            ShowToast("Marker placed", Toast::Type::Success, 1.5f);
         }
         ImGui::EndDragDropTarget();
     }
@@ -2168,7 +2166,6 @@ void UI::RenderCanvasPanel(
                     history.AddCommand(std::move(cmd), model);
                     
                     selectedMarker = nullptr;  // Clear selection
-                    ShowToast("Marker deleted", Toast::Type::Info);
                 } else if (clickedMarker) {
                     // Click existing marker: Select and start drag
                     selectedMarker = clickedMarker;
@@ -2198,8 +2195,6 @@ void UI::RenderCanvasPanel(
                         newMarker, true
                     );
                     history.AddCommand(std::move(cmd), model);
-                    
-                    ShowToast("Marker placed", Toast::Type::Success, 1.5f);
                 }
             }
             
@@ -2230,8 +2225,6 @@ void UI::RenderCanvasPanel(
                     if (selectedMarker && selectedMarker->id == clickedMarker->id) {
                         selectedMarker = nullptr;
                     }
-                    
-                    ShowToast("Marker deleted", Toast::Type::Info);
                 }
             }
             
@@ -2285,8 +2278,6 @@ void UI::RenderCanvasPanel(
                             selectedMarker->x, selectedMarker->y
                         );
                         history.AddCommand(std::move(cmd), model, false);
-                        
-                        ShowToast("Marker moved", Toast::Type::Success, 1.5f);
                     }
                     
                     isDraggingMarker = false;
@@ -2350,7 +2341,6 @@ void UI::RenderCanvasPanel(
             if (selectedMarker) {
                 copiedMarkers.clear();
                 copiedMarkers.push_back(*selectedMarker);
-                ShowToast("Marker copied", Toast::Type::Info, 1.5f);
             }
         }
         
@@ -2407,8 +2397,6 @@ void UI::RenderCanvasPanel(
                     );
                     history.AddCommand(std::move(cmd), model);
                 }
-                
-                ShowToast("Marker pasted", Toast::Type::Success, 1.5f);
             }
         }
         
@@ -2419,10 +2407,8 @@ void UI::RenderCanvasPanel(
             auto cmd = std::make_unique<DeleteMarkerCommand>(
                 selectedMarker->id
             );
-            history.AddCommand(std::move(cmd), model);
-            
+            history.AddCommand(std::move(cmd), model);   
             selectedMarker = nullptr;
-            ShowToast("Marker deleted", Toast::Type::Info);
         }
     }
     
