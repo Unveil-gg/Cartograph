@@ -334,14 +334,15 @@ void App::OpenProject(const std::string& path) {
     
     // Detect format and load accordingly
     if (path.size() >= 5 && path.substr(path.size() - 5) == ".cart") {
-        // Load as .cart package (ZIP)
+        // Load as .cart package (ZIP with embedded icons)
         success = Package::Load(path, newModel, &m_icons);
     } else if (ProjectFolder::IsProjectFolder(path)) {
-        // Load as project folder
+        // Load as project folder (git-friendly format)
         success = ProjectFolder::Load(path, newModel, &m_icons);
     } else {
-        // Load as raw JSON (legacy format)
-        success = IOJson::LoadFromFile(path, newModel);
+        m_ui.ShowToast("Unsupported format. Use .cart or project folder.", 
+                      Toast::Type::Error);
+        return;
     }
     
     if (success) {

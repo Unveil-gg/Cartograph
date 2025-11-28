@@ -81,6 +81,7 @@ void UI::SetupDockspace() {
 }
 
 void UI::Render(
+    App& app,
     IRenderer& renderer,
     Model& model,
     Canvas& canvas,
@@ -831,7 +832,7 @@ void UI::RenderToolsPanel(Model& model, IconManager& icons, JobQueue& jobs) {
         }
         
         // Icon picker grid
-        ImGui::Text("Select Icon (%zu available)", icons.GetIconCount());
+        ImGui::Text("Select Icon");
         ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), 
             "Drag & drop image files here to import");
         if (ImGui::BeginChild("IconPicker", ImVec2(0, 280), true)) {
@@ -1010,8 +1011,6 @@ void UI::RenderToolsPanel(Model& model, IconManager& icons, JobQueue& jobs) {
             if (ImGui::Button("Deselect", ImVec2(-1, 0))) {
                 selectedMarker = nullptr;
             }
-        } else {
-            ImGui::TextDisabled("Click to place new marker");
         }
     }
     
@@ -4009,14 +4008,52 @@ void UI::ImportIcon(IconManager& iconManager, JobQueue& jobs) {
 }
 
 void UI::ShowSaveProjectDialog(App& app) {
-    // TODO: For now, just use a hardcoded path as placeholder
-    // In production, use SDL3's folder picker when available
-    // or show a modal to input folder name
-    ShowToast("Save Project As dialog - Not yet implemented", 
-             Toast::Type::Info);
+    // Callback struct
+    struct CallbackData {
+        UI* ui;
+        App* app;
+    };
     
-    // Placeholder: Would show folder picker and call:
-    // app.SaveProjectFolder(selectedFolderPath);
+    // Allocate callback data on heap (freed in callback)
+    CallbackData* data = new CallbackData{this, &app};
+    
+    // Show native folder picker dialog
+    SDL_ShowOpenFolderDialog(
+        // Callback
+        [](void* userdata, const char* const* filelist, int filter) {
+            CallbackData* data = static_cast<CallbackData*>(userdata);
+            
+            if (filelist == nullptr) {
+                // Error occurred
+                data->ui->ShowToast("Failed to open folder dialog", 
+                                   Toast::Type::Error);
+                delete data;
+                return;
+            }
+            
+            if (filelist[0] == nullptr) {
+                // User canceled
+                delete data;
+                return;
+            }
+            
+            // User selected a folder
+            std::string folderPath = filelist[0];
+            
+            // Save project to folder
+            data->app->SaveProjectFolder(folderPath);
+            
+            delete data;
+        },
+        // Userdata
+        data,
+        // Window (NULL for now)
+        nullptr,
+        // Default location
+        nullptr,
+        // Allow multiple folders
+        false
+    );
 }
 
 void UI::ShowExportPackageDialog(App& app) {
