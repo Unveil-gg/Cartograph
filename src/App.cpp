@@ -154,7 +154,18 @@ void App::Shutdown() {
 }
 
 void App::RequestQuit() {
-    // TODO: Check for unsaved changes
+    // Check for unsaved changes
+    if (m_model.dirty) {
+        // Show confirmation modal instead of quitting immediately
+        m_ui.showQuitConfirmationModal = true;
+    } else {
+        // No unsaved changes, quit immediately
+        m_running = false;
+    }
+}
+
+void App::ForceQuit() {
+    // Force quit without checking for unsaved changes
     m_running = false;
 }
 

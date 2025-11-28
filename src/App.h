@@ -65,6 +65,11 @@ public:
     void RequestQuit();
     
     /**
+     * Force application exit (bypassing unsaved changes check).
+     */
+    void ForceQuit();
+    
+    /**
      * Transition to welcome screen.
      */
     void ShowWelcomeScreen();

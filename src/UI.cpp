@@ -155,6 +155,11 @@ void UI::Render(
     if (showRenameIconModal) {
         RenderRenameIconModal(model, icons);
     }
+    
+    // Quit confirmation modal (when closing with unsaved changes)
+    if (showQuitConfirmationModal) {
+        RenderQuitConfirmationModal(app, model);
+    }
 }
 
 void UI::ShowToast(
@@ -422,7 +427,7 @@ void UI::RenderMenuBar(
             }
             ImGui::Separator();
             if (ImGui::MenuItem("Quit", "Cmd+Q")) {
-                // TODO: Quit
+                app.RequestQuit();
             }
             ImGui::EndMenu();
         }
@@ -615,17 +620,17 @@ void UI::RenderToolsPanel(Model& model, IconManager& icons, JobQueue& jobs) {
                         "Right-click: Erase\n"
                         "E+Click: Erase (alternative)");
                     break;
-                case 3: // Erase
-                    ImGui::Text("Erase Tool [E]");
-                    ImGui::Separator();
-                    ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
-                        "Click to erase tiles");
-                    break;
-                case 4: // Fill
+                case 3: // Fill
                     ImGui::Text("Fill Tool [F]");
                     ImGui::Separator();
                     ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
                         "Click to fill area");
+                    break;
+                case 4: // Erase
+                    ImGui::Text("Erase Tool [E]");
+                    ImGui::Separator();
+                    ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
+                        "Click to erase tiles");
                     break;
                 case 5: // Marker
                     ImGui::Text("Marker Tool [M]");
@@ -3727,6 +3732,84 @@ void UI::RenderAutosaveRecoveryModal(App& app, Model& model) {
             showAutosaveRecoveryModal = false;
             ImGui::CloseCurrentPopup();
         }
+        
+        ImGui::EndPopup();
+    }
+}
+
+void UI::RenderQuitConfirmationModal(App& app, Model& model) {
+    ImGui::SetNextWindowSize(ImVec2(450, 180), ImGuiCond_Always);
+    ImGui::OpenPopup("Unsaved Changes");
+    
+    ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    
+    if (ImGui::BeginPopupModal("Unsaved Changes", nullptr, 
+                               ImGuiWindowFlags_AlwaysAutoResize | 
+                               ImGuiWindowFlags_NoMove)) {
+        ImGui::TextColored(ImVec4(1.0f, 0.7f, 0.3f, 1.0f), 
+                          "Warning: Unsaved Changes");
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        ImGui::TextWrapped(
+            "You have unsaved changes. Do you want to save your work "
+            "before quitting?");
+        ImGui::Spacing();
+        
+        if (app.GetState() != AppState::Editor) {
+            ImGui::TextDisabled("Current project has not been saved.");
+        }
+        
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        float buttonWidth = 120.0f;
+        
+        // Cancel button (leftmost, secondary action)
+        if (ImGui::Button("Cancel", ImVec2(buttonWidth, 0))) {
+            showQuitConfirmationModal = false;
+            ImGui::CloseCurrentPopup();
+        }
+        
+        ImGui::SameLine(0, 10);
+        
+        // Don't Save button
+        if (ImGui::Button("Don't Save", ImVec2(buttonWidth, 0))) {
+            // Quit without saving
+            showQuitConfirmationModal = false;
+            ImGui::CloseCurrentPopup();
+            app.ForceQuit();
+        }
+        
+        ImGui::SameLine(0, 10);
+        
+        // Save button (rightmost, primary action)
+        ImGui::PushStyleColor(ImGuiCol_Button, 
+                             ImVec4(0.2f, 0.6f, 0.9f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, 
+                             ImVec4(0.3f, 0.7f, 1.0f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, 
+                             ImVec4(0.1f, 0.5f, 0.8f, 1.0f));
+        
+        if (ImGui::Button("Save", ImVec2(buttonWidth, 0))) {
+            // Save then quit
+            app.SaveProject();
+            
+            // Check if save was successful (dirty flag should be cleared)
+            if (!model.dirty) {
+                showQuitConfirmationModal = false;
+                ImGui::CloseCurrentPopup();
+                app.ForceQuit();
+            } else {
+                // Save failed or was canceled, stay in modal
+                ShowToast("Please save the project before quitting", 
+                         Toast::Type::Warning);
+            }
+        }
+        
+        ImGui::PopStyleColor(3);
         
         ImGui::EndPopup();
     }
