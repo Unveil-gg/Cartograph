@@ -535,7 +535,7 @@ void UI::RenderToolsPanel(Model& model, IconManager& icons, JobQueue& jobs) {
     };
     
     const char* toolIconNames[] = {
-        "move", "square-dashed", "paintbrush", "eraser", "paint-bucket",
+        "move", "square-dashed", "paintbrush", "paint-bucket", "eraser",
         "map-pinned", "pipette"
     };
     

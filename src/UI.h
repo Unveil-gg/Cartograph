@@ -202,7 +202,7 @@ public:
     
     // Current tool
     enum class Tool {
-        Move, Select, Paint, Erase, Fill, Marker, Eyedropper
+        Move, Select, Paint, Fill, Erase, Marker, Eyedropper
     } currentTool = Tool::Move;
     
     // Selection state (for Select tool)
