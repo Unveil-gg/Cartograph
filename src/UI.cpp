@@ -3477,13 +3477,23 @@ void UI::RenderNewProjectModal(App& app, Model& model) {
         
         // Save location
         ImGui::Text("Save Location:");
-        ImGui::PushStyleColor(ImGuiCol_FrameBg, 
+        
+        // Display path in a framed box (styled like input field)
+        ImGui::PushStyleColor(ImGuiCol_ChildBg, 
                              ImVec4(0.15f, 0.15f, 0.15f, 1.0f));
-        ImGui::InputText("##savelocation", 
-                        const_cast<char*>(
-                            newProjectConfig.fullSavePath.c_str()),
-                        newProjectConfig.fullSavePath.size(),
-                        ImGuiInputTextFlags_ReadOnly);
+        ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 4.0f);
+        ImGui::BeginChild("##savelocationdisplay", 
+                         ImVec2(500, 30), 
+                         true, 
+                         ImGuiWindowFlags_NoScrollbar);
+        
+        ImGui::PushStyleColor(ImGuiCol_Text, 
+                             ImVec4(0.8f, 0.8f, 0.8f, 1.0f));
+        ImGui::TextWrapped("%s", newProjectConfig.fullSavePath.c_str());
+        ImGui::PopStyleColor();
+        
+        ImGui::EndChild();
+        ImGui::PopStyleVar();
         ImGui::PopStyleColor();
         
         if (ImGui::Button("Choose Different Location...", 
