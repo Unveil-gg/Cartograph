@@ -79,7 +79,12 @@ struct RecentProject {
     std::string path;
     std::string name;
     std::string lastModified;
-    // TODO: Add thumbnail support
+    std::string thumbnailPath;      // Path to thumbnail image file
+    unsigned int thumbnailTextureId; // OpenGL texture ID (0 if not loaded)
+    bool thumbnailLoaded;            // Whether texture has been loaded
+    
+    RecentProject() 
+        : thumbnailTextureId(0), thumbnailLoaded(false) {}
 };
 
 /**
@@ -167,6 +172,22 @@ public:
      */
     void HandleDroppedFile(const std::string& filePath);
     
+    /**
+     * Load recent projects from persistent storage.
+     */
+    void LoadRecentProjects();
+    
+    /**
+     * Add a project to the recent projects list.
+     * @param path Project file or folder path
+     */
+    void AddRecentProject(const std::string& path);
+    
+    /**
+     * Unload all thumbnail textures (cleanup when leaving welcome screen).
+     */
+    void UnloadThumbnailTextures();
+    
     // UI state
     bool showExportModal = false;
     ExportOptions exportOptions;
@@ -188,6 +209,8 @@ public:
     NewProjectConfig newProjectConfig;
     ProjectTemplate selectedTemplate = ProjectTemplate::Medium;
     std::vector<RecentProject> recentProjects;
+    unsigned int placeholderTexture = 0;  // Placeholder texture for missing thumbnails
+    bool showProjectBrowserModal = false;  // "View more" projects modal
     bool showWhatsNew = false;
     bool showAutosaveRecoveryModal = false;
     
@@ -288,13 +311,14 @@ private:
     // Welcome screen components
     void RenderNewProjectModal(App& app, Model& model);
     void RenderRecentProjectsList(App& app);
+    void RenderProjectBrowserModal(App& app);
     void RenderProjectTemplates();
     void RenderWhatsNewPanel();
     void RenderAutosaveRecoveryModal(App& app, Model& model);
     void RenderQuitConfirmationModal(App& app, Model& model);
     void ApplyTemplate(ProjectTemplate tmpl);
-    void LoadRecentProjects();
-    void AddRecentProject(const std::string& path);
+    void LoadThumbnailTexture(RecentProject& project);
+    unsigned int GeneratePlaceholderTexture();
     void ShowNewProjectFolderPicker();
     void UpdateNewProjectPath();
     

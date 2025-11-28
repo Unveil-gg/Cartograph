@@ -7,6 +7,7 @@
 #include "Package.h"
 #include "ProjectFolder.h"
 #include "ExportPng.h"
+#include "Thumbnail.h"
 #include <SDL3/SDL.h>
 #include <imgui.h>
 #include <imgui_impl_sdl3.h>
@@ -96,6 +97,9 @@ bool App::Init(const std::string& title, int width, int height) {
     m_appState = AppState::Welcome;
     m_lastFrameTime = Platform::GetTime();
     
+    // Load recent projects for welcome screen
+    m_ui.LoadRecentProjects();
+    
     // Check for autosave recovery
     CheckAutosaveRecovery();
     if (m_hasAutosaveRecovery) {
@@ -171,10 +175,16 @@ void App::ForceQuit() {
 
 void App::ShowWelcomeScreen() {
     m_appState = AppState::Welcome;
+    
+    // Load recent projects list
+    m_ui.LoadRecentProjects();
 }
 
 void App::ShowEditor() {
     m_appState = AppState::Editor;
+    
+    // Clean up welcome screen resources
+    m_ui.UnloadThumbnailTextures();
     
     // Ensure model is initialized if not already
     if (m_model.palette.empty()) {
@@ -349,11 +359,26 @@ void App::NewProject(const std::string& savePath) {
         
         // Save project to the specified path
         m_currentFilePath = savePath;
-        bool success = ProjectFolder::Save(m_model, savePath, &m_icons);
+        
+        // Generate thumbnail
+        std::vector<uint8_t> thumbnailPixels;
+        int thumbWidth = 0, thumbHeight = 0;
+        GlRenderer* glRenderer = dynamic_cast<GlRenderer*>(m_renderer.get());
+        if (glRenderer) {
+            Thumbnail::GenerateToMemory(m_model, m_canvas, *glRenderer, 
+                                       &m_icons, thumbnailPixels, 
+                                       thumbWidth, thumbHeight);
+        }
+        
+        bool success = ProjectFolder::Save(m_model, savePath, &m_icons,
+                                          thumbnailPixels.empty() ? nullptr : 
+                                              thumbnailPixels.data(),
+                                          thumbWidth, thumbHeight);
         
         if (success) {
             m_model.ClearDirty();
             UpdateWindowTitle();
+            m_ui.AddRecentProject(savePath);
             m_ui.ShowToast("Project created: " + savePath, 
                           Toast::Type::Success);
         } else {
@@ -389,6 +414,7 @@ void App::OpenProject(const std::string& path) {
         m_currentFilePath = path;
         m_history.Clear();
         UpdateWindowTitle();
+        m_ui.AddRecentProject(path);
         m_ui.ShowToast("Opened: " + path, Toast::Type::Success);
     } else {
         m_ui.ShowToast("Failed to open: " + path, Toast::Type::Error);
@@ -407,13 +433,28 @@ void App::SaveProject() {
 void App::SaveProjectAs(const std::string& path) {
     bool success = false;
     
+    // Generate thumbnail
+    std::vector<uint8_t> thumbnailPixels;
+    int thumbWidth = 0, thumbHeight = 0;
+    GlRenderer* glRenderer = dynamic_cast<GlRenderer*>(m_renderer.get());
+    if (glRenderer) {
+        Thumbnail::GenerateToMemory(m_model, m_canvas, *glRenderer, &m_icons,
+                                   thumbnailPixels, thumbWidth, thumbHeight);
+    }
+    
     // Detect save format and save accordingly
     if (path.size() >= 5 && path.substr(path.size() - 5) == ".cart") {
         // Save as .cart package (ZIP with embedded icons)
-        success = Package::Save(m_model, path, &m_icons);
+        success = Package::Save(m_model, path, &m_icons,
+                               thumbnailPixels.empty() ? nullptr : 
+                                   thumbnailPixels.data(),
+                               thumbWidth, thumbHeight);
     } else {
         // Save as project folder (git-friendly format)
-        success = ProjectFolder::Save(m_model, path, &m_icons);
+        success = ProjectFolder::Save(m_model, path, &m_icons,
+                                     thumbnailPixels.empty() ? nullptr : 
+                                         thumbnailPixels.data(),
+                                     thumbWidth, thumbHeight);
     }
     
     if (success) {
@@ -421,6 +462,7 @@ void App::SaveProjectAs(const std::string& path) {
         m_model.ClearDirty();
         CleanupAutosave();  // Remove autosave after successful manual save
         UpdateWindowTitle();
+        m_ui.AddRecentProject(path);
         m_ui.ShowToast("Saved: " + path, Toast::Type::Success);
     } else {
         m_ui.ShowToast("Failed to save: " + path, Toast::Type::Error);
@@ -428,13 +470,26 @@ void App::SaveProjectAs(const std::string& path) {
 }
 
 void App::SaveProjectFolder(const std::string& folderPath) {
-    bool success = ProjectFolder::Save(m_model, folderPath, &m_icons);
+    // Generate thumbnail
+    std::vector<uint8_t> thumbnailPixels;
+    int thumbWidth = 0, thumbHeight = 0;
+    GlRenderer* glRenderer = dynamic_cast<GlRenderer*>(m_renderer.get());
+    if (glRenderer) {
+        Thumbnail::GenerateToMemory(m_model, m_canvas, *glRenderer, &m_icons,
+                                   thumbnailPixels, thumbWidth, thumbHeight);
+    }
+    
+    bool success = ProjectFolder::Save(m_model, folderPath, &m_icons,
+                                      thumbnailPixels.empty() ? nullptr : 
+                                          thumbnailPixels.data(),
+                                      thumbWidth, thumbHeight);
     
     if (success) {
         m_currentFilePath = folderPath;
         m_model.ClearDirty();
         CleanupAutosave();
         UpdateWindowTitle();
+        m_ui.AddRecentProject(folderPath);
         m_ui.ShowToast("Saved project folder: " + folderPath, 
                       Toast::Type::Success);
     } else {
@@ -444,7 +499,19 @@ void App::SaveProjectFolder(const std::string& folderPath) {
 }
 
 void App::ExportPackage(const std::string& cartPath) {
-    bool success = Package::Save(m_model, cartPath, &m_icons);
+    // Generate thumbnail
+    std::vector<uint8_t> thumbnailPixels;
+    int thumbWidth = 0, thumbHeight = 0;
+    GlRenderer* glRenderer = dynamic_cast<GlRenderer*>(m_renderer.get());
+    if (glRenderer) {
+        Thumbnail::GenerateToMemory(m_model, m_canvas, *glRenderer, &m_icons,
+                                   thumbnailPixels, thumbWidth, thumbHeight);
+    }
+    
+    bool success = Package::Save(m_model, cartPath, &m_icons,
+                                thumbnailPixels.empty() ? nullptr : 
+                                    thumbnailPixels.data(),
+                                thumbWidth, thumbHeight);
     
     if (success) {
         m_ui.ShowToast("Exported package: " + cartPath, 

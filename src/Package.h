@@ -24,12 +24,18 @@ public:
      * @param model Model to save
      * @param path Output path (.cart)
      * @param icons Optional icon manager for custom icons
+     * @param thumbnailPixels Optional thumbnail RGBA8 data
+     * @param thumbnailWidth Thumbnail width (required if pixels provided)
+     * @param thumbnailHeight Thumbnail height (required if pixels provided)
      * @return true on success
      */
     static bool Save(
         const Model& model, 
         const std::string& path,
-        IconManager* icons = nullptr
+        IconManager* icons = nullptr,
+        const uint8_t* thumbnailPixels = nullptr,
+        int thumbnailWidth = 0,
+        int thumbnailHeight = 0
     );
     
     /**

@@ -35,6 +35,7 @@ set(CARTOGRAPH_SOURCES
     src/Package.cpp
     src/ProjectFolder.cpp
     src/ExportPng.cpp
+    src/Thumbnail.cpp
     src/Icons.cpp
     src/Keymap.cpp
     src/Jobs.cpp
@@ -54,6 +55,7 @@ set(CARTOGRAPH_HEADERS
     src/Package.h
     src/ProjectFolder.h
     src/ExportPng.h
+    src/Thumbnail.h
     src/Icons.h
     src/Keymap.h
     src/Jobs.h

@@ -30,7 +30,10 @@ std::string Package::CreateManifest(const Model& model) {
 bool Package::Save(
     const Model& model, 
     const std::string& path,
-    IconManager* icons
+    IconManager* icons,
+    const uint8_t* thumbnailPixels,
+    int thumbnailWidth,
+    int thumbnailHeight
 ) {
     // Create ZIP file
     zipFile zf = zipOpen(path.c_str(), APPEND_STATUS_CREATE);
@@ -114,7 +117,41 @@ bool Package::Save(
         }
     }
     
-    // TODO: Add thumbnail, themes
+    // Add thumbnail
+    if (thumbnailPixels && thumbnailWidth > 0 && thumbnailHeight > 0) {
+        // Memory writer for PNG encoding
+        struct MemoryWriter {
+            std::vector<uint8_t> data;
+            
+            static void callback(void* context, void* data, int size) {
+                MemoryWriter* writer = static_cast<MemoryWriter*>(context);
+                uint8_t* bytes = static_cast<uint8_t*>(data);
+                writer->data.insert(writer->data.end(), bytes, bytes + size);
+            }
+        };
+        
+        MemoryWriter writer;
+        int result = stbi_write_png_to_func(
+            MemoryWriter::callback,
+            &writer,
+            thumbnailWidth, thumbnailHeight, 4,
+            thumbnailPixels,
+            thumbnailWidth * 4
+        );
+        
+        if (result && !writer.data.empty()) {
+            if (zipOpenNewFileInZip(zf, "thumb.png", &fi,
+                                   nullptr, 0, nullptr, 0, nullptr,
+                                   Z_DEFLATED, 
+                                   Z_DEFAULT_COMPRESSION) == ZIP_OK) {
+                zipWriteInFileInZip(zf, writer.data.data(), 
+                                   writer.data.size());
+                zipCloseFileInZip(zf);
+            }
+        }
+    }
+    
+    // TODO: Add themes
     
     zipClose(zf, nullptr);
     return success;

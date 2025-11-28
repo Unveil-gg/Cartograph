@@ -12,14 +12,27 @@
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <SDL3/SDL_dialog.h>
+#include <nlohmann/json.hpp>
 #include <algorithm>
 #include <cmath>
 #include <cfloat>
 #include <filesystem>
 #include <cstring>
 #include <set>
-#include <filesystem>
+#include <fstream>
 #include <stdexcept>
+#include <chrono>
+#include <ctime>
+
+// OpenGL for texture loading
+#ifdef __APPLE__
+#include <OpenGL/gl3.h>
+#else
+#include <GL/gl.h>
+#endif
+
+// stb_image for PNG loading (already included in Icons.cpp)
+#include <stb/stb_image.h>
 
 namespace Cartograph {
 
@@ -357,18 +370,36 @@ void UI::RenderWelcomeScreen(App& app, Model& model) {
     
     // Recent Projects Section
     if (!recentProjects.empty()) {
-        float sectionWidth = 600.0f;
-        float sectionStartX = (windowSize.x - sectionWidth) * 0.5f;
-        
-        ImGui::SetCursorPosX(sectionStartX);
-        ImGui::Separator();
         ImGui::Spacing();
-        ImGui::SetCursorPosX(sectionStartX);
-        ImGui::TextColored(ImVec4(0.8f, 0.8f, 0.8f, 1.0f), 
-            "Recent Projects");
+        ImGui::Spacing();
         ImGui::Spacing();
         
+        // "Recent Projects" header - centered
+        const char* headerText = "Recent Projects";
+        float headerWidth = ImGui::CalcTextSize(headerText).x;
+        float headerStartX = (windowSize.x - headerWidth) * 0.5f;
+        
+        ImGui::SetCursorPosX(headerStartX);
+        ImGui::TextColored(ImVec4(0.8f, 0.8f, 0.8f, 1.0f), "%s", headerText);
+        ImGui::Spacing();
+        ImGui::Spacing();
+        
+        // 3-card horizontal display
         RenderRecentProjectsList(app);
+        
+        // "View more" button if there are more than 3 projects
+        if (recentProjects.size() > 3) {
+            ImGui::Spacing();
+            ImGui::Spacing();
+            
+            float viewMoreWidth = 120.0f;
+            float viewMoreStartX = (windowSize.x - viewMoreWidth) * 0.5f;
+            ImGui::SetCursorPosX(viewMoreStartX);
+            
+            if (ImGui::Button("View more...", ImVec2(viewMoreWidth, 0))) {
+                showProjectBrowserModal = true;
+            }
+        }
     }
     
     ImGui::EndGroup();
@@ -384,6 +415,10 @@ void UI::RenderWelcomeScreen(App& app, Model& model) {
     // Render modal dialogs
     if (showNewProjectModal) {
         RenderNewProjectModal(app, model);
+    }
+    
+    if (showProjectBrowserModal) {
+        RenderProjectBrowserModal(app);
     }
     
     if (showWhatsNew) {
@@ -3633,41 +3668,219 @@ void UI::RenderNewProjectModal(App& app, Model& model) {
 }
 
 void UI::RenderRecentProjectsList(App& app) {
-    // TODO: Implement recent projects list with thumbnails
-    // This would display a scrollable list of recently opened projects
-    // with small preview thumbnails and last modified dates
-    
-    ImGui::BeginChild("RecentProjects", ImVec2(0, 200), true);
-    
-    for (size_t i = 0; i < recentProjects.size() && i < 5; ++i) {
-        const auto& recent = recentProjects[i];
-        
-        ImGui::PushID(static_cast<int>(i));
-        
-        // TODO: Add thumbnail preview here
-        ImGui::Text("[Thumbnail]");
-        ImGui::SameLine();
-        
-        ImGui::BeginGroup();
-        if (ImGui::Selectable(recent.name.c_str(), false, 
-            0, ImVec2(600, 0))) {
-            app.OpenProject(recent.path);
-            app.ShowEditor();
-        }
-        ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f),
-            "Last modified: %s", recent.lastModified.c_str());
-        ImGui::EndGroup();
-        
-        ImGui::PopID();
-        ImGui::Separator();
+    // Show max 3 most recent projects side-by-side
+    const size_t maxDisplay = std::min(recentProjects.size(), size_t(3));
+    if (maxDisplay == 0) {
+        return;  // No projects to show
     }
     
-    ImGui::EndChild();
+    // Card dimensions (16:9 aspect ratio thumbnails)
+    const float cardWidth = 300.0f;
+    const float cardHeight = 200.0f;
+    const float thumbnailHeight = 169.0f;  // 300*9/16
+    const float cardSpacing = 20.0f;
+    const float titleHeight = 30.0f;
+    
+    // Load textures for visible projects
+    for (size_t i = 0; i < maxDisplay; ++i) {
+        LoadThumbnailTexture(recentProjects[i]);
+    }
+    
+    // Center the cards horizontally
+    ImVec2 windowSize = ImGui::GetWindowSize();
+    float totalWidth = maxDisplay * cardWidth + (maxDisplay - 1) * cardSpacing;
+    float startX = (windowSize.x - totalWidth) * 0.5f;
+    
+    ImGui::SetCursorPosX(startX);
+    
+    // Render each card
+    for (size_t i = 0; i < maxDisplay; ++i) {
+        auto& project = recentProjects[i];
+        
+        ImGui::PushID(static_cast<int>(i));
+        ImGui::BeginGroup();
+        
+        // Get current cursor position for the card
+        ImVec2 cardPos = ImGui::GetCursorScreenPos();
+        
+        // Thumbnail image
+        if (project.thumbnailTextureId != 0) {
+            ImVec2 thumbSize(cardWidth, thumbnailHeight);
+            
+            // Make thumbnail clickable
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, 
+                                 ImVec4(0.2f, 0.2f, 0.2f, 0.3f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, 
+                                 ImVec4(0.3f, 0.3f, 0.3f, 0.5f));
+            
+            if (ImGui::ImageButton(
+                    ("##thumb" + std::to_string(i)).c_str(),
+                    (ImTextureID)(intptr_t)project.thumbnailTextureId,
+                    thumbSize)) {
+                app.OpenProject(project.path);
+                app.ShowEditor();
+            }
+            
+            ImGui::PopStyleColor(3);
+            
+            // Tooltip on hover
+            if (ImGui::IsItemHovered()) {
+                ImGui::BeginTooltip();
+                ImGui::Text("%s", project.path.c_str());
+                ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f),
+                    "Last modified: %s", project.lastModified.c_str());
+                ImGui::EndTooltip();
+            }
+            
+            // Draw title overlay at bottom-left of thumbnail
+            ImDrawList* drawList = ImGui::GetWindowDrawList();
+            ImVec2 overlayMin(cardPos.x, cardPos.y + thumbnailHeight - 
+                             titleHeight);
+            ImVec2 overlayMax(cardPos.x + cardWidth, 
+                             cardPos.y + thumbnailHeight);
+            
+            // Semi-transparent dark background for title
+            drawList->AddRectFilled(overlayMin, overlayMax, 
+                IM_COL32(0, 0, 0, 180));
+            
+            // Title text
+            ImVec2 textPos(cardPos.x + 10, cardPos.y + thumbnailHeight - 
+                          titleHeight + 5);
+            drawList->AddText(textPos, IM_COL32(255, 255, 255, 255), 
+                             project.name.c_str());
+        }
+        
+        ImGui::EndGroup();
+        ImGui::PopID();
+        
+        // Add spacing between cards (but not after last card)
+        if (i < maxDisplay - 1) {
+            ImGui::SameLine(0.0f, cardSpacing);
+        }
+    }
 }
 
 void UI::RenderProjectTemplates() {
     // This is handled inline in RenderNewProjectModal
     // Could be extracted if we want a separate template browser
+}
+
+void UI::RenderProjectBrowserModal(App& app) {
+    ImGui::SetNextWindowSize(ImVec2(900, 600), ImGuiCond_FirstUseEver);
+    
+    ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    
+    if (ImGui::Begin("Recent Projects", &showProjectBrowserModal, 
+        ImGuiWindowFlags_NoCollapse)) {
+        
+        ImGui::Text("All Recent Projects");
+        ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f),
+            "Sorted by last modified");
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        // Scrollable content area
+        ImGui::BeginChild("ProjectList", ImVec2(0, -40), true);
+        
+        // Card dimensions for modal view (smaller than welcome screen)
+        const float cardWidth = 250.0f;
+        const float cardHeight = 180.0f;
+        const float thumbnailHeight = 141.0f;  // 250*9/16
+        const float titleHeight = 25.0f;
+        const float cardSpacing = 15.0f;
+        const int cardsPerRow = 3;
+        
+        // Load all thumbnails
+        for (auto& project : recentProjects) {
+            LoadThumbnailTexture(project);
+        }
+        
+        // Render projects in a grid
+        for (size_t i = 0; i < recentProjects.size(); ++i) {
+            auto& project = recentProjects[i];
+            
+            ImGui::PushID(static_cast<int>(i));
+            ImGui::BeginGroup();
+            
+            // Get current cursor position for the card
+            ImVec2 cardPos = ImGui::GetCursorScreenPos();
+            
+            // Thumbnail image
+            if (project.thumbnailTextureId != 0) {
+                ImVec2 thumbSize(cardWidth, thumbnailHeight);
+                
+                // Make thumbnail clickable
+                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, 
+                                     ImVec4(0.2f, 0.2f, 0.2f, 0.3f));
+                ImGui::PushStyleColor(ImGuiCol_ButtonActive, 
+                                     ImVec4(0.3f, 0.3f, 0.3f, 0.5f));
+                
+                if (ImGui::ImageButton(
+                        ("##thumb" + std::to_string(i)).c_str(),
+                        (ImTextureID)(intptr_t)project.thumbnailTextureId,
+                        thumbSize)) {
+                    showProjectBrowserModal = false;
+                    app.OpenProject(project.path);
+                    app.ShowEditor();
+                }
+                
+                ImGui::PopStyleColor(3);
+                
+                // Tooltip on hover
+                if (ImGui::IsItemHovered()) {
+                    ImGui::BeginTooltip();
+                    ImGui::Text("%s", project.path.c_str());
+                    ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f),
+                        "Last modified: %s", project.lastModified.c_str());
+                    ImGui::EndTooltip();
+                }
+                
+                // Draw title overlay at bottom-left of thumbnail
+                ImDrawList* drawList = ImGui::GetWindowDrawList();
+                ImVec2 overlayMin(cardPos.x, cardPos.y + thumbnailHeight - 
+                                 titleHeight);
+                ImVec2 overlayMax(cardPos.x + cardWidth, 
+                                 cardPos.y + thumbnailHeight);
+                
+                // Semi-transparent dark background for title
+                drawList->AddRectFilled(overlayMin, overlayMax, 
+                    IM_COL32(0, 0, 0, 180));
+                
+                // Title text
+                ImVec2 textPos(cardPos.x + 8, cardPos.y + thumbnailHeight - 
+                              titleHeight + 4);
+                drawList->AddText(textPos, IM_COL32(255, 255, 255, 255), 
+                                 project.name.c_str());
+            }
+            
+            ImGui::EndGroup();
+            ImGui::PopID();
+            
+            // Grid layout: add spacing or new line
+            if ((i + 1) % cardsPerRow != 0 && i < recentProjects.size() - 1) {
+                ImGui::SameLine(0.0f, cardSpacing);
+            } else {
+                ImGui::Spacing();
+            }
+        }
+        
+        ImGui::EndChild();
+        
+        // Close button at bottom
+        ImGui::Spacing();
+        float closeButtonWidth = 120.0f;
+        float closeButtonX = (ImGui::GetWindowWidth() - closeButtonWidth) * 0.5f;
+        ImGui::SetCursorPosX(closeButtonX);
+        
+        if (ImGui::Button("Close", ImVec2(closeButtonWidth, 0))) {
+            showProjectBrowserModal = false;
+        }
+    }
+    
+    ImGui::End();
 }
 
 void UI::RenderWhatsNewPanel() {
@@ -3887,36 +4100,306 @@ void UI::ApplyTemplate(ProjectTemplate tmpl) {
 }
 
 void UI::LoadRecentProjects() {
-    // TODO: Load recent projects from persistent storage
-    // This would read from a config file (JSON) in the app data directory
-    // containing paths, names, and last modified dates
-    
     recentProjects.clear();
     
     std::string configDir = Platform::GetUserDataDir();
     std::string recentPath = configDir + "recent_projects.json";
     
-    // Stub: For now, just clear the list
-    // In a full implementation:
-    // 1. Read JSON file from recentPath
-    // 2. Parse project entries
-    // 3. Validate that files still exist
-    // 4. Load thumbnails if available
-    // 5. Populate recentProjects vector
+    namespace fs = std::filesystem;
+    
+    // Check if file exists
+    if (!fs::exists(recentPath)) {
+        return;
+    }
+    
+    try {
+        // Read JSON file
+        std::ifstream file(recentPath);
+        if (!file.is_open()) {
+            return;
+        }
+        
+        nlohmann::json j;
+        file >> j;
+        file.close();
+        
+        // Parse project entries
+        if (!j.is_array()) {
+            return;
+        }
+        
+        for (const auto& entry : j) {
+            if (!entry.is_object()) continue;
+            
+            RecentProject project;
+            
+            // Extract fields
+            if (entry.contains("path") && entry["path"].is_string()) {
+                project.path = entry["path"].get<std::string>();
+            } else {
+                continue;  // Path is required
+            }
+            
+            if (entry.contains("name") && entry["name"].is_string()) {
+                project.name = entry["name"].get<std::string>();
+            } else {
+                // Extract name from path if not provided
+                project.name = fs::path(project.path).filename().string();
+            }
+            
+            if (entry.contains("lastModified") && 
+                entry["lastModified"].is_string()) {
+                project.lastModified = 
+                    entry["lastModified"].get<std::string>();
+            }
+            
+            if (entry.contains("thumbnailPath") && 
+                entry["thumbnailPath"].is_string()) {
+                project.thumbnailPath = 
+                    entry["thumbnailPath"].get<std::string>();
+            }
+            
+            // Validate that project still exists
+            if (!fs::exists(project.path)) {
+                continue;  // Skip deleted projects
+            }
+            
+            recentProjects.push_back(project);
+        }
+        
+    } catch (const std::exception& e) {
+        // Failed to parse JSON - clear list and continue
+        recentProjects.clear();
+    }
 }
 
 void UI::AddRecentProject(const std::string& path) {
-    // TODO: Add project to recent list and save to persistent storage
-    // This would:
-    // 1. Create a RecentProject entry
-    // 2. Add to front of recentProjects list
-    // 3. Remove duplicates
-    // 4. Limit to max 10 entries
-    // 5. Save updated list to JSON file
-    // 6. Optionally generate/save thumbnail
+    namespace fs = std::filesystem;
     
-    // Stub implementation
-    (void)path; // Suppress unused warning
+    // Remove any existing entry with this path (to move to front)
+    recentProjects.erase(
+        std::remove_if(recentProjects.begin(), recentProjects.end(),
+            [&path](const RecentProject& p) { return p.path == path; }),
+        recentProjects.end()
+    );
+    
+    // Create new entry
+    RecentProject project;
+    project.path = path;
+    project.name = fs::path(path).filename().string();
+    
+    // Format current time
+    auto now = std::chrono::system_clock::now();
+    auto time_t = std::chrono::system_clock::to_time_t(now);
+    std::tm tm = *std::localtime(&time_t);
+    char timeStr[64];
+    std::strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M", &tm);
+    project.lastModified = timeStr;
+    
+    // Determine thumbnail path
+    if (path.size() >= 5 && path.substr(path.size() - 5) == ".cart") {
+        // .cart packages have embedded thumbnails
+        project.thumbnailPath = path + "#thumb.png";
+    } else {
+        // Project folders have preview.png
+        std::string previewPath = path + "/preview.png";
+        if (fs::exists(previewPath)) {
+            project.thumbnailPath = previewPath;
+        }
+    }
+    
+    // Add to front of list
+    recentProjects.insert(recentProjects.begin(), project);
+    
+    // Limit to 10 most recent
+    if (recentProjects.size() > 10) {
+        recentProjects.resize(10);
+    }
+    
+    // Save to JSON
+    try {
+        nlohmann::json j = nlohmann::json::array();
+        
+        for (const auto& p : recentProjects) {
+            nlohmann::json entry;
+            entry["path"] = p.path;
+            entry["name"] = p.name;
+            entry["lastModified"] = p.lastModified;
+            if (!p.thumbnailPath.empty()) {
+                entry["thumbnailPath"] = p.thumbnailPath;
+            }
+            j.push_back(entry);
+        }
+        
+        std::string configDir = Platform::GetUserDataDir();
+        std::string recentPath = configDir + "recent_projects.json";
+        
+        // Ensure config directory exists
+        Platform::EnsureDirectoryExists(configDir);
+        
+        // Write JSON file
+        std::ofstream file(recentPath);
+        if (file.is_open()) {
+            file << j.dump(2);  // Pretty print with 2-space indent
+            file.close();
+        }
+        
+    } catch (const std::exception& e) {
+        // Failed to save - non-fatal, just continue
+    }
+}
+
+void UI::LoadThumbnailTexture(RecentProject& project) {
+    // Skip if already loaded
+    if (project.thumbnailLoaded) {
+        return;
+    }
+    
+    namespace fs = std::filesystem;
+    
+    // Check if thumbnail path exists
+    if (project.thumbnailPath.empty() || 
+        !fs::exists(project.thumbnailPath)) {
+        // Use placeholder
+        if (placeholderTexture == 0) {
+            placeholderTexture = GeneratePlaceholderTexture();
+        }
+        project.thumbnailTextureId = placeholderTexture;
+        project.thumbnailLoaded = true;
+        return;
+    }
+    
+    // Load image from file
+    int width, height, channels;
+    unsigned char* data = stbi_load(
+        project.thumbnailPath.c_str(),
+        &width, &height, &channels, 4  // Force RGBA
+    );
+    
+    if (!data) {
+        // Failed to load - use placeholder
+        if (placeholderTexture == 0) {
+            placeholderTexture = GeneratePlaceholderTexture();
+        }
+        project.thumbnailTextureId = placeholderTexture;
+        project.thumbnailLoaded = true;
+        return;
+    }
+    
+    // Create OpenGL texture
+    GLuint texId;
+    glGenTextures(1, &texId);
+    glBindTexture(GL_TEXTURE_2D, texId);
+    
+    // Set texture parameters
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    
+    // Upload pixel data
+    glTexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        GL_RGBA,
+        width,
+        height,
+        0,
+        GL_RGBA,
+        GL_UNSIGNED_BYTE,
+        data
+    );
+    
+    // Unbind and cleanup
+    glBindTexture(GL_TEXTURE_2D, 0);
+    stbi_image_free(data);
+    
+    project.thumbnailTextureId = texId;
+    project.thumbnailLoaded = true;
+}
+
+void UI::UnloadThumbnailTextures() {
+    // Unload all thumbnail textures
+    for (auto& project : recentProjects) {
+        if (project.thumbnailLoaded && 
+            project.thumbnailTextureId != 0 &&
+            project.thumbnailTextureId != placeholderTexture) {
+            GLuint texId = project.thumbnailTextureId;
+            glDeleteTextures(1, &texId);
+            project.thumbnailTextureId = 0;
+            project.thumbnailLoaded = false;
+        }
+    }
+    
+    // Delete placeholder texture
+    if (placeholderTexture != 0) {
+        GLuint texId = placeholderTexture;
+        glDeleteTextures(1, &texId);
+        placeholderTexture = 0;
+    }
+}
+
+unsigned int UI::GeneratePlaceholderTexture() {
+    // Generate a gradient/grid pattern for missing thumbnails
+    const int width = 384;
+    const int height = 216;
+    const int gridSize = 16;  // Grid cell size in pixels
+    
+    std::vector<uint8_t> pixels(width * height * 4);
+    
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            int idx = (y * width + x) * 4;
+            
+            // Create a subtle grid pattern
+            bool onGridLine = (x % gridSize == 0) || (y % gridSize == 0);
+            
+            // Gradient from dark gray to darker gray
+            float gradientFactor = 1.0f - (y / static_cast<float>(height)) * 0.3f;
+            uint8_t baseColor = static_cast<uint8_t>(40 * gradientFactor);
+            uint8_t gridColor = static_cast<uint8_t>(60 * gradientFactor);
+            
+            if (onGridLine) {
+                pixels[idx + 0] = gridColor;      // R
+                pixels[idx + 1] = gridColor;      // G
+                pixels[idx + 2] = gridColor;      // B
+            } else {
+                pixels[idx + 0] = baseColor;      // R
+                pixels[idx + 1] = baseColor;      // G
+                pixels[idx + 2] = baseColor;      // B
+            }
+            pixels[idx + 3] = 255;                // A
+        }
+    }
+    
+    // Create OpenGL texture
+    GLuint texId;
+    glGenTextures(1, &texId);
+    glBindTexture(GL_TEXTURE_2D, texId);
+    
+    // Set texture parameters
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    
+    // Upload pixel data
+    glTexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        GL_RGBA,
+        width,
+        height,
+        0,
+        GL_RGBA,
+        GL_UNSIGNED_BYTE,
+        pixels.data()
+    );
+    
+    // Unbind
+    glBindTexture(GL_TEXTURE_2D, 0);
+    
+    return texId;
 }
 
 void UI::UpdateNewProjectPath() {

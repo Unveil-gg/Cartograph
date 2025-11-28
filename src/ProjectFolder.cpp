@@ -16,7 +16,10 @@ namespace Cartograph {
 bool ProjectFolder::Save(
     const Model& model,
     const std::string& folderPath,
-    IconManager* icons
+    IconManager* icons,
+    const uint8_t* thumbnailPixels,
+    int thumbnailWidth,
+    int thumbnailHeight
 ) {
     // Create folder if it doesn't exist
     if (!fs::exists(folderPath)) {
@@ -68,6 +71,16 @@ bool ProjectFolder::Save(
                     continue;
                 }
             }
+        }
+    }
+    
+    // Save thumbnail
+    if (thumbnailPixels && thumbnailWidth > 0 && thumbnailHeight > 0) {
+        std::string thumbPath = folderPath + "/preview.png";
+        if (!stbi_write_png(thumbPath.c_str(), thumbnailWidth, 
+                           thumbnailHeight, 4, thumbnailPixels, 
+                           thumbnailWidth * 4)) {
+            // Failed to write thumbnail, but don't fail entire save
         }
     }
     
