@@ -85,7 +85,7 @@ public:
     AppState GetState() const { return m_appState; }
     
     // File operations
-    void NewProject();
+    void NewProject(const std::string& savePath = "");
     void OpenProject(const std::string& path);
     void SaveProject();
     void SaveProjectAs(const std::string& path);

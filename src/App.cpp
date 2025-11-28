@@ -330,13 +330,41 @@ void App::DoAutosave() {
     }
 }
 
-void App::NewProject() {
+void App::NewProject(const std::string& savePath) {
     // TODO: Check for unsaved changes
     m_model = Model();
     m_model.InitDefaults();
-    m_currentFilePath.clear();
     m_history.Clear();
-    UpdateWindowTitle();
+    
+    // If save path provided, set it and save immediately
+    if (!savePath.empty()) {
+        // Ensure directory exists
+        if (!Platform::EnsureDirectoryExists(savePath)) {
+            m_ui.ShowToast("Failed to create project directory", 
+                          Toast::Type::Error);
+            m_currentFilePath.clear();
+            UpdateWindowTitle();
+            return;
+        }
+        
+        // Save project to the specified path
+        m_currentFilePath = savePath;
+        bool success = ProjectFolder::Save(m_model, savePath, &m_icons);
+        
+        if (success) {
+            m_model.ClearDirty();
+            UpdateWindowTitle();
+            m_ui.ShowToast("Project created: " + savePath, 
+                          Toast::Type::Success);
+        } else {
+            m_ui.ShowToast("Failed to save project", Toast::Type::Error);
+            m_currentFilePath.clear();
+        }
+    } else {
+        // No path provided - old behavior (untitled project)
+        m_currentFilePath.clear();
+        UpdateWindowTitle();
+    }
 }
 
 void App::OpenProject(const std::string& path) {

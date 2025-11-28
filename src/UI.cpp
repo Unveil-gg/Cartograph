@@ -336,6 +336,13 @@ void UI::RenderWelcomeScreen(App& app, Model& model) {
         newProjectConfig.gridPreset = GridPreset::Square;
         newProjectConfig.mapWidth = 100;
         newProjectConfig.mapHeight = 100;
+        
+        // Initialize default save path
+        newProjectConfig.saveDirectory = Platform::GetDefaultProjectsDir();
+        UpdateNewProjectPath();
+        
+        // Ensure default directory exists
+        Platform::EnsureDirectoryExists(newProjectConfig.saveDirectory);
     }
     
     ImGui::SameLine(0.0f, buttonSpacing);
@@ -3460,8 +3467,29 @@ void UI::RenderNewProjectModal(App& app, Model& model) {
         
         // Project name
         ImGui::Text("Project Name:");
-        ImGui::InputText("##projectname", newProjectConfig.projectName, 
-            sizeof(newProjectConfig.projectName));
+        if (ImGui::InputText("##projectname", newProjectConfig.projectName, 
+            sizeof(newProjectConfig.projectName))) {
+            // Update path when project name changes
+            UpdateNewProjectPath();
+        }
+        
+        ImGui::Spacing();
+        
+        // Save location
+        ImGui::Text("Save Location:");
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, 
+                             ImVec4(0.15f, 0.15f, 0.15f, 1.0f));
+        ImGui::InputText("##savelocation", 
+                        const_cast<char*>(
+                            newProjectConfig.fullSavePath.c_str()),
+                        newProjectConfig.fullSavePath.size(),
+                        ImGuiInputTextFlags_ReadOnly);
+        ImGui::PopStyleColor();
+        
+        if (ImGui::Button("Choose Different Location...", 
+                         ImVec2(240, 0))) {
+            ShowNewProjectFolderPicker();
+        }
         
         ImGui::Spacing();
         ImGui::Separator();
@@ -3562,25 +3590,34 @@ void UI::RenderNewProjectModal(App& app, Model& model) {
         
         // Buttons
         if (ImGui::Button("Create", ImVec2(120, 0))) {
-            // Apply configuration to model
-            model.meta.title = std::string(newProjectConfig.projectName);
-            
-            // Apply grid preset (sets tileWidth/tileHeight automatically)
-            model.ApplyGridPreset(newProjectConfig.gridPreset);
-            model.grid.cols = newProjectConfig.mapWidth;
-            model.grid.rows = newProjectConfig.mapHeight;
-            model.grid.locked = false;  // New project starts unlocked
-            
-            // Initialize other defaults
-            model.InitDefaultPalette();
-            model.InitDefaultKeymap();
-            model.InitDefaultTheme("Dark");
-            
-            showNewProjectModal = false;
-            ImGui::CloseCurrentPopup();
-            
-            // Transition to editor
-            app.ShowEditor();
+            // Validate path
+            if (newProjectConfig.fullSavePath.empty()) {
+                ShowToast("Please select a save location", 
+                         Toast::Type::Error);
+            } else {
+                // Apply configuration to model
+                model.meta.title = std::string(newProjectConfig.projectName);
+                
+                // Apply grid preset (sets tileWidth/tileHeight automatically)
+                model.ApplyGridPreset(newProjectConfig.gridPreset);
+                model.grid.cols = newProjectConfig.mapWidth;
+                model.grid.rows = newProjectConfig.mapHeight;
+                model.grid.locked = false;  // New project starts unlocked
+                
+                // Initialize other defaults
+                model.InitDefaultPalette();
+                model.InitDefaultKeymap();
+                model.InitDefaultTheme("Dark");
+                
+                showNewProjectModal = false;
+                ImGui::CloseCurrentPopup();
+                
+                // Create project with specified path
+                app.NewProject(newProjectConfig.fullSavePath);
+                
+                // Transition to editor
+                app.ShowEditor();
+            }
         }
         
         ImGui::SameLine();
@@ -3879,6 +3916,90 @@ void UI::AddRecentProject(const std::string& path) {
     
     // Stub implementation
     (void)path; // Suppress unused warning
+}
+
+void UI::UpdateNewProjectPath() {
+    // Sanitize project name for filesystem
+    std::string sanitized = newProjectConfig.projectName;
+    
+    // Replace invalid characters with underscores
+    for (char& c : sanitized) {
+        if (c == '/' || c == '\\' || c == ':' || c == '*' || 
+            c == '?' || c == '"' || c == '<' || c == '>' || c == '|') {
+            c = '_';
+        }
+    }
+    
+    // Build full path
+    if (!newProjectConfig.saveDirectory.empty()) {
+        // Ensure directory path ends with separator
+        std::string dir = newProjectConfig.saveDirectory;
+        if (dir.back() != '/' && dir.back() != '\\') {
+#ifdef _WIN32
+            dir += '\\';
+#else
+            dir += '/';
+#endif
+        }
+        
+        newProjectConfig.fullSavePath = dir + sanitized + 
+#ifdef _WIN32
+            "\\";
+#else
+            "/";
+#endif
+    }
+}
+
+void UI::ShowNewProjectFolderPicker() {
+    // Callback struct to capture UI reference
+    struct CallbackData {
+        UI* ui;
+    };
+    
+    // Allocate callback data on heap (freed in callback)
+    CallbackData* data = new CallbackData{this};
+    
+    // Show native folder picker dialog
+    SDL_ShowOpenFolderDialog(
+        // Callback
+        [](void* userdata, const char* const* filelist, int filter) {
+            CallbackData* data = static_cast<CallbackData*>(userdata);
+            
+            if (filelist == nullptr) {
+                // Error occurred
+                data->ui->ShowToast("Failed to open folder dialog", 
+                                   Toast::Type::Error);
+                delete data;
+                return;
+            }
+            
+            if (filelist[0] == nullptr) {
+                // User canceled - keep existing path
+                delete data;
+                return;
+            }
+            
+            // User selected a folder
+            std::string folderPath = filelist[0];
+            
+            // Update save directory and regenerate full path
+            data->ui->newProjectConfig.saveDirectory = folderPath;
+            data->ui->UpdateNewProjectPath();
+            
+            delete data;
+        },
+        // Userdata
+        data,
+        // Window (NULL for now)
+        nullptr,
+        // Default location - start with current directory
+        newProjectConfig.saveDirectory.empty() 
+            ? nullptr 
+            : newProjectConfig.saveDirectory.c_str(),
+        // Allow multiple folders
+        false
+    );
 }
 
 void UI::BuildFixedLayout(ImGuiID dockspaceId) {

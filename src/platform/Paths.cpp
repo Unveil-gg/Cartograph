@@ -31,6 +31,26 @@ std::string GetAutosaveDir() {
     return GetUserDataDir() + "Autosave/";
 }
 
+std::string GetDefaultProjectsDir() {
+#ifdef __APPLE__
+    const char* home = getenv("HOME");
+    if (home) {
+        return std::string(home) + "/Documents/Cartograph Maps/";
+    }
+#elif defined(_WIN32)
+    const char* userprofile = getenv("USERPROFILE");
+    if (userprofile) {
+        return std::string(userprofile) + "\\Documents\\Cartograph Maps\\";
+    }
+#else
+    const char* home = getenv("HOME");
+    if (home) {
+        return std::string(home) + "/Documents/Cartograph Maps/";
+    }
+#endif
+    return "./projects/";
+}
+
 std::string GetAssetsDir() {
 #ifdef __APPLE__
     // When running as .app bundle, assets are in Resources/

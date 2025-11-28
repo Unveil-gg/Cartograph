@@ -19,6 +19,15 @@ std::string GetUserDataDir();
 std::string GetAutosaveDir();
 
 /**
+ * Get the default projects directory (where new projects are created).
+ * macOS: ~/Documents/Cartograph Maps/
+ * Windows: %USERPROFILE%\Documents\Cartograph Maps\
+ * Linux: ~/Documents/Cartograph Maps/
+ * @return Path to default projects directory
+ */
+std::string GetDefaultProjectsDir();
+
+/**
  * Get the application assets directory.
  * @return Path to assets directory
  */

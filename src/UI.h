@@ -57,6 +57,8 @@ struct NewProjectConfig {
     GridPreset gridPreset = GridPreset::Square;  // Cell type (Square or Rectangle)
     int mapWidth = 256;   // in cells
     int mapHeight = 256;  // in cells
+    std::string saveDirectory = "";  // Directory where project will be saved
+    std::string fullSavePath = "";   // Full path: {saveDirectory}/{projectName}/
 };
 
 /**
@@ -293,6 +295,8 @@ private:
     void ApplyTemplate(ProjectTemplate tmpl);
     void LoadRecentProjects();
     void AddRecentProject(const std::string& path);
+    void ShowNewProjectFolderPicker();
+    void UpdateNewProjectPath();
     
     /**
      * Build the fixed docking layout (called once at startup).
