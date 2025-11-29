@@ -312,7 +312,7 @@ void UI::RenderWelcomeScreen(App& app, Model& model) {
     // Calculate centering based on longest line
     float scrollWidth = ImGui::CalcTextSize(mapLine1).x;
     float scrollStartX = (windowSize.x - scrollWidth) * 0.5f;
-    float scrollStartY = (windowSize.y - contentHeight) * 0.5f;
+    float scrollStartY = (windowSize.y - contentHeight) * 0.2f;
     
     ImGui::SetCursorPos(ImVec2(scrollStartX, scrollStartY));
     ImGui::BeginGroup();
@@ -355,11 +355,7 @@ void UI::RenderWelcomeScreen(App& app, Model& model) {
     ImGui::SetCursorPosX(subtitleStartX);
     ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "%s", subtitle);
     
-    // Add extra spacing between ASCII art and buttons
-    ImGui::Spacing();
-    ImGui::Spacing();
-    ImGui::Spacing();
-    ImGui::Spacing();
+    // Add spacing between ASCII art and buttons
     ImGui::Spacing();
     ImGui::Spacing();
     ImGui::Spacing();
@@ -368,9 +364,9 @@ void UI::RenderWelcomeScreen(App& app, Model& model) {
     ImGui::Spacing();
     
     // Main action buttons - side by side, centered
-    float buttonWidth = 240.0f;
-    float buttonHeight = 60.0f;
-    float buttonSpacing = 20.0f;
+    float buttonWidth = 200.0f;
+    float buttonHeight = 50.0f;
+    float buttonSpacing = 16.0f;
     float buttonsStartX = (windowSize.x - (buttonWidth * 2 + 
                                            buttonSpacing)) * 0.5f;
     
@@ -3728,11 +3724,11 @@ void UI::RenderRecentProjectsList(App& app) {
     }
     
     // Card dimensions (16:9 aspect ratio thumbnails)
-    const float cardWidth = 300.0f;
-    const float cardHeight = 200.0f;
-    const float thumbnailHeight = 169.0f;  // 300*9/16
-    const float cardSpacing = 20.0f;
-    const float titleHeight = 30.0f;
+    const float cardWidth = 260.0f;
+    const float cardHeight = 174.0f;
+    const float thumbnailHeight = 146.0f;  // 260*9/16 = 146.25
+    const float cardSpacing = 16.0f;
+    const float titleHeight = 28.0f;
     
     // Load textures for visible projects
     for (size_t i = 0; i < maxDisplay; ++i) {
