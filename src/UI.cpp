@@ -14,6 +14,7 @@
 #include <SDL3/SDL_dialog.h>
 #include <nlohmann/json.hpp>
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cfloat>
 #include <filesystem>
@@ -3771,8 +3772,8 @@ void UI::RenderRecentProjectsList(App& app) {
                     (ImTextureID)(intptr_t)project.thumbnailTextureId,
                     thumbSize)) {
                 app.OpenProject(project.path);
-                app.ShowEditor();
-            }
+            app.ShowEditor();
+        }
             
             ImGui::PopStyleColor(3);
             
@@ -3780,7 +3781,7 @@ void UI::RenderRecentProjectsList(App& app) {
             if (ImGui::IsItemHovered()) {
                 ImGui::BeginTooltip();
                 ImGui::Text("%s", project.path.c_str());
-                ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f),
+        ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f),
                     "Last modified: %s", project.lastModified.c_str());
                 ImGui::EndTooltip();
             }
@@ -3834,6 +3835,41 @@ void UI::RenderProjectBrowserModal(App& app) {
         ImGui::Separator();
         ImGui::Spacing();
         
+        // Search bar
+        static char searchFilter[256] = "";
+        ImGui::SetNextItemWidth(-1.0f);  // Full width
+        if (ImGui::InputTextWithHint("##projectsearch", 
+                                     "🔍 Search projects...", 
+                                     searchFilter, 
+                                     sizeof(searchFilter))) {
+            // Filter updates on every keystroke
+        }
+        
+        // Show count of filtered results
+        if (searchFilter[0] != '\0') {
+            int visibleCount = 0;
+            for (const auto& project : recentProjects) {
+                std::string lowerName = project.name;
+                std::string lowerFilter = searchFilter;
+                
+                // Convert to lowercase for case-insensitive search
+                std::transform(lowerName.begin(), lowerName.end(), 
+                              lowerName.begin(), ::tolower);
+                std::transform(lowerFilter.begin(), lowerFilter.end(), 
+                              lowerFilter.begin(), ::tolower);
+                
+                if (lowerName.find(lowerFilter) != std::string::npos) {
+                    visibleCount++;
+                }
+            }
+            
+            ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f),
+                "Showing %d of %zu projects", visibleCount, 
+                recentProjects.size());
+        }
+        
+        ImGui::Spacing();
+        
         // Scrollable content area
         ImGui::BeginChild("ProjectList", ImVec2(0, -40), true);
         
@@ -3850,9 +3886,27 @@ void UI::RenderProjectBrowserModal(App& app) {
             LoadThumbnailTexture(project);
         }
         
-        // Render projects in a grid
+        // Render projects in a grid (with search filtering)
+        int visibleIndex = 0;
         for (size_t i = 0; i < recentProjects.size(); ++i) {
             auto& project = recentProjects[i];
+            
+            // Apply search filter
+            if (searchFilter[0] != '\0') {
+                std::string lowerName = project.name;
+                std::string lowerFilter = searchFilter;
+                
+                // Convert to lowercase for case-insensitive search
+                std::transform(lowerName.begin(), lowerName.end(), 
+                              lowerName.begin(), ::tolower);
+                std::transform(lowerFilter.begin(), lowerFilter.end(), 
+                              lowerFilter.begin(), ::tolower);
+                
+                // Skip if doesn't match search
+                if (lowerName.find(lowerFilter) == std::string::npos) {
+                    continue;
+                }
+            }
             
             ImGui::PushID(static_cast<int>(i));
             ImGui::BeginGroup();
@@ -3914,11 +3968,24 @@ void UI::RenderProjectBrowserModal(App& app) {
             ImGui::PopID();
             
             // Grid layout: add spacing or new line
-            if ((i + 1) % cardsPerRow != 0 && i < recentProjects.size() - 1) {
+            // Use visibleIndex for grid layout (not original index i)
+            visibleIndex++;
+            if (visibleIndex % cardsPerRow != 0) {
                 ImGui::SameLine(0.0f, cardSpacing);
             } else {
                 ImGui::Spacing();
             }
+        }
+        
+        // Show "no results" message if search yielded nothing
+        if (searchFilter[0] != '\0' && visibleIndex == 0) {
+            ImGui::Spacing();
+            ImGui::Spacing();
+            ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f),
+                "No projects found matching \"%s\"", searchFilter);
+            ImGui::Spacing();
+            ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f),
+                "Try a different search term");
         }
         
         ImGui::EndChild();
