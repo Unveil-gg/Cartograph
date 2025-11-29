@@ -106,6 +106,39 @@ void UI::Render(
     // Render menu bar outside dockspace (ensures it's on top)
     RenderMenuBar(app, model, canvas, history, icons, jobs);
     
+    // Global keyboard shortcuts (work even when menus are closed)
+    if (!ImGui::GetIO().WantCaptureKeyboard) {
+        // Cmd+S / Ctrl+S for Save
+        bool cmdS = ImGui::IsKeyPressed(ImGuiKey_S) && 
+                   (ImGui::GetIO().KeyCtrl || ImGui::GetIO().KeySuper);
+        if (cmdS) {
+            app.SaveProject();
+        }
+        
+        // Cmd+Shift+S / Ctrl+Shift+S for Save As
+        bool cmdShiftS = ImGui::IsKeyPressed(ImGuiKey_S) && 
+                        (ImGui::GetIO().KeyCtrl || ImGui::GetIO().KeySuper) &&
+                        ImGui::GetIO().KeyShift;
+        if (cmdShiftS) {
+            ShowSaveProjectDialog(app);
+        }
+        
+        // Cmd+E / Ctrl+E for Export PNG
+        bool cmdE = ImGui::IsKeyPressed(ImGuiKey_E) && 
+                   (ImGui::GetIO().KeyCtrl || ImGui::GetIO().KeySuper);
+        if (cmdE) {
+            showExportModal = true;
+        }
+        
+        // Cmd+Shift+E / Ctrl+Shift+E for Export Package
+        bool cmdShiftE = ImGui::IsKeyPressed(ImGuiKey_E) && 
+                        (ImGui::GetIO().KeyCtrl || ImGui::GetIO().KeySuper) &&
+                        ImGui::GetIO().KeyShift;
+        if (cmdShiftE) {
+            ShowExportPackageDialog(app);
+        }
+    }
+    
     // Create fullscreen dockspace window
     ImGuiViewport* viewport = ImGui::GetMainViewport();
     
@@ -451,7 +484,7 @@ void UI::RenderMenuBar(
             }
             ImGui::Separator();
             if (ImGui::MenuItem("Save Project", "Cmd+S")) {
-                // TODO: Quick save (use current path)
+                app.SaveProject();
             }
             if (ImGui::MenuItem("Save Project As...", "Cmd+Shift+S")) {
                 // Save as project folder (git-friendly)
@@ -2533,6 +2566,9 @@ void UI::RenderCanvasPanel(
         hoveredMarker      // Pass hovered marker for highlight
     );
     
+    // Note: Thumbnail capture moved to App::Render() after ImGui draw data
+    // is rendered to ensure pixels are actually in the framebuffer
+    
     // Draw selection rectangle if Select tool is active
     if (currentTool == Tool::Select && isSelecting) {
         // Calculate rectangle bounds
@@ -3074,13 +3110,29 @@ void UI::RenderStatusBar(Model& model, Canvas& canvas) {
             ImGui::TextColored(color, "%s", icon);
             ImGui::SameLine(0, 5);
             
+            // Truncate long messages to single line (max 120 chars)
+            std::string displayMsg = lastMsg.message;
+            
+            // Replace newlines with spaces
+            for (char& c : displayMsg) {
+                if (c == '\n' || c == '\r') {
+                    c = ' ';
+                }
+            }
+            
+            // Truncate if too long
+            const size_t maxLen = 120;
+            if (displayMsg.length() > maxLen) {
+                displayMsg = displayMsg.substr(0, maxLen - 3) + "...";
+            }
+            
             // Calculate time since message (for fading effect)
             double age = Platform::GetTime() - lastMsg.timestamp;
             if (age > 5.0) {
                 // Fade out old messages
-                ImGui::TextDisabled("%s", lastMsg.message.c_str());
+                ImGui::TextDisabled("%s", displayMsg.c_str());
             } else {
-                ImGui::Text("%s", lastMsg.message.c_str());
+                ImGui::Text("%s", displayMsg.c_str());
             }
         } else {
             // No messages yet
@@ -3734,21 +3786,22 @@ void UI::RenderRecentProjectsList(App& app) {
             }
             
             // Draw title overlay at bottom-left of thumbnail
-            ImDrawList* drawList = ImGui::GetWindowDrawList();
             ImVec2 overlayMin(cardPos.x, cardPos.y + thumbnailHeight - 
                              titleHeight);
             ImVec2 overlayMax(cardPos.x + cardWidth, 
                              cardPos.y + thumbnailHeight);
             
             // Semi-transparent dark background for title
+            ImDrawList* drawList = ImGui::GetWindowDrawList();
             drawList->AddRectFilled(overlayMin, overlayMax, 
                 IM_COL32(0, 0, 0, 180));
             
-            // Title text
+            // Title text - use ImGui widget for proper font handling
             ImVec2 textPos(cardPos.x + 10, cardPos.y + thumbnailHeight - 
                           titleHeight + 5);
-            drawList->AddText(textPos, IM_COL32(255, 255, 255, 255), 
-                             project.name.c_str());
+            ImGui::SetCursorScreenPos(textPos);
+            ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), 
+                              "%s", project.name.c_str());
         }
         
         ImGui::EndGroup();
@@ -3839,21 +3892,22 @@ void UI::RenderProjectBrowserModal(App& app) {
                 }
                 
                 // Draw title overlay at bottom-left of thumbnail
-                ImDrawList* drawList = ImGui::GetWindowDrawList();
                 ImVec2 overlayMin(cardPos.x, cardPos.y + thumbnailHeight - 
                                  titleHeight);
                 ImVec2 overlayMax(cardPos.x + cardWidth, 
                                  cardPos.y + thumbnailHeight);
                 
                 // Semi-transparent dark background for title
+                ImDrawList* drawList = ImGui::GetWindowDrawList();
                 drawList->AddRectFilled(overlayMin, overlayMax, 
                     IM_COL32(0, 0, 0, 180));
                 
-                // Title text
+                // Title text - use ImGui widget for proper font handling
                 ImVec2 textPos(cardPos.x + 8, cardPos.y + thumbnailHeight - 
                               titleHeight + 4);
-                drawList->AddText(textPos, IM_COL32(255, 255, 255, 255), 
-                                 project.name.c_str());
+                ImGui::SetCursorScreenPos(textPos);
+                ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), 
+                                  "%s", project.name.c_str());
             }
             
             ImGui::EndGroup();
@@ -4102,151 +4156,84 @@ void UI::ApplyTemplate(ProjectTemplate tmpl) {
 void UI::LoadRecentProjects() {
     recentProjects.clear();
     
-    std::string configDir = Platform::GetUserDataDir();
-    std::string recentPath = configDir + "recent_projects.json";
-    
     namespace fs = std::filesystem;
     
-    // Check if file exists
-    if (!fs::exists(recentPath)) {
+    // Get default projects directory
+    std::string projectsDir = Platform::GetDefaultProjectsDir();
+    
+    // Check if directory exists
+    if (!fs::exists(projectsDir) || !fs::is_directory(projectsDir)) {
         return;
     }
     
     try {
-        // Read JSON file
-        std::ifstream file(recentPath);
-        if (!file.is_open()) {
-            return;
+        // Scan directory for project folders
+        std::vector<std::pair<fs::file_time_type, fs::path>> projectPaths;
+        
+        for (const auto& entry : fs::directory_iterator(projectsDir)) {
+            if (!entry.is_directory()) continue;
+            
+            // Check if it has a project.json file
+            fs::path projectJson = entry.path() / "project.json";
+            if (!fs::exists(projectJson)) continue;
+            
+            // Get last modified time
+            auto modTime = fs::last_write_time(entry.path());
+            projectPaths.push_back({modTime, entry.path()});
         }
         
-        nlohmann::json j;
-        file >> j;
-        file.close();
+        // Sort by last modified time (newest first)
+        std::sort(projectPaths.begin(), projectPaths.end(),
+            [](const auto& a, const auto& b) {
+                return a.first > b.first;
+            });
         
-        // Parse project entries
-        if (!j.is_array()) {
-            return;
-        }
-        
-        for (const auto& entry : j) {
-            if (!entry.is_object()) continue;
+        // Convert to RecentProject entries (limit to 10)
+        size_t count = std::min(projectPaths.size(), size_t(10));
+        for (size_t i = 0; i < count; ++i) {
+            const auto& [modTime, path] = projectPaths[i];
             
             RecentProject project;
+            project.path = path.string();
+            project.name = path.filename().string();
             
-            // Extract fields
-            if (entry.contains("path") && entry["path"].is_string()) {
-                project.path = entry["path"].get<std::string>();
-            } else {
-                continue;  // Path is required
-            }
+            // Format last modified time
+            auto sctp = std::chrono::time_point_cast<std::chrono::system_clock::duration>(
+                modTime - fs::file_time_type::clock::now() + 
+                std::chrono::system_clock::now());
+            auto time_t = std::chrono::system_clock::to_time_t(sctp);
+            std::tm tm = *std::localtime(&time_t);
+            char timeStr[64];
+            std::strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M", &tm);
+            project.lastModified = timeStr;
             
-            if (entry.contains("name") && entry["name"].is_string()) {
-                project.name = entry["name"].get<std::string>();
-            } else {
-                // Extract name from path if not provided
-                project.name = fs::path(project.path).filename().string();
-            }
-            
-            if (entry.contains("lastModified") && 
-                entry["lastModified"].is_string()) {
-                project.lastModified = 
-                    entry["lastModified"].get<std::string>();
-            }
-            
-            if (entry.contains("thumbnailPath") && 
-                entry["thumbnailPath"].is_string()) {
-                project.thumbnailPath = 
-                    entry["thumbnailPath"].get<std::string>();
-            }
-            
-            // Validate that project still exists
-            if (!fs::exists(project.path)) {
-                continue;  // Skip deleted projects
+            // Set thumbnail path if preview.png exists
+            fs::path previewPath = path / "preview.png";
+            if (fs::exists(previewPath)) {
+                project.thumbnailPath = previewPath.string();
             }
             
             recentProjects.push_back(project);
         }
         
     } catch (const std::exception& e) {
-        // Failed to parse JSON - clear list and continue
+        // Failed to scan directory - clear list and continue
         recentProjects.clear();
     }
 }
 
 void UI::AddRecentProject(const std::string& path) {
-    namespace fs = std::filesystem;
+    // Note: This function no longer saves to JSON.
+    // Recent projects are now loaded dynamically by scanning the directory.
+    // We keep this function as a no-op for now in case it's called elsewhere,
+    // but it doesn't need to do anything since LoadRecentProjects() handles
+    // everything.
     
-    // Remove any existing entry with this path (to move to front)
-    recentProjects.erase(
-        std::remove_if(recentProjects.begin(), recentProjects.end(),
-            [&path](const RecentProject& p) { return p.path == path; }),
-        recentProjects.end()
-    );
-    
-    // Create new entry
-    RecentProject project;
-    project.path = path;
-    project.name = fs::path(path).filename().string();
-    
-    // Format current time
-    auto now = std::chrono::system_clock::now();
-    auto time_t = std::chrono::system_clock::to_time_t(now);
-    std::tm tm = *std::localtime(&time_t);
-    char timeStr[64];
-    std::strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M", &tm);
-    project.lastModified = timeStr;
-    
-    // Determine thumbnail path
-    if (path.size() >= 5 && path.substr(path.size() - 5) == ".cart") {
-        // .cart packages have embedded thumbnails
-        project.thumbnailPath = path + "#thumb.png";
-    } else {
-        // Project folders have preview.png
-        std::string previewPath = path + "/preview.png";
-        if (fs::exists(previewPath)) {
-            project.thumbnailPath = previewPath;
-        }
-    }
-    
-    // Add to front of list
-    recentProjects.insert(recentProjects.begin(), project);
-    
-    // Limit to 10 most recent
-    if (recentProjects.size() > 10) {
-        recentProjects.resize(10);
-    }
-    
-    // Save to JSON
-    try {
-        nlohmann::json j = nlohmann::json::array();
-        
-        for (const auto& p : recentProjects) {
-            nlohmann::json entry;
-            entry["path"] = p.path;
-            entry["name"] = p.name;
-            entry["lastModified"] = p.lastModified;
-            if (!p.thumbnailPath.empty()) {
-                entry["thumbnailPath"] = p.thumbnailPath;
-            }
-            j.push_back(entry);
-        }
-        
-        std::string configDir = Platform::GetUserDataDir();
-        std::string recentPath = configDir + "recent_projects.json";
-        
-        // Ensure config directory exists
-        Platform::EnsureDirectoryExists(configDir);
-        
-        // Write JSON file
-        std::ofstream file(recentPath);
-        if (file.is_open()) {
-            file << j.dump(2);  // Pretty print with 2-space indent
-            file.close();
-        }
-        
-    } catch (const std::exception& e) {
-        // Failed to save - non-fatal, just continue
-    }
+    // The directory scan approach means:
+    // - No file I/O failures
+    // - Always shows current state
+    // - Self-healing (deleted projects auto-remove)
+    // - Simpler and more reliable
 }
 
 void UI::LoadThumbnailTexture(RecentProject& project) {

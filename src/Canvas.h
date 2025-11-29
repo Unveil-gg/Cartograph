@@ -1,11 +1,13 @@
 #pragma once
 
 #include "Model.h"
+#include <vector>
 
 namespace Cartograph {
 
 class IRenderer;
 class IconManager;
+class GlRenderer;
 
 /**
  * Canvas manages the view transformation and rendering of the map.
@@ -24,6 +26,12 @@ public:
     static constexpr float DEFAULT_ZOOM = 2.5f;
     
     bool showGrid = true;
+    
+    // Thumbnail cache - cached last render for thumbnails
+    std::vector<uint8_t> cachedThumbnail;
+    int cachedThumbnailWidth = 0;
+    int cachedThumbnailHeight = 0;
+    bool hasCachedThumbnail = false;
     
     // Update view (handle input, etc.)
     void Update(Model& model, float deltaTime);
@@ -62,6 +70,19 @@ public:
     
     // Queries
     bool IsVisible(const Rect& rect, int tileWidth, int tileHeight) const;
+    
+    // Get viewport coordinates (set during last Render() call)
+    int GetViewportX() const { return m_vpX; }
+    int GetViewportY() const { return m_vpY; }
+    int GetViewportW() const { return m_vpW; }
+    int GetViewportH() const { return m_vpH; }
+    
+    // Capture current canvas state for thumbnail generation
+    // Must be called AFTER ImGui_ImplOpenGL3_RenderDrawData() to ensure
+    // pixels are actually in the framebuffer
+    void CaptureThumbnail(IRenderer& renderer, const Model& model,
+                         int viewportX, int viewportY,
+                         int viewportW, int viewportH);
     
 private:
     // Render passes

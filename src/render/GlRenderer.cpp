@@ -72,8 +72,8 @@ void GlRenderer::DrawRect(
     float x, float y, float w, float h, 
     const Color& color
 ) {
-    // Use foreground draw list to draw on top of canvas background
-    ImDrawList* dl = ImGui::GetForegroundDrawList();
+    // Use window draw list to respect ImGui's z-order
+    ImDrawList* dl = ImGui::GetWindowDrawList();
     dl->AddRectFilled(
         ImVec2(x, y),
         ImVec2(x + w, y + h),
@@ -85,8 +85,8 @@ void GlRenderer::DrawRectOutline(
     float x, float y, float w, float h, 
     const Color& color, float thickness
 ) {
-    // Use foreground draw list to draw on top of canvas background
-    ImDrawList* dl = ImGui::GetForegroundDrawList();
+    // Use window draw list to respect ImGui's z-order
+    ImDrawList* dl = ImGui::GetWindowDrawList();
     dl->AddRect(
         ImVec2(x, y),
         ImVec2(x + w, y + h),
@@ -101,8 +101,8 @@ void GlRenderer::DrawLine(
     float x1, float y1, float x2, float y2,
     const Color& color, float thickness
 ) {
-    // Use foreground draw list to draw on top of canvas background
-    ImDrawList* dl = ImGui::GetForegroundDrawList();
+    // Use window draw list to respect ImGui's z-order
+    ImDrawList* dl = ImGui::GetWindowDrawList();
     dl->AddLine(
         ImVec2(x1, y1),
         ImVec2(x2, y2),

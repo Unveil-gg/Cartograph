@@ -1,15 +1,19 @@
 #include "Canvas.h"
 #include "render/Renderer.h"
+#include "render/GlRenderer.h"
 #include "Icons.h"
 #include <imgui.h>
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 
 namespace Cartograph {
 
 Canvas::Canvas()
     : offsetX(0.0f), offsetY(0.0f), zoom(2.5f), showGrid(true),
-      m_vpX(0), m_vpY(0), m_vpW(0), m_vpH(0)
+      m_vpX(0), m_vpY(0), m_vpW(0), m_vpH(0),
+      cachedThumbnailWidth(0), cachedThumbnailHeight(0),
+      hasCachedThumbnail(false)
 {
 }
 
@@ -35,8 +39,8 @@ void Canvas::Render(
     m_vpH = viewportH;
     
     // Use ImGui's clip rect to prevent drawing outside canvas bounds
-    // This works with GetForegroundDrawList()
-    ImDrawList* dl = ImGui::GetForegroundDrawList();
+    // Use window draw list to respect ImGui's z-order (not foreground!)
+    ImDrawList* dl = ImGui::GetWindowDrawList();
     dl->PushClipRect(
         ImVec2(static_cast<float>(viewportX), 
                static_cast<float>(viewportY)),
@@ -605,6 +609,132 @@ void Canvas::RenderRoomOverlays(IRenderer& renderer, const Model& model) {
             }
         }
     }
+}
+
+void Canvas::CaptureThumbnail(IRenderer& renderer, const Model& model,
+                              int viewportX, int viewportY,
+                              int viewportW, int viewportH) {
+    // Thumbnail dimensions (16:9 aspect ratio)
+    const int thumbWidth = 384;
+    const int thumbHeight = 216;
+    
+    // Calculate content bounding box in tile coordinates
+    int minTileX = model.grid.cols;
+    int minTileY = model.grid.rows;
+    int maxTileX = 0;
+    int maxTileY = 0;
+    bool hasContent = false;
+    
+    for (const auto& row : model.tiles) {
+        if (!row.runs.empty()) {
+            for (const auto& run : row.runs) {
+                if (run.tileId != 0) {
+                    minTileX = std::min(minTileX, run.startX);
+                    maxTileX = std::max(maxTileX, run.startX + run.count);
+                    minTileY = std::min(minTileY, row.y);
+                    maxTileY = std::max(maxTileY, row.y + 1);
+                    hasContent = true;
+                }
+            }
+        }
+    }
+    
+    // If no content, capture center of viewport
+    if (!hasContent) {
+        int centerX = model.grid.cols / 2;
+        int centerY = model.grid.rows / 2;
+        int viewSize = 20;
+        minTileX = std::max(0, centerX - viewSize / 2);
+        maxTileX = std::min(model.grid.cols, centerX + viewSize / 2);
+        minTileY = std::max(0, centerY - viewSize / 2);
+        maxTileY = std::min(model.grid.rows, centerY + viewSize / 2);
+    }
+    
+    // Add padding around content
+    int contentWidth = maxTileX - minTileX;
+    int contentHeight = maxTileY - minTileY;
+    int padding = (contentWidth < 10 || contentHeight < 10) ? 4 : 2;
+    
+    minTileX = std::max(0, minTileX - padding);
+    minTileY = std::max(0, minTileY - padding);
+    maxTileX = std::min(model.grid.cols, maxTileX + padding);
+    maxTileY = std::min(model.grid.rows, maxTileY + padding);
+    
+    // Convert content bounds to world coordinates
+    float contentMinX = minTileX * model.grid.tileWidth;
+    float contentMinY = minTileY * model.grid.tileHeight;
+    float contentMaxX = maxTileX * model.grid.tileWidth;
+    float contentMaxY = maxTileY * model.grid.tileHeight;
+    
+    // Convert to screen coordinates
+    float screenMinX, screenMinY, screenMaxX, screenMaxY;
+    WorldToScreen(contentMinX, contentMinY, &screenMinX, &screenMinY);
+    WorldToScreen(contentMaxX, contentMaxY, &screenMaxX, &screenMaxY);
+    
+    // Calculate capture region (clamped to viewport)
+    int captureX = std::max(viewportX, static_cast<int>(screenMinX));
+    int captureY = std::max(viewportY, static_cast<int>(screenMinY));
+    int captureW = std::min(viewportX + viewportW, 
+                           static_cast<int>(screenMaxX)) - captureX;
+    int captureH = std::min(viewportY + viewportH,
+                           static_cast<int>(screenMaxY)) - captureY;
+    
+    // Ensure reasonable capture size
+    if (captureW <= 0 || captureH <= 0 || 
+        captureW > viewportW || captureH > viewportH) {
+        // Fall back to full viewport
+        captureX = viewportX;
+        captureY = viewportY;
+        captureW = viewportW;
+        captureH = viewportH;
+    }
+    
+    // Read pixels from framebuffer
+    GlRenderer* glRenderer = dynamic_cast<GlRenderer*>(&renderer);
+    if (!glRenderer) {
+        hasCachedThumbnail = false;
+        return;
+    }
+    
+    std::vector<uint8_t> capturedPixels(captureW * captureH * 4);
+    glRenderer->ReadPixels(captureX, captureY, captureW, captureH,
+                          capturedPixels.data());
+    
+    // Flip vertically (OpenGL reads bottom-up)
+    std::vector<uint8_t> flipped(captureW * captureH * 4);
+    for (int y = 0; y < captureH; ++y) {
+        memcpy(
+            flipped.data() + y * captureW * 4,
+            capturedPixels.data() + (captureH - 1 - y) * captureW * 4,
+            captureW * 4
+        );
+    }
+    
+    // Simple resize to thumbnail dimensions using nearest neighbor
+    // (Good enough for thumbnails, faster than bilinear)
+    cachedThumbnail.resize(thumbWidth * thumbHeight * 4);
+    
+    float scaleX = static_cast<float>(captureW) / thumbWidth;
+    float scaleY = static_cast<float>(captureH) / thumbHeight;
+    
+    for (int y = 0; y < thumbHeight; ++y) {
+        for (int x = 0; x < thumbWidth; ++x) {
+            int srcX = std::min(static_cast<int>(x * scaleX), captureW - 1);
+            int srcY = std::min(static_cast<int>(y * scaleY), captureH - 1);
+            
+            int srcIdx = (srcY * captureW + srcX) * 4;
+            int dstIdx = (y * thumbWidth + x) * 4;
+            
+            cachedThumbnail[dstIdx + 0] = flipped[srcIdx + 0];
+            cachedThumbnail[dstIdx + 1] = flipped[srcIdx + 1];
+            cachedThumbnail[dstIdx + 2] = flipped[srcIdx + 2];
+            cachedThumbnail[dstIdx + 3] = flipped[srcIdx + 3];
+        }
+    }
+    
+    cachedThumbnailWidth = thumbWidth;
+    cachedThumbnailHeight = thumbHeight;
+    hasCachedThumbnail = true;
 }
 
 } // namespace Cartograph

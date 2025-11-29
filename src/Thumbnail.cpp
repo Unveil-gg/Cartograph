@@ -66,27 +66,73 @@ bool Thumbnail::GenerateToMemory(
     // Set render target
     glRenderer->SetRenderTarget(fbo);
     
-    // Clear with transparent background
-    glRenderer->Clear(Color(0, 0, 0, 0));
+    // Clear with editor background color (dark gray, not transparent)
+    glRenderer->Clear(Color(0.1f, 0.1f, 0.12f, 1.0f));
     
-    // Calculate zoom to fit entire map
-    // Get map bounds in world coordinates
-    float mapWidth = model.grid.cols * model.grid.tileWidth;
-    float mapHeight = model.grid.rows * model.grid.tileHeight;
+    // Calculate bounding box of actual drawn content (painted tiles only)
+    int minX = model.grid.cols;
+    int minY = model.grid.rows;
+    int maxX = 0;
+    int maxY = 0;
+    bool hasContent = false;
     
-    // Calculate zoom to fit both dimensions with some padding
-    float zoomX = WIDTH / (mapWidth * 1.1f);
-    float zoomY = HEIGHT / (mapHeight * 1.1f);
+    // Check painted tiles - this is what actually matters for visual preview
+    for (const auto& row : model.tiles) {
+        if (!row.runs.empty()) {
+            for (const auto& run : row.runs) {
+                if (run.tileId != 0) {  // Non-empty tile
+                    minX = std::min(minX, run.startX);
+                    maxX = std::max(maxX, run.startX + run.count);
+                    minY = std::min(minY, row.y);
+                    maxY = std::max(maxY, row.y + 1);
+                    hasContent = true;
+                }
+            }
+        }
+    }
+    
+    // If nothing drawn, show center portion of grid (empty project view)
+    if (!hasContent) {
+        int centerX = model.grid.cols / 2;
+        int centerY = model.grid.rows / 2;
+        int viewSize = 20;  // Show 20x20 cell area
+        minX = std::max(0, centerX - viewSize / 2);
+        maxX = std::min(model.grid.cols, centerX + viewSize / 2);
+        minY = std::max(0, centerY - viewSize / 2);
+        maxY = std::min(model.grid.rows, centerY + viewSize / 2);
+    }
+    
+    // Add padding around content (more padding for smaller content)
+    int contentWidth = maxX - minX;
+    int contentHeight = maxY - minY;
+    int padding = (contentWidth < 10 || contentHeight < 10) ? 4 : 2;
+    
+    minX = std::max(0, minX - padding);
+    minY = std::max(0, minY - padding);
+    maxX = std::min(model.grid.cols, maxX + padding);
+    maxY = std::min(model.grid.rows, maxY + padding);
+    
+    // Calculate dimensions based on content bounds (in world pixels)
+    float contentWidthPx = (maxX - minX) * model.grid.tileWidth;
+    float contentHeightPx = (maxY - minY) * model.grid.tileHeight;
+    
+    // Calculate zoom to fit content (with slight padding factor)
+    float zoomX = WIDTH / (contentWidthPx * 1.1f);
+    float zoomY = HEIGHT / (contentHeightPx * 1.1f);
     float fitZoom = std::min(zoomX, zoomY);
     
-    // Clamp zoom to reasonable range (don't zoom in too much on tiny maps)
-    fitZoom = std::min(fitZoom, 2.0f);
+    // Clamp zoom to reasonable range
+    fitZoom = std::clamp(fitZoom, 0.5f, 4.0f);
+    
+    // Calculate center of content area (in world pixels)
+    float contentCenterX = (minX + maxX) * 0.5f * model.grid.tileWidth;
+    float contentCenterY = (minY + maxY) * 0.5f * model.grid.tileHeight;
     
     // Create a canvas configured for thumbnail rendering
     Canvas thumbCanvas = canvas;
     thumbCanvas.zoom = fitZoom;
-    thumbCanvas.offsetX = -(mapWidth * fitZoom - WIDTH) * 0.5f / fitZoom;
-    thumbCanvas.offsetY = -(mapHeight * fitZoom - HEIGHT) * 0.5f / fitZoom;
+    thumbCanvas.offsetX = contentCenterX - (WIDTH * 0.5f / fitZoom);
+    thumbCanvas.offsetY = contentCenterY - (HEIGHT * 0.5f / fitZoom);
     thumbCanvas.showGrid = false;  // No grid in thumbnails
     
     // Render the map

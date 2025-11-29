@@ -73,10 +73,14 @@ std::string GetAssetsDir() {
 
 bool EnsureDirectoryExists(const std::string& path) {
     try {
-        if (!fs::exists(path)) {
-            return fs::create_directories(path);
-        }
-        return fs::is_directory(path);
+        // Normalize path to handle trailing slashes and relative paths
+        fs::path normalized = fs::path(path).lexically_normal();
+        
+        // Create directory (idempotent - safe if already exists)
+        fs::create_directories(normalized);
+        
+        // Verify it actually exists and is a directory
+        return fs::exists(normalized) && fs::is_directory(normalized);
     } catch (...) {
         return false;
     }

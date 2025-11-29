@@ -284,6 +284,23 @@ void App::Render() {
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     
+    // Capture thumbnail AFTER ImGui has rendered to framebuffer
+    // (uses previous frame's pixels - 16ms delay is imperceptible)
+    if (m_appState == AppState::Editor && m_model.dirty) {
+        static double lastThumbnailCapture = 0.0;
+        double now = Platform::GetTime();
+        if (now - lastThumbnailCapture > 3.0) {
+            m_canvas.CaptureThumbnail(
+                *m_renderer, m_model,
+                m_canvas.GetViewportX(),
+                m_canvas.GetViewportY(),
+                m_canvas.GetViewportW(),
+                m_canvas.GetViewportH()
+            );
+            lastThumbnailCapture = now;
+        }
+    }
+    
     // Swap buffers
     SDL_GL_SwapWindow(m_window);
 }
@@ -356,42 +373,20 @@ void App::NewProject(const std::string& savePath) {
     // If save path provided, set it and save immediately
     if (!savePath.empty()) {
         // Ensure directory exists
-        if (!Platform::EnsureDirectoryExists(savePath)) {
-            m_ui.ShowToast(
-                "Failed to create project directory:\n" + savePath + 
-                "\n\nCheck permissions and try a different location.", 
-                Toast::Type::Error, 5.0f);
-            m_currentFilePath.clear();
-            UpdateWindowTitle();
-            return;
-        }
+        Platform::EnsureDirectoryExists(savePath);
         
         // Save project to the specified path
         m_currentFilePath = savePath;
         
-        // Generate thumbnail
-        std::vector<uint8_t> thumbnailPixels;
-        int thumbWidth = 0, thumbHeight = 0;
-        GlRenderer* glRenderer = dynamic_cast<GlRenderer*>(m_renderer.get());
-        if (glRenderer) {
-            Thumbnail::GenerateToMemory(m_model, m_canvas, *glRenderer, 
-                                       &m_icons, thumbnailPixels, 
-                                       thumbWidth, thumbHeight);
-        }
-        
-        bool success = ProjectFolder::Save(m_model, savePath, &m_icons,
-                                          thumbnailPixels.empty() ? nullptr : 
-                                              thumbnailPixels.data(),
-                                          thumbWidth, thumbHeight);
+        // Don't generate thumbnail on initial create - project is empty
+        // Thumbnail will be generated on first manual save (Cmd+S)
+        bool success = ProjectFolder::Save(m_model, savePath, &m_icons);
         
         if (success) {
             m_model.ClearDirty();
             UpdateWindowTitle();
             m_ui.AddRecentProject(savePath);
-            m_ui.ShowToast("Project created: " + savePath, 
-                          Toast::Type::Success);
         } else {
-            m_ui.ShowToast("Failed to save project", Toast::Type::Error);
             m_currentFilePath.clear();
         }
     } else {
@@ -424,7 +419,15 @@ void App::OpenProject(const std::string& path) {
         m_history.Clear();
         UpdateWindowTitle();
         m_ui.AddRecentProject(path);
-        m_ui.ShowToast("Opened: " + path, Toast::Type::Success);
+        
+        // Extract project name from path for console message
+        std::string projectName = std::filesystem::path(path)
+            .filename().string();
+        if (projectName.empty()) {
+            projectName = std::filesystem::path(path)
+                .parent_path().filename().string();
+        }
+        m_ui.ShowToast("Opened: " + projectName, Toast::Type::Success);
     } else {
         m_ui.ShowToast("Failed to open: " + path, Toast::Type::Error);
     }
@@ -432,7 +435,8 @@ void App::OpenProject(const std::string& path) {
 
 void App::SaveProject() {
     if (m_currentFilePath.empty()) {
-        // TODO: Show save dialog
+        // No file path yet - show save dialog for new/untitled projects
+        m_ui.ShowSaveProjectDialog(*this);
         return;
     }
     
@@ -442,13 +446,14 @@ void App::SaveProject() {
 void App::SaveProjectAs(const std::string& path) {
     bool success = false;
     
-    // Generate thumbnail
+    // Use cached thumbnail from last render (simpler and more reliable)
     std::vector<uint8_t> thumbnailPixels;
     int thumbWidth = 0, thumbHeight = 0;
-    GlRenderer* glRenderer = dynamic_cast<GlRenderer*>(m_renderer.get());
-    if (glRenderer) {
-        Thumbnail::GenerateToMemory(m_model, m_canvas, *glRenderer, &m_icons,
-                                   thumbnailPixels, thumbWidth, thumbHeight);
+    
+    if (m_canvas.hasCachedThumbnail) {
+        thumbnailPixels = m_canvas.cachedThumbnail;
+        thumbWidth = m_canvas.cachedThumbnailWidth;
+        thumbHeight = m_canvas.cachedThumbnailHeight;
     }
     
     // Detect save format and save accordingly
@@ -472,20 +477,29 @@ void App::SaveProjectAs(const std::string& path) {
         CleanupAutosave();  // Remove autosave after successful manual save
         UpdateWindowTitle();
         m_ui.AddRecentProject(path);
-        m_ui.ShowToast("Saved: " + path, Toast::Type::Success);
+        
+        // Extract project name from path for console message
+        std::string projectName = std::filesystem::path(path)
+            .filename().string();
+        if (projectName.empty()) {
+            projectName = std::filesystem::path(path)
+                .parent_path().filename().string();
+        }
+        m_ui.ShowToast("Saved: " + projectName, Toast::Type::Success);
     } else {
         m_ui.ShowToast("Failed to save: " + path, Toast::Type::Error);
     }
 }
 
 void App::SaveProjectFolder(const std::string& folderPath) {
-    // Generate thumbnail
+    // Use cached thumbnail from last render (simpler and more reliable)
     std::vector<uint8_t> thumbnailPixels;
     int thumbWidth = 0, thumbHeight = 0;
-    GlRenderer* glRenderer = dynamic_cast<GlRenderer*>(m_renderer.get());
-    if (glRenderer) {
-        Thumbnail::GenerateToMemory(m_model, m_canvas, *glRenderer, &m_icons,
-                                   thumbnailPixels, thumbWidth, thumbHeight);
+    
+    if (m_canvas.hasCachedThumbnail) {
+        thumbnailPixels = m_canvas.cachedThumbnail;
+        thumbWidth = m_canvas.cachedThumbnailWidth;
+        thumbHeight = m_canvas.cachedThumbnailHeight;
     }
     
     bool success = ProjectFolder::Save(m_model, folderPath, &m_icons,
@@ -499,8 +513,15 @@ void App::SaveProjectFolder(const std::string& folderPath) {
         CleanupAutosave();
         UpdateWindowTitle();
         m_ui.AddRecentProject(folderPath);
-        m_ui.ShowToast("Saved project folder: " + folderPath, 
-                      Toast::Type::Success);
+        
+        // Extract project name from path
+        std::string projectName = std::filesystem::path(folderPath)
+            .filename().string();
+        if (projectName.empty()) {
+            projectName = std::filesystem::path(folderPath)
+                .parent_path().filename().string();
+        }
+        m_ui.ShowToast("Saved: " + projectName, Toast::Type::Success);
     } else {
         m_ui.ShowToast("Failed to save project folder: " + folderPath, 
                       Toast::Type::Error);
@@ -508,13 +529,14 @@ void App::SaveProjectFolder(const std::string& folderPath) {
 }
 
 void App::ExportPackage(const std::string& cartPath) {
-    // Generate thumbnail
+    // Use cached thumbnail from last render (simpler and more reliable)
     std::vector<uint8_t> thumbnailPixels;
     int thumbWidth = 0, thumbHeight = 0;
-    GlRenderer* glRenderer = dynamic_cast<GlRenderer*>(m_renderer.get());
-    if (glRenderer) {
-        Thumbnail::GenerateToMemory(m_model, m_canvas, *glRenderer, &m_icons,
-                                   thumbnailPixels, thumbWidth, thumbHeight);
+    
+    if (m_canvas.hasCachedThumbnail) {
+        thumbnailPixels = m_canvas.cachedThumbnail;
+        thumbWidth = m_canvas.cachedThumbnailWidth;
+        thumbHeight = m_canvas.cachedThumbnailHeight;
     }
     
     bool success = Package::Save(m_model, cartPath, &m_icons,
@@ -523,8 +545,10 @@ void App::ExportPackage(const std::string& cartPath) {
                                 thumbWidth, thumbHeight);
     
     if (success) {
-        m_ui.ShowToast("Exported package: " + cartPath, 
-                      Toast::Type::Success);
+        // Extract filename from path
+        std::string filename = std::filesystem::path(cartPath)
+            .filename().string();
+        m_ui.ShowToast("Exported: " + filename, Toast::Type::Success);
     } else {
         m_ui.ShowToast("Failed to export package: " + cartPath, 
                       Toast::Type::Error);
@@ -542,7 +566,9 @@ void App::ExportPng(const std::string& path) {
     );
     
     if (success) {
-        m_ui.ShowToast("Exported: " + path, Toast::Type::Success);
+        // Extract filename from path
+        std::string filename = std::filesystem::path(path).filename().string();
+        m_ui.ShowToast("Exported: " + filename, Toast::Type::Success);
     } else {
         m_ui.ShowToast("Failed to export: " + path, Toast::Type::Error);
     }
