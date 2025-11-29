@@ -3817,13 +3817,15 @@ void UI::RenderProjectTemplates() {
 }
 
 void UI::RenderProjectBrowserModal(App& app) {
+    ImGui::OpenPopup("Recent Projects");
+    
     ImGui::SetNextWindowSize(ImVec2(900, 600), ImGuiCond_FirstUseEver);
     
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
     
-    if (ImGui::Begin("Recent Projects", &showProjectBrowserModal, 
-        ImGuiWindowFlags_NoCollapse)) {
+    if (ImGui::BeginPopupModal("Recent Projects", &showProjectBrowserModal, 
+        ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove)) {
         
         ImGui::Text("All Recent Projects");
         ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f),
@@ -3994,10 +3996,11 @@ void UI::RenderProjectBrowserModal(App& app) {
         
         if (ImGui::Button("Close", ImVec2(closeButtonWidth, 0))) {
             showProjectBrowserModal = false;
+            ImGui::CloseCurrentPopup();
         }
     }
     
-    ImGui::End();
+    ImGui::EndPopup();
 }
 
 void UI::RenderWhatsNewPanel() {
