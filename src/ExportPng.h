@@ -38,8 +38,6 @@ struct ExportOptions {
     
     // Layer visibility
     bool layerGrid = true;
-    bool layerRoomOutlines = true;
-    bool layerRoomLabels = true;
     bool layerTiles = true;
     bool layerDoors = true;
     bool layerMarkers = true;

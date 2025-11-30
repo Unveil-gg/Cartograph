@@ -10,6 +10,22 @@ class IconManager;
 class GlRenderer;
 
 /**
+ * Optional rendering context for controlling what gets rendered.
+ * Used primarily for PNG export to control layers and skip ImGui.
+ */
+struct RenderContext {
+    // When true, skip all ImGui operations (for offscreen rendering)
+    bool skipImGui = false;
+    
+    // Layer visibility flags
+    bool showGrid = true;
+    bool showTiles = true;
+    bool showEdges = true;        // Walls and doors
+    bool showMarkers = true;
+    bool showRooms = true;        // Room overlays (colored boxes/names)
+};
+
+/**
  * Canvas manages the view transformation and rendering of the map.
  * Handles pan, zoom, and coordinate transformations.
  */
@@ -46,7 +62,8 @@ public:
         const EdgeId* hoveredEdge = nullptr,
         bool showRoomOverlays = true,
         const Marker* selectedMarker = nullptr,
-        const Marker* hoveredMarker = nullptr
+        const Marker* hoveredMarker = nullptr,
+        const RenderContext* context = nullptr
     );
     
     // Coordinate transformations
@@ -87,7 +104,8 @@ public:
 private:
     // Render passes
     void RenderGrid(IRenderer& renderer, const GridConfig& grid);
-    void RenderRooms(IRenderer& renderer, const Model& model);
+    void RenderRooms(IRenderer& renderer, const Model& model,
+                    const RenderContext* context);
     void RenderTiles(IRenderer& renderer, const Model& model);
     void RenderEdges(IRenderer& renderer, const Model& model,
                     const EdgeId* hoveredEdge);

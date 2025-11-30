@@ -31,39 +31,59 @@ void Canvas::Render(
     const EdgeId* hoveredEdge,
     bool showRoomOverlays,
     const Marker* selectedMarker,
-    const Marker* hoveredMarker
+    const Marker* hoveredMarker,
+    const RenderContext* context
 ) {
     m_vpX = viewportX;
     m_vpY = viewportY;
     m_vpW = viewportW;
     m_vpH = viewportH;
     
-    // Use ImGui's clip rect to prevent drawing outside canvas bounds
-    // Use window draw list to respect ImGui's z-order (not foreground!)
-    ImDrawList* dl = ImGui::GetWindowDrawList();
-    dl->PushClipRect(
-        ImVec2(static_cast<float>(viewportX), 
-               static_cast<float>(viewportY)),
-        ImVec2(static_cast<float>(viewportX + viewportW), 
-               static_cast<float>(viewportY + viewportH)),
-        true  // Intersect with current clip rect
-    );
+    // Only use ImGui clip rect if not in export mode
+    ImDrawList* dl = nullptr;
+    if (!context || !context->skipImGui) {
+        dl = ImGui::GetWindowDrawList();
+        dl->PushClipRect(
+            ImVec2(static_cast<float>(viewportX), 
+                   static_cast<float>(viewportY)),
+            ImVec2(static_cast<float>(viewportX + viewportW), 
+                   static_cast<float>(viewportY + viewportH)),
+            true  // Intersect with current clip rect
+        );
+    }
+    
+    // Determine layer visibility from context or defaults
+    bool showGridLayer = context ? context->showGrid : showGrid;
+    bool showRoomsLayer = context ? context->showRooms : showRoomOverlays;
+    bool showTilesLayer = context ? context->showTiles : true;
+    bool showEdgesLayer = context ? context->showEdges : true;
+    bool showMarkersLayer = context ? context->showMarkers : true;
     
     // Render in order: grid, rooms, tiles, edges, doors, markers, overlays
-    if (showGrid) {
+    if (showGridLayer) {
         RenderGrid(renderer, model.grid);
     }
-    RenderRooms(renderer, model);
-    RenderTiles(renderer, model);
-    RenderEdges(renderer, model, hoveredEdge);
-    RenderDoors(renderer, model);
-    RenderMarkers(renderer, model, icons, selectedMarker, hoveredMarker);
-    if (showRoomOverlays) {
+    if (showRoomsLayer) {
+        RenderRooms(renderer, model, context);
+    }
+    if (showTilesLayer) {
+        RenderTiles(renderer, model);
+    }
+    if (showEdgesLayer) {
+        RenderEdges(renderer, model, hoveredEdge);
+        RenderDoors(renderer, model);
+    }
+    if (showMarkersLayer) {
+        RenderMarkers(renderer, model, icons, selectedMarker, hoveredMarker);
+    }
+    if (showRoomsLayer && showRoomOverlays) {
         RenderRoomOverlays(renderer, model);
     }
     
-    // Pop clip rect
-    dl->PopClipRect();
+    // Pop clip rect only if we pushed it
+    if (dl) {
+        dl->PopClipRect();
+    }
 }
 
 void Canvas::ScreenToWorld(float sx, float sy, float* wx, float* wy) const {
@@ -174,7 +194,8 @@ void Canvas::RenderGrid(IRenderer& renderer, const GridConfig& grid) {
     }
 }
 
-void Canvas::RenderRooms(IRenderer& renderer, const Model& model) {
+void Canvas::RenderRooms(IRenderer& renderer, const Model& model,
+                        const RenderContext* context) {
     const int tileWidth = model.grid.tileWidth;
     const int tileHeight = model.grid.tileHeight;
     
@@ -216,8 +237,8 @@ void Canvas::RenderRooms(IRenderer& renderer, const Model& model) {
         // Draw outline
         renderer.DrawRectOutline(sx, sy, sw, sh, room.color, 2.0f);
         
-        // Draw room name (if zoom is high enough)
-        if (zoom > 0.5f) {
+        // Draw room name only if not in export mode
+        if (zoom > 0.5f && (!context || !context->skipImGui)) {
             ImDrawList* dl = ImGui::GetBackgroundDrawList();
             ImVec2 textPos(sx + 4, sy + 4);
             dl->AddText(textPos, IM_COL32(255, 255, 255, 255), 

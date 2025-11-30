@@ -132,15 +132,24 @@ bool ExportPng::Export(
                           options.padding;
     exportCanvas.showGrid = options.layerGrid;
     
-    // Render
-    // TODO: Apply layer visibility from options
+    // Create render context for export
+    RenderContext exportContext;
+    exportContext.skipImGui = true;
+    exportContext.showGrid = options.layerGrid;
+    exportContext.showTiles = options.layerTiles;
+    exportContext.showEdges = options.layerDoors;
+    exportContext.showMarkers = options.layerMarkers;
+    exportContext.showRooms = false;  // Skip room metadata overlays
+    
+    // Render with export context
     exportCanvas.Render(
         renderer, model, icons, 
         0, 0, width, height,
         nullptr,  // No hovered edge in export
-        true,     // Show room overlays
+        false,    // No room overlays
         nullptr,  // No selected marker in export
-        nullptr   // No hovered marker in export
+        nullptr,  // No hovered marker in export
+        &exportContext
     );
     
     // Read pixels
