@@ -283,6 +283,15 @@ struct Metadata {
 };
 
 // ============================================================================
+// Content bounds for export
+// ============================================================================
+
+struct ContentBounds {
+    int minX, minY, maxX, maxY;
+    bool isEmpty;
+};
+
+// ============================================================================
 // Model - Complete project state
 // ============================================================================
 
@@ -366,6 +375,9 @@ public:
     // Update marker icon references
     int UpdateMarkerIconNames(const std::string& oldName, 
                               const std::string& newName);
+    
+    // Content bounds calculation for export
+    ContentBounds CalculateContentBounds() const;
     
     // Initialize defaults
     void InitDefaults();

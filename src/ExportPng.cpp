@@ -17,38 +17,53 @@ void ExportPng::CalculateDimensions(
     int* outWidth,
     int* outHeight
 ) {
-    if (options.cropMode == ExportOptions::CropMode::FullGrid) {
-        *outWidth = model.grid.cols * model.grid.tileWidth * 
-                    options.scale;
-        *outHeight = model.grid.rows * model.grid.tileHeight * 
-                     options.scale;
+    // Get actual content bounds
+    ContentBounds bounds = model.CalculateContentBounds();
+    
+    // Handle empty project
+    if (bounds.isEmpty) {
+        *outWidth = 0;
+        *outHeight = 0;
         return;
     }
     
-    // Calculate bounding box of all rooms
-    if (model.rooms.empty()) {
-        *outWidth = 512;
-        *outHeight = 512;
-        return;
+    // Calculate content dimensions in tiles
+    int contentWidthTiles = bounds.maxX - bounds.minX + 1;
+    int contentHeightTiles = bounds.maxY - bounds.minY + 1;
+    
+    // Convert to pixels at 1× scale
+    int contentWidthPx = contentWidthTiles * model.grid.tileWidth;
+    int contentHeightPx = contentHeightTiles * model.grid.tileHeight;
+    
+    // Add padding (in pixels at 1× scale)
+    contentWidthPx += options.padding * 2;
+    contentHeightPx += options.padding * 2;
+    
+    // Apply sizing mode
+    if (options.sizeMode == ExportOptions::SizeMode::Scale) {
+        // Simple scale multiplier
+        *outWidth = contentWidthPx * options.scale;
+        *outHeight = contentHeightPx * options.scale;
+    } else {
+        // Custom dimensions - scale to fit, maintain aspect ratio
+        float contentAspect = (float)contentWidthPx / contentHeightPx;
+        float targetAspect = (float)options.customWidth / 
+                            options.customHeight;
+        
+        if (contentAspect > targetAspect) {
+            // Content wider - fit to width
+            *outWidth = options.customWidth;
+            *outHeight = (int)(options.customWidth / contentAspect);
+        } else {
+            // Content taller - fit to height
+            *outHeight = options.customHeight;
+            *outWidth = (int)(options.customHeight * contentAspect);
+        }
     }
     
-    // Use grid bounds for export
-    // TODO: Calculate actual bounds from painted tiles or regions
-    int minX = 0;
-    int minY = 0;
-    int maxX = model.grid.cols;
-    int maxY = model.grid.rows;
-    
-    // Add padding (use average of width and height)
-    int avgTileSize = (model.grid.tileWidth + model.grid.tileHeight) / 2;
-    int paddingTiles = options.padding / avgTileSize;
-    minX -= paddingTiles;
-    minY -= paddingTiles;
-    maxX += paddingTiles;
-    maxY += paddingTiles;
-    
-    *outWidth = (maxX - minX) * model.grid.tileWidth * options.scale;
-    *outHeight = (maxY - minY) * model.grid.tileHeight * options.scale;
+    // Clamp to safety limits
+    *outWidth = std::min(*outWidth, ExportOptions::MAX_DIMENSION);
+    *outHeight = std::min(*outHeight, ExportOptions::MAX_DIMENSION);
 }
 
 bool ExportPng::Export(
@@ -62,6 +77,14 @@ bool ExportPng::Export(
     // Calculate dimensions
     int width, height;
     CalculateDimensions(model, options, &width, &height);
+    
+    // Check for empty project
+    if (width == 0 || height == 0) {
+        return false;
+    }
+    
+    // Get content bounds for centering
+    ContentBounds bounds = model.CalculateContentBounds();
     
     // Create offscreen framebuffer
     GlRenderer* glRenderer = dynamic_cast<GlRenderer*>(&renderer);
@@ -91,9 +114,22 @@ bool ExportPng::Export(
     
     // Temporarily adjust canvas for export
     Canvas exportCanvas = canvas;
-    exportCanvas.zoom = options.scale;
-    exportCanvas.offsetX = 0;
-    exportCanvas.offsetY = 0;
+    
+    // Calculate effective scale based on actual output dimensions
+    int contentWidthTiles = bounds.maxX - bounds.minX + 1;
+    int contentHeightTiles = bounds.maxY - bounds.minY + 1;
+    int contentWidthPx = contentWidthTiles * model.grid.tileWidth + 
+                        options.padding * 2;
+    int contentHeightPx = contentHeightTiles * model.grid.tileHeight + 
+                         options.padding * 2;
+    
+    float effectiveScale = (float)width / contentWidthPx;
+    
+    exportCanvas.zoom = effectiveScale;
+    exportCanvas.offsetX = bounds.minX * model.grid.tileWidth - 
+                          options.padding;
+    exportCanvas.offsetY = bounds.minY * model.grid.tileHeight - 
+                          options.padding;
     exportCanvas.showGrid = options.layerGrid;
     
     // Render

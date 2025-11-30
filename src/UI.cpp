@@ -196,6 +196,10 @@ void UI::Render(
     if (showExportModal) {
         RenderExportModal(model, canvas);
     }
+    if (shouldShowExportPngDialog) {
+        shouldShowExportPngDialog = false;
+        ShowExportPngDialog(app);
+    }
     if (showSettingsModal) {
         RenderSettingsModal(model);
     }
@@ -3184,35 +3188,122 @@ void UI::RenderExportModal(Model& model, Canvas& canvas) {
     ImGui::OpenPopup("Export PNG");
     
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
-    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, 
+                           ImVec2(0.5f, 0.5f));
     
     if (ImGui::BeginPopupModal("Export PNG", nullptr, 
         ImGuiWindowFlags_AlwaysAutoResize)) {
         
-        ImGui::Text("Export Options");
+        // Calculate content dimensions for display
+        ContentBounds bounds = model.CalculateContentBounds();
+        
+        // Check if there's content to export
+        if (bounds.isEmpty) {
+            ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.0f, 1.0f), 
+                "Warning: No content to export!");
+            ImGui::Text("Draw some tiles, walls, or markers first.");
+            ImGui::Spacing();
+            
+            if (ImGui::Button("OK", ImVec2(120, 0))) {
+                showExportModal = false;
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
+            return;
+        }
+        
+        int contentWidthTiles = bounds.maxX - bounds.minX + 1;
+        int contentHeightTiles = bounds.maxY - bounds.minY + 1;
+        int contentWidthPx = contentWidthTiles * model.grid.tileWidth;
+        int contentHeightPx = contentHeightTiles * model.grid.tileHeight;
+        
+        // Display content info
+        ImGui::Text("Content Area: %d × %d pixels (%d × %d tiles)",
+                   contentWidthPx, contentHeightPx,
+                   contentWidthTiles, contentHeightTiles);
         ImGui::Separator();
         
-        ImGui::SliderInt("Scale", &exportOptions.scale, 1, 4);
+        // Size mode selection
+        ImGui::Text("Size Mode:");
+        
+        int mode = (int)exportOptions.sizeMode;
+        if (ImGui::RadioButton("Scale", &mode, 0)) {
+            exportOptions.sizeMode = ExportOptions::SizeMode::Scale;
+        }
+        
+        if (exportOptions.sizeMode == ExportOptions::SizeMode::Scale) {
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(100);
+            ImGui::SliderInt("##scale", &exportOptions.scale, 1, 4);
+            
+            int outW = (contentWidthPx + exportOptions.padding * 2) * 
+                      exportOptions.scale;
+            int outH = (contentHeightPx + exportOptions.padding * 2) * 
+                      exportOptions.scale;
+            ImGui::SameLine();
+            ImGui::Text("→ %d × %d px", outW, outH);
+        }
+        
+        if (ImGui::RadioButton("Custom Dimensions", &mode, 1)) {
+            exportOptions.sizeMode = 
+                ExportOptions::SizeMode::CustomDimensions;
+        }
+        
+        if (exportOptions.sizeMode == 
+            ExportOptions::SizeMode::CustomDimensions) {
+            ImGui::Indent();
+            ImGui::SetNextItemWidth(120);
+            ImGui::InputInt("Width", &exportOptions.customWidth);
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(120);
+            ImGui::InputInt("Height", &exportOptions.customHeight);
+            
+            // Clamp to reasonable range
+            exportOptions.customWidth = std::clamp(
+                exportOptions.customWidth, 64, 
+                ExportOptions::MAX_DIMENSION);
+            exportOptions.customHeight = std::clamp(
+                exportOptions.customHeight, 64, 
+                ExportOptions::MAX_DIMENSION);
+            
+            ImGui::Text("(scales to fit, maintains aspect ratio)");
+            ImGui::Unindent();
+        }
+        
+        ImGui::Separator();
+        
+        // Padding control
+        ImGui::SetNextItemWidth(120);
+        ImGui::SliderInt("Padding (px)", &exportOptions.padding, 0, 64);
+        
+        ImGui::Separator();
+        
+        // Transparency
         ImGui::Checkbox("Transparency", &exportOptions.transparency);
         
         if (!exportOptions.transparency) {
+            ImGui::SameLine();
             ImGui::ColorEdit3("Background", &exportOptions.bgColorR);
         }
         
         ImGui::Separator();
         ImGui::Text("Layers");
         ImGui::Checkbox("Grid", &exportOptions.layerGrid);
+        ImGui::SameLine();
         ImGui::Checkbox("Room Outlines", &exportOptions.layerRoomOutlines);
         ImGui::Checkbox("Tiles", &exportOptions.layerTiles);
+        ImGui::SameLine();
         ImGui::Checkbox("Doors", &exportOptions.layerDoors);
         ImGui::Checkbox("Markers", &exportOptions.layerMarkers);
         
         ImGui::Separator();
         
-        if (ImGui::Button("Export", ImVec2(120, 0))) {
-            // TODO: Trigger export
+        // Export button - triggers file dialog
+        if (ImGui::Button("Export...", ImVec2(120, 0))) {
             showExportModal = false;
             ImGui::CloseCurrentPopup();
+            // Trigger the export dialog (will be called after modal closes)
+            shouldShowExportPngDialog = true;
         }
         
         ImGui::SameLine();
@@ -4840,6 +4931,81 @@ void UI::ShowExportPackageDialog(App& app) {
         &filter,
         // Number of filters
         1,
+        // Default location
+        nullptr
+    );
+}
+
+void UI::ShowExportPngDialog(App& app) {
+    // Callback struct
+    struct CallbackData {
+        UI* ui;
+        App* app;
+    };
+    
+    // Allocate callback data on heap (freed in callback)
+    CallbackData* data = new CallbackData{this, &app};
+    
+    // Setup filters for PNG files
+    static SDL_DialogFileFilter filters[] = {
+        { "PNG Image", "png" },
+        { "All Files", "*" }
+    };
+    
+    // Show native save file dialog
+    SDL_ShowSaveFileDialog(
+        // Callback
+        [](void* userdata, const char* const* filelist, int filterIndex) {
+            CallbackData* data = static_cast<CallbackData*>(userdata);
+            
+            if (filelist == nullptr) {
+                // Error occurred
+                data->ui->ShowToast("Failed to open save dialog", 
+                                   Toast::Type::Error);
+                delete data;
+                return;
+            }
+            
+            if (filelist[0] == nullptr) {
+                // User canceled
+                delete data;
+                return;
+            }
+            
+            // User selected a path
+            std::string path = filelist[0];
+            
+            // Ensure .png extension
+            if (path.size() < 4 || 
+                path.substr(path.size() - 4) != ".png") {
+                path += ".png";
+            }
+            
+            // Check for empty content
+            ContentBounds bounds = 
+                data->app->GetModel().CalculateContentBounds();
+            
+            if (bounds.isEmpty) {
+                data->ui->ShowToast(
+                    "Cannot export: No content drawn yet",
+                    Toast::Type::Error);
+                delete data;
+                return;
+            }
+            
+            // Export PNG
+            data->app->ExportPng(path);
+            
+            delete data;
+        },
+        // Userdata
+        data,
+        // Window (NULL for now)
+        nullptr,
+        // Filters
+        filters,
+        // Number of filters
+        2,
         // Default location
         nullptr
     );

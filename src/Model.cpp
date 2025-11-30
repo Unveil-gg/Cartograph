@@ -710,5 +710,85 @@ void Model::InitDefaultTheme(const std::string& name) {
     }
 }
 
+// ============================================================================
+// Content bounds calculation
+// ============================================================================
+
+ContentBounds Model::CalculateContentBounds() const {
+    ContentBounds bounds;
+    bounds.isEmpty = true;
+    bounds.minX = 0;
+    bounds.minY = 0;
+    bounds.maxX = 0;
+    bounds.maxY = 0;
+    
+    bool hasContent = false;
+    int tempMinX = INT_MAX;
+    int tempMinY = INT_MAX;
+    int tempMaxX = INT_MIN;
+    int tempMaxY = INT_MIN;
+    
+    // Check edges (walls and doors)
+    for (const auto& pair : edges) {
+        if (pair.second == EdgeState::None) continue;
+        
+        const EdgeId& edge = pair.first;
+        tempMinX = std::min(tempMinX, std::min(edge.x1, edge.x2));
+        tempMinY = std::min(tempMinY, std::min(edge.y1, edge.y2));
+        tempMaxX = std::max(tempMaxX, std::max(edge.x1, edge.x2));
+        tempMaxY = std::max(tempMaxY, std::max(edge.y1, edge.y2));
+        hasContent = true;
+    }
+    
+    // Check markers
+    for (const auto& marker : markers) {
+        int mx = static_cast<int>(std::floor(marker.x));
+        int my = static_cast<int>(std::floor(marker.y));
+        tempMinX = std::min(tempMinX, mx);
+        tempMinY = std::min(tempMinY, my);
+        tempMaxX = std::max(tempMaxX, mx);
+        tempMaxY = std::max(tempMaxY, my);
+        hasContent = true;
+    }
+    
+    // Check cell room assignments
+    for (const auto& pair : cellRoomAssignments) {
+        int cx = pair.first.first;
+        int cy = pair.first.second;
+        tempMinX = std::min(tempMinX, cx);
+        tempMinY = std::min(tempMinY, cy);
+        tempMaxX = std::max(tempMaxX, cx);
+        tempMaxY = std::max(tempMaxY, cy);
+        hasContent = true;
+    }
+    
+    // Check tiles
+    for (const auto& row : tiles) {
+        for (const auto& run : row.runs) {
+            if (run.tileId == 0) continue;  // Skip empty tiles
+            
+            int startX = run.startX;
+            int endX = run.startX + run.count - 1;
+            int y = row.y;
+            
+            tempMinX = std::min(tempMinX, startX);
+            tempMinY = std::min(tempMinY, y);
+            tempMaxX = std::max(tempMaxX, endX);
+            tempMaxY = std::max(tempMaxY, y);
+            hasContent = true;
+        }
+    }
+    
+    if (hasContent) {
+        bounds.isEmpty = false;
+        bounds.minX = tempMinX;
+        bounds.minY = tempMinY;
+        bounds.maxX = tempMaxX;
+        bounds.maxY = tempMaxY;
+    }
+    
+    return bounds;
+}
+
 } // namespace Cartograph
 

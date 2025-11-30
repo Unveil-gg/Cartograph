@@ -84,6 +84,11 @@ public:
      */
     AppState GetState() const { return m_appState; }
     
+    /**
+     * Get current model (read-only).
+     */
+    const Model& GetModel() const { return m_model; }
+    
     // File operations
     void NewProject(const std::string& savePath = "");
     void OpenProject(const std::string& path);

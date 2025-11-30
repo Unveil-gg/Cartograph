@@ -14,7 +14,23 @@ class IconManager;
  * Export options for PNG export.
  */
 struct ExportOptions {
-    int scale = 1;              // 1×, 2×, 3×, etc.
+    // Size mode
+    enum class SizeMode {
+        Scale,           // Use scale multiplier
+        CustomDimensions // Explicit width/height
+    } sizeMode = SizeMode::Scale;
+    
+    int scale = 2;              // Scale multiplier (1×, 2×, 3×, 4×)
+    int customWidth = 1920;     // Custom dimensions (used if sizeMode = Custom)
+    int customHeight = 1080;
+    
+    // Safety limit
+    static constexpr int MAX_DIMENSION = 16384;
+    
+    // User-configurable padding (pixels at 1× scale)
+    int padding = 16;
+    
+    // Transparency and background
     bool transparency = true;   // Transparent background
     float bgColorR = 1.0f;      // Background color if not transparent
     float bgColorG = 1.0f;
@@ -27,16 +43,6 @@ struct ExportOptions {
     bool layerTiles = true;
     bool layerDoors = true;
     bool layerMarkers = true;
-    bool layerLegend = false;
-    
-    // Cropping
-    enum class CropMode {
-        UsedArea,   // Crop to rooms + padding
-        FullGrid    // Export entire grid
-    } cropMode = CropMode::UsedArea;
-    
-    int padding = 16;  // Padding in pixels @ 1× scale
-    int dpi = 96;      // DPI metadata
 };
 
 /**

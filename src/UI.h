@@ -167,6 +167,12 @@ public:
     void ShowExportPackageDialog(App& app);
     
     /**
+     * Show save dialog for PNG export.
+     * @param app App instance to export through
+     */
+    void ShowExportPngDialog(App& app);
+    
+    /**
      * Handle dropped file (from OS drag-drop).
      * @param filePath Path to dropped file
      */
@@ -190,6 +196,7 @@ public:
     
     // UI state
     bool showExportModal = false;
+    bool shouldShowExportPngDialog = false;
     ExportOptions exportOptions;
     bool showSettingsModal = false;
     
