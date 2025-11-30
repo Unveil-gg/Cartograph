@@ -37,23 +37,33 @@ public:
         }
     }
     
-    // Draw horizontal line
-    void DrawHLine(int x1, int x2, int y, const Color& color) {
-        if (y < 0 || y >= m_height) return;
-        int startX = std::max(0, std::min(x1, x2));
-        int endX = std::min(m_width - 1, std::max(x1, x2));
-        for (int x = startX; x <= endX; ++x) {
-            SetPixel(x, y, color);
+    // Draw horizontal line with thickness
+    void DrawHLine(int x1, int x2, int y, const Color& color, int thickness = 1) {
+        int halfThick = thickness / 2;
+        for (int t = -halfThick; t <= halfThick; ++t) {
+            int py = y + t;
+            if (py < 0 || py >= m_height) continue;
+            
+            int startX = std::max(0, std::min(x1, x2));
+            int endX = std::min(m_width - 1, std::max(x1, x2));
+            for (int x = startX; x <= endX; ++x) {
+                SetPixel(x, py, color);
+            }
         }
     }
     
-    // Draw vertical line
-    void DrawVLine(int x, int y1, int y2, const Color& color) {
-        if (x < 0 || x >= m_width) return;
-        int startY = std::max(0, std::min(y1, y2));
-        int endY = std::min(m_height - 1, std::max(y1, y2));
-        for (int y = startY; y <= endY; ++y) {
-            SetPixel(x, y, color);
+    // Draw vertical line with thickness
+    void DrawVLine(int x, int y1, int y2, const Color& color, int thickness = 1) {
+        int halfThick = thickness / 2;
+        for (int t = -halfThick; t <= halfThick; ++t) {
+            int px = x + t;
+            if (px < 0 || px >= m_width) continue;
+            
+            int startY = std::max(0, std::min(y1, y2));
+            int endY = std::min(m_height - 1, std::max(y1, y2));
+            for (int y = startY; y <= endY; ++y) {
+                SetPixel(px, y, color);
+            }
         }
     }
     
@@ -197,6 +207,9 @@ bool ExportPng::Export(
     
     // Render edges (walls and doors)
     if (options.layerDoors) {
+        // Calculate line thickness based on scale (2px base * scale)
+        int thickness = std::max(1, static_cast<int>(2 * scale));
+        
         for (const auto& [edgeId, state] : model.edges) {
             if (state == EdgeState::None) continue;
             
@@ -217,7 +230,7 @@ bool ExportPng::Export(
                 tileToPixel(x, y, &px1, &py1);
                 tileToPixel(x, y + 1, &px2, &py2);
                 
-                buffer.DrawVLine(px1, py1, py2, lineColor);
+                buffer.DrawVLine(px1, py1, py2, lineColor, thickness);
             } else {
                 // Horizontal edge
                 int x = std::min(edgeId.x1, edgeId.x2);
@@ -226,7 +239,7 @@ bool ExportPng::Export(
                 tileToPixel(x, y, &px1, &py1);
                 tileToPixel(x + 1, y, &px2, &py2);
                 
-                buffer.DrawHLine(px1, px2, py1, lineColor);
+                buffer.DrawHLine(px1, px2, py1, lineColor, thickness);
             }
         }
     }

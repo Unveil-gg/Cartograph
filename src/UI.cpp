@@ -3291,7 +3291,7 @@ void UI::RenderExportModal(Model& model, Canvas& canvas) {
         ImGui::Checkbox("Grid", &exportOptions.layerGrid);
         ImGui::SameLine();
         ImGui::Checkbox("Tiles", &exportOptions.layerTiles);
-        ImGui::Checkbox("Doors", &exportOptions.layerDoors);
+        ImGui::Checkbox("Walls & Doors", &exportOptions.layerDoors);
         ImGui::SameLine();
         ImGui::Checkbox("Markers", &exportOptions.layerMarkers);
         
