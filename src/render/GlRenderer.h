@@ -2,6 +2,7 @@
 
 #include "Renderer.h"
 #include <SDL3/SDL.h>
+#include <imgui.h>
 
 namespace Cartograph {
 
@@ -55,10 +56,18 @@ public:
      */
     void ReadPixels(int x, int y, int width, int height, uint8_t* outData);
     
+    /**
+     * Set custom draw list for offscreen rendering.
+     * If nullptr, uses window draw list (default).
+     * @param drawList Custom ImGui draw list for export, or nullptr
+     */
+    void SetCustomDrawList(ImDrawList* drawList);
+    
 private:
     SDL_Window* m_window;
     SDL_GLContext m_context;
     void* m_currentFbo;  // Current render target
+    ImDrawList* m_customDrawList;  // Custom draw list for offscreen
 };
 
 } // namespace Cartograph

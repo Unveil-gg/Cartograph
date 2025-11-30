@@ -22,6 +22,7 @@ struct FboHandle {
 GlRenderer::GlRenderer(SDL_Window* window)
     : m_window(window)
     , m_currentFbo(nullptr)
+    , m_customDrawList(nullptr)
 {
     // OpenGL context is created by App, just store reference
     m_context = SDL_GL_GetCurrentContext();
@@ -72,8 +73,9 @@ void GlRenderer::DrawRect(
     float x, float y, float w, float h, 
     const Color& color
 ) {
-    // Use window draw list to respect ImGui's z-order
-    ImDrawList* dl = ImGui::GetWindowDrawList();
+    // Use custom draw list if set, otherwise window draw list
+    ImDrawList* dl = m_customDrawList ? m_customDrawList : 
+                     ImGui::GetWindowDrawList();
     dl->AddRectFilled(
         ImVec2(x, y),
         ImVec2(x + w, y + h),
@@ -85,8 +87,9 @@ void GlRenderer::DrawRectOutline(
     float x, float y, float w, float h, 
     const Color& color, float thickness
 ) {
-    // Use window draw list to respect ImGui's z-order
-    ImDrawList* dl = ImGui::GetWindowDrawList();
+    // Use custom draw list if set, otherwise window draw list
+    ImDrawList* dl = m_customDrawList ? m_customDrawList : 
+                     ImGui::GetWindowDrawList();
     dl->AddRect(
         ImVec2(x, y),
         ImVec2(x + w, y + h),
@@ -101,8 +104,9 @@ void GlRenderer::DrawLine(
     float x1, float y1, float x2, float y2,
     const Color& color, float thickness
 ) {
-    // Use window draw list to respect ImGui's z-order
-    ImDrawList* dl = ImGui::GetWindowDrawList();
+    // Use custom draw list if set, otherwise window draw list
+    ImDrawList* dl = m_customDrawList ? m_customDrawList : 
+                     ImGui::GetWindowDrawList();
     dl->AddLine(
         ImVec2(x1, y1),
         ImVec2(x2, y2),
@@ -193,6 +197,10 @@ void GlRenderer::ReadPixels(
         GL_RGBA, GL_UNSIGNED_BYTE,
         outData
     );
+}
+
+void GlRenderer::SetCustomDrawList(ImDrawList* drawList) {
+    m_customDrawList = drawList;
 }
 
 } // namespace Cartograph

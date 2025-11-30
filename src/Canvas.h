@@ -2,6 +2,7 @@
 
 #include "Model.h"
 #include <vector>
+#include <imgui.h>
 
 namespace Cartograph {
 
@@ -23,6 +24,9 @@ struct RenderContext {
     bool showEdges = true;        // Walls and doors
     bool showMarkers = true;
     bool showRooms = true;        // Room overlays (colored boxes/names)
+    
+    // Custom draw list for offscreen rendering (if nullptr, use window list)
+    ImDrawList* customDrawList = nullptr;
 };
 
 /**
