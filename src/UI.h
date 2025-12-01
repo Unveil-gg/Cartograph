@@ -15,6 +15,7 @@ class Canvas;
 class IconManager;
 class App;
 class JobQueue;
+class KeymapManager;
 
 /**
  * Console message type.
@@ -109,6 +110,7 @@ public:
      * @param history History
      * @param icons Icon manager
      * @param jobs Job queue for background tasks
+     * @param keymap Keymap manager for input handling
      * @param deltaTime Frame delta time
      */
     void Render(
@@ -119,6 +121,7 @@ public:
         History& history,
         IconManager& icons,
         JobQueue& jobs,
+        KeymapManager& keymap,
         float deltaTime
     );
     
@@ -308,7 +311,8 @@ private:
         Model& model, 
         Canvas& canvas, 
         History& history,
-        IconManager& icons
+        IconManager& icons,
+        KeymapManager& keymap
     );
     void RenderStatusBar(Model& model, Canvas& canvas);
     void RenderToasts(float deltaTime);

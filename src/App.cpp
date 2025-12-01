@@ -277,7 +277,7 @@ void App::Render() {
         m_ui.RenderWelcomeScreen(*this, m_model);
     } else {
         m_ui.Render(*this, *m_renderer, m_model, m_canvas, m_history, 
-                    m_icons, m_jobs, 0.016f);
+                    m_icons, m_jobs, m_keymap, 0.016f);
     }
     
     // Render ImGui
@@ -370,6 +370,9 @@ void App::NewProject(const std::string& savePath) {
     m_model.InitDefaults();
     m_history.Clear();
     
+    // Load keymap bindings into keymap manager
+    m_keymap.LoadBindings(m_model.keymap);
+    
     // If save path provided, set it and save immediately
     if (!savePath.empty()) {
         // Ensure directory exists
@@ -419,6 +422,9 @@ void App::OpenProject(const std::string& path) {
         m_history.Clear();
         UpdateWindowTitle();
         m_ui.AddRecentProject(path);
+        
+        // Load keymap bindings into keymap manager
+        m_keymap.LoadBindings(m_model.keymap);
         
         // Extract project name from path for console message
         std::string projectName = std::filesystem::path(path)

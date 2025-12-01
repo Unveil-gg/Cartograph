@@ -659,6 +659,7 @@ void Model::InitDefaultKeymap() {
     keymap["toolPaint"] = "B";  // B for Brush
     keymap["toolErase"] = "E";
     keymap["toolFill"] = "F";
+    keymap["toolEyedropper"] = "I";
     
     // View
     keymap["pan"] = "Space+Drag";
@@ -666,20 +667,36 @@ void Model::InitDefaultKeymap() {
     keymap["zoomOut"] = "-";
     keymap["toggleGrid"] = "G";
     
-    // Edit
+    // Platform-specific shortcuts (File/Edit)
 #ifdef __APPLE__
-    keymap["undo"] = "Cmd+Z";
-    keymap["redo"] = "Cmd+Y";
+    keymap["new"] = "Cmd+N";
     keymap["open"] = "Cmd+O";
     keymap["save"] = "Cmd+S";
+    keymap["saveAs"] = "Cmd+Shift+S";
     keymap["export"] = "Cmd+E";
+    keymap["exportPackage"] = "Cmd+Shift+E";
+    keymap["undo"] = "Cmd+Z";
+    keymap["redo"] = "Cmd+Y";
+    keymap["copy"] = "Cmd+C";
+    keymap["paste"] = "Cmd+V";
+    keymap["togglePropertiesPanel"] = "Cmd+P";
 #else
-    keymap["undo"] = "Ctrl+Z";
-    keymap["redo"] = "Ctrl+Y";
+    keymap["new"] = "Ctrl+N";
     keymap["open"] = "Ctrl+O";
     keymap["save"] = "Ctrl+S";
+    keymap["saveAs"] = "Ctrl+Shift+S";
     keymap["export"] = "Ctrl+E";
+    keymap["exportPackage"] = "Ctrl+Shift+E";
+    keymap["undo"] = "Ctrl+Z";
+    keymap["redo"] = "Ctrl+Y";
+    keymap["copy"] = "Ctrl+C";
+    keymap["paste"] = "Ctrl+V";
+    keymap["togglePropertiesPanel"] = "Ctrl+P";
 #endif
+    
+    // Non-platform-specific edit actions
+    keymap["delete"] = "Delete";
+    keymap["deleteAlt"] = "Backspace";  // Alternative delete key
 }
 
 void Model::InitDefaultTheme(const std::string& name) {

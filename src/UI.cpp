@@ -102,6 +102,7 @@ void UI::Render(
     History& history,
     IconManager& icons,
     JobQueue& jobs,
+    KeymapManager& keymap,
     float deltaTime
 ) {
     // Render menu bar outside dockspace (ensures it's on top)
@@ -109,33 +110,23 @@ void UI::Render(
     
     // Global keyboard shortcuts (work even when menus are closed)
     if (!ImGui::GetIO().WantCaptureKeyboard) {
-        // Cmd+S / Ctrl+S for Save
-        bool cmdS = ImGui::IsKeyPressed(ImGuiKey_S) && 
-                   (ImGui::GetIO().KeyCtrl || ImGui::GetIO().KeySuper);
-        if (cmdS) {
+        // Save
+        if (keymap.IsActionTriggered("save")) {
             app.SaveProject();
         }
         
-        // Cmd+Shift+S / Ctrl+Shift+S for Save As
-        bool cmdShiftS = ImGui::IsKeyPressed(ImGuiKey_S) && 
-                        (ImGui::GetIO().KeyCtrl || ImGui::GetIO().KeySuper) &&
-                        ImGui::GetIO().KeyShift;
-        if (cmdShiftS) {
+        // Save As
+        if (keymap.IsActionTriggered("saveAs")) {
             ShowSaveProjectDialog(app);
         }
         
-        // Cmd+E / Ctrl+E for Export PNG
-        bool cmdE = ImGui::IsKeyPressed(ImGuiKey_E) && 
-                   (ImGui::GetIO().KeyCtrl || ImGui::GetIO().KeySuper);
-        if (cmdE) {
+        // Export PNG
+        if (keymap.IsActionTriggered("export")) {
             showExportModal = true;
         }
         
-        // Cmd+Shift+E / Ctrl+Shift+E for Export Package
-        bool cmdShiftE = ImGui::IsKeyPressed(ImGuiKey_E) && 
-                        (ImGui::GetIO().KeyCtrl || ImGui::GetIO().KeySuper) &&
-                        ImGui::GetIO().KeyShift;
-        if (cmdShiftE) {
+        // Export Package
+        if (keymap.IsActionTriggered("exportPackage")) {
             ShowExportPackageDialog(app);
         }
     }
@@ -181,7 +172,7 @@ void UI::Render(
     
     // Render all panels (they will dock into the dockspace)
     // Canvas first (background layer), then side panels (on top for tooltips)
-    RenderCanvasPanel(renderer, model, canvas, history, icons);
+    RenderCanvasPanel(renderer, model, canvas, history, icons, keymap);
     RenderStatusBar(model, canvas);
     RenderToolsPanel(model, icons, jobs);
     
@@ -1393,7 +1384,8 @@ void UI::RenderCanvasPanel(
     Model& model, 
     Canvas& canvas, 
     History& history,
-    IconManager& icons
+    IconManager& icons,
+    KeymapManager& keymap
 ) {
     ImGuiWindowFlags flags = 
         ImGuiWindowFlags_NoMove | 
@@ -1472,31 +1464,29 @@ void UI::RenderCanvasPanel(
     
     // Global keyboard shortcuts for tool switching (work even when not hovering)
     if (!ImGui::GetIO().WantCaptureKeyboard) {
-        // Toggle properties panel: Cmd+P (Mac) / Ctrl+P (Win/Linux)
-        if (ImGui::IsKeyPressed(ImGuiKey_P) && 
-            (ImGui::GetIO().KeyCtrl || ImGui::GetIO().KeySuper)) {
+        // Toggle properties panel
+        if (keymap.IsActionTriggered("togglePropertiesPanel")) {
             showPropertiesPanel = !showPropertiesPanel;
             m_layoutInitialized = false;  // Trigger layout rebuild
         }
         
-        if (ImGui::IsKeyPressed(ImGuiKey_V)) {
+        // Tool switching shortcuts
+        if (keymap.IsActionTriggered("toolMove")) {
             currentTool = Tool::Move;
         }
-        if (ImGui::IsKeyPressed(ImGuiKey_S) && 
-            !ImGui::GetIO().KeyCtrl && !ImGui::GetIO().KeySuper) {
+        if (keymap.IsActionTriggered("toolSelect")) {
             currentTool = Tool::Select;
         }
-        if (ImGui::IsKeyPressed(ImGuiKey_B)) {
+        if (keymap.IsActionTriggered("toolPaint")) {
             currentTool = Tool::Paint;
         }
-        if (ImGui::IsKeyPressed(ImGuiKey_E) && 
-            !ImGui::GetIO().KeyCtrl && !ImGui::GetIO().KeySuper) {
+        if (keymap.IsActionTriggered("toolErase")) {
             currentTool = Tool::Erase;
         }
-        if (ImGui::IsKeyPressed(ImGuiKey_F)) {
+        if (keymap.IsActionTriggered("toolFill")) {
             currentTool = Tool::Fill;
         }
-        if (ImGui::IsKeyPressed(ImGuiKey_I)) {
+        if (keymap.IsActionTriggered("toolEyedropper")) {
             currentTool = Tool::Eyedropper;
         }
     }
@@ -2410,30 +2400,16 @@ void UI::RenderCanvasPanel(
     
     // Keyboard shortcuts for markers
     if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)) {
-        // Copy selected marker (Cmd/Ctrl+C)
-        bool cmdC = ImGui::IsKeyDown(ImGuiKey_LeftCtrl) || 
-                   ImGui::IsKeyDown(ImGuiKey_RightCtrl);
-#ifdef __APPLE__
-        cmdC = cmdC || ImGui::IsKeyDown(ImGuiKey_LeftSuper) || 
-               ImGui::IsKeyDown(ImGuiKey_RightSuper);
-#endif
-        
-        if (cmdC && ImGui::IsKeyPressed(ImGuiKey_C, false)) {
+        // Copy selected marker
+        if (keymap.IsActionTriggered("copy")) {
             if (selectedMarker) {
                 copiedMarkers.clear();
                 copiedMarkers.push_back(*selectedMarker);
             }
         }
         
-        // Paste marker (Cmd/Ctrl+V)
-        bool cmdV = ImGui::IsKeyDown(ImGuiKey_LeftCtrl) || 
-                   ImGui::IsKeyDown(ImGuiKey_RightCtrl);
-#ifdef __APPLE__
-        cmdV = cmdV || ImGui::IsKeyDown(ImGuiKey_LeftSuper) || 
-               ImGui::IsKeyDown(ImGuiKey_RightSuper);
-#endif
-        
-        if (cmdV && ImGui::IsKeyPressed(ImGuiKey_V, false)) {
+        // Paste marker
+        if (keymap.IsActionTriggered("paste")) {
             if (!copiedMarkers.empty()) {
                 // Paste at mouse position or offset from original
                 ImVec2 mousePos = ImGui::GetMousePos();
@@ -2481,10 +2457,10 @@ void UI::RenderCanvasPanel(
             }
         }
         
-        // Delete selected marker (Delete/Backspace key)
+        // Delete selected marker
         if (selectedMarker && 
-            (ImGui::IsKeyPressed(ImGuiKey_Delete, false) ||
-             ImGui::IsKeyPressed(ImGuiKey_Backspace, false))) {
+            (keymap.IsActionTriggered("delete") || 
+             keymap.IsActionTriggered("deleteAlt"))) {
             auto cmd = std::make_unique<DeleteMarkerCommand>(
                 selectedMarker->id
             );
