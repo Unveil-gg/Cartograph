@@ -689,4 +689,3 @@ void App::UpdateWindowTitle() {
 }
 
 } // namespace Cartograph
-

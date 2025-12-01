@@ -937,11 +937,6 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
                 colorPickerOriginalColor[2] = tile.color.b;
                 colorPickerOriginalColor[3] = tile.color.a;
                 
-                std::string hex = tile.color.ToHex(true);
-                strncpy(colorPickerHexInput, hex.c_str(), 
-                       sizeof(colorPickerHexInput) - 1);
-                colorPickerHexInput[sizeof(colorPickerHexInput) - 1] = '\0';
-                
                 showColorPickerModal = true;
             }
             
@@ -979,12 +974,6 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
                     colorPickerOriginalColor[1] = tile.color.g;
                     colorPickerOriginalColor[2] = tile.color.b;
                     colorPickerOriginalColor[3] = tile.color.a;
-                    
-                    std::string hex = tile.color.ToHex(true);
-                    strncpy(colorPickerHexInput, hex.c_str(), 
-                           sizeof(colorPickerHexInput) - 1);
-                    colorPickerHexInput[sizeof(colorPickerHexInput) - 1] = 
-                        '\0';
                     
                     showColorPickerModal = true;
                 }
@@ -1034,13 +1023,8 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
             
             ImGui::SameLine();
             
-            // Selectable name with in-use indicator
-            std::string displayName = tile.name;
-            if (inUse) {
-                displayName += " \xE2\x80\xA2";  // UTF-8 bullet point
-            }
-            
-            if (ImGui::Selectable(displayName.c_str(), selected, 0, 
+            // Selectable name
+            if (ImGui::Selectable(tile.name.c_str(), selected, 0, 
                                   ImVec2(0, 24))) {
                 selectedTileId = tile.id;
             }
@@ -1065,12 +1049,6 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
                     colorPickerOriginalColor[1] = tile.color.g;
                     colorPickerOriginalColor[2] = tile.color.b;
                     colorPickerOriginalColor[3] = tile.color.a;
-                    
-                    std::string hex = tile.color.ToHex(true);
-                    strncpy(colorPickerHexInput, hex.c_str(), 
-                           sizeof(colorPickerHexInput) - 1);
-                    colorPickerHexInput[sizeof(colorPickerHexInput) - 1] = 
-                        '\0';
                     
                     showColorPickerModal = true;
                 }
@@ -1141,9 +1119,6 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
             colorPickerColor[1] = 1.0f;
             colorPickerColor[2] = 1.0f;
             colorPickerColor[3] = 1.0f;
-            
-            strncpy(colorPickerHexInput, "#ffffff", 
-                   sizeof(colorPickerHexInput) - 1);
             
             showColorPickerModal = true;
         }
@@ -4350,11 +4325,13 @@ void UI::RenderColorPickerModal(Model& model, History& history) {
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, 
         ImVec2(0.5f, 0.5f));
-    ImGui::SetNextWindowSize(ImVec2(450, 0), ImGuiCond_Appearing);
+    
+    // Set fixed size to prevent resize animation
+    ImGui::SetNextWindowSize(ImVec2(450, 550), ImGuiCond_Always);
     
     bool modalOpen = true;
     if (ImGui::BeginPopupModal("Color Picker", &modalOpen, 
-        ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGuiWindowFlags_NoResize)) {
         
         // Modal title/header
         if (colorPickerEditingTileId == -1) {
@@ -4379,36 +4356,7 @@ void UI::RenderColorPickerModal(Model& model, History& history) {
         );
         
         ImGui::Spacing();
-        
-        // Hex input with validation
-        ImGui::Text("Hex Color:");
-        ImGui::SetNextItemWidth(120);
-        bool hexValid = true;
-        if (ImGui::InputText("##hexinput", colorPickerHexInput, 
-                            sizeof(colorPickerHexInput))) {
-            // Validate and parse hex
-            std::string hexStr = colorPickerHexInput;
-            if (!hexStr.empty() && hexStr[0] == '#' && 
-                (hexStr.length() == 7 || hexStr.length() == 9)) {
-                // Parse hex and update color picker
-                Color parsed = Color::FromHex(colorPickerHexInput);
-                colorPickerColor[0] = parsed.r;
-                colorPickerColor[1] = parsed.g;
-                colorPickerColor[2] = parsed.b;
-                colorPickerColor[3] = parsed.a;
-            } else if (!hexStr.empty()) {
-                hexValid = false;
-            }
-        }
-        
-        ImGui::SameLine();
-        if (!hexValid) {
-            ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f),
-                "Invalid format");
-        } else {
-            ImGui::TextDisabled("(e.g., #RRGGBB or #RRGGBBAA)");
-        }
-        
+        ImGui::Separator();
         ImGui::Spacing();
         
         // Color picker widget
@@ -4419,14 +4367,7 @@ void UI::RenderColorPickerModal(Model& model, History& history) {
             ImGuiColorEditFlags_DisplayRGB |
             ImGuiColorEditFlags_DisplayHex;
         
-        if (ImGui::ColorPicker4("##colorpicker", colorPickerColor, flags)) {
-            // Update hex input when color picker changes
-            Color color(colorPickerColor[0], colorPickerColor[1], 
-                       colorPickerColor[2], colorPickerColor[3]);
-            std::string hex = color.ToHex(true);
-            strncpy(colorPickerHexInput, hex.c_str(), 
-                   sizeof(colorPickerHexInput) - 1);
-        }
+        ImGui::ColorPicker4("##colorpicker", colorPickerColor, flags);
         
         ImGui::Spacing();
         

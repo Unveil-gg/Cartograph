@@ -322,7 +322,6 @@ public:
     char colorPickerName[128] = "";
     float colorPickerColor[4] = {1.0f, 1.0f, 1.0f, 1.0f};  // RGBA
     float colorPickerOriginalColor[4] = {1.0f, 1.0f, 1.0f, 1.0f};
-    char colorPickerHexInput[16] = "#ffffff";
     bool colorPickerDeleteRequested = false;
     
 private:
