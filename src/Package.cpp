@@ -24,6 +24,7 @@ std::string Package::CreateManifest(const Model& model) {
     j["version"] = 1;
     j["title"] = model.meta.title;
     j["author"] = model.meta.author;
+    j["description"] = model.meta.description;
     return j.dump(2);
 }
 

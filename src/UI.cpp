@@ -3322,19 +3322,41 @@ void UI::RenderSettingsModal(Model& model) {
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, 
         ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_Appearing);
     
     if (ImGui::BeginPopupModal("Settings", nullptr, 
-        ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGuiWindowFlags_NoResize)) {
         
-        ImGui::Text("Project Settings");
+        // Apply increased padding for better spacing
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(20, 16));
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8, 10));
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(8, 6));
+        
+        // Style the tab bar for better visibility
+        ImGui::PushStyleColor(ImGuiCol_Tab, ImVec4(0.2f, 0.2f, 0.25f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_TabHovered, 
+            ImVec4(0.3f, 0.5f, 0.7f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_TabActive, 
+            ImVec4(0.25f, 0.45f, 0.65f, 1.0f));
+        
+        if (ImGui::BeginTabBar("SettingsTabs", ImGuiTabBarFlags_None)) {
+            
+            // ============================================================
+            // TAB 1: PROJECT
+            // ============================================================
+            if (ImGui::BeginTabItem("Project")) {
+                settingsModalSelectedTab = 0;
+                ImGui::Spacing();
+                ImGui::Spacing();
+                
+                ImGui::Text("Project Information");
         ImGui::Separator();
         ImGui::Spacing();
         
         // Project metadata
-        ImGui::Text("Project Information:");
-        
         char titleBuf[256];
-        strncpy(titleBuf, model.meta.title.c_str(), sizeof(titleBuf) - 1);
+                strncpy(titleBuf, model.meta.title.c_str(), 
+                    sizeof(titleBuf) - 1);
         titleBuf[sizeof(titleBuf) - 1] = '\0';
         if (ImGui::InputText("Title", titleBuf, sizeof(titleBuf))) {
             model.meta.title = titleBuf;
@@ -3342,7 +3364,8 @@ void UI::RenderSettingsModal(Model& model) {
         }
         
         char authorBuf[256];
-        strncpy(authorBuf, model.meta.author.c_str(), sizeof(authorBuf) - 1);
+                strncpy(authorBuf, model.meta.author.c_str(), 
+                    sizeof(authorBuf) - 1);
         authorBuf[sizeof(authorBuf) - 1] = '\0';
         if (ImGui::InputText("Author", authorBuf, sizeof(authorBuf))) {
             model.meta.author = authorBuf;
@@ -3350,11 +3373,59 @@ void UI::RenderSettingsModal(Model& model) {
         }
         
         ImGui::Spacing();
-        ImGui::Separator();
+        
+        // Project description (multi-line)
+        char descBuf[2048];
+                strncpy(descBuf, model.meta.description.c_str(), 
+                    sizeof(descBuf) - 1);
+        descBuf[sizeof(descBuf) - 1] = '\0';
+        ImGui::Text("Description");
+        if (ImGui::InputTextMultiline("##description", descBuf, 
+                                      sizeof(descBuf),
+                                      ImVec2(-1, 120.0f),
+                                      ImGuiInputTextFlags_AllowTabInput)) {
+            model.meta.description = descBuf;
+            model.MarkDirty();
+        }
+                ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f),
+                    "Brief description of your project (optional)");
+        
         ImGui::Spacing();
+        ImGui::Separator();
+                ImGui::Spacing();
+                
+                // Preview info
+                ImGui::Text("Canvas Information");
+                ImGui::Separator();
+                ImGui::Spacing();
+                
+                int totalCells = model.grid.cols * model.grid.rows;
+                int pixelWidth = model.grid.cols * model.grid.tileWidth;
+                int pixelHeight = model.grid.rows * model.grid.tileHeight;
+                
+                ImGui::Text("Total cells: %d", totalCells);
+                ImGui::Text("Canvas size: %d × %d pixels", 
+                    pixelWidth, pixelHeight);
+                ImGui::Text("Cell size: %d × %d pixels", 
+                    model.grid.tileWidth, model.grid.tileHeight);
+                
+                ImGui::Spacing();
+                
+                ImGui::EndTabItem();
+            }
+            
+            // ============================================================
+            // TAB 2: GRID & CANVAS
+            // ============================================================
+            if (ImGui::BeginTabItem("Grid & Canvas")) {
+                settingsModalSelectedTab = 1;
+                ImGui::Spacing();
+                ImGui::Spacing();
         
         // Grid Cell Type
-        ImGui::Text("Grid Cell Type:");
+                ImGui::Text("Grid Cell Type");
+                ImGui::Separator();
+                ImGui::Spacing();
         
         bool canChangePreset = model.CanChangeGridPreset();
         
@@ -3367,31 +3438,34 @@ void UI::RenderSettingsModal(Model& model) {
             if (canChangePreset) {
                 model.ApplyGridPreset(GridPreset::Square);
             } else {
-                ShowToast("Cannot change cell type - delete all markers first",
+                        ShowToast(
+                            "Cannot change cell type - delete all markers first",
                     Toast::Type::Warning, 3.0f);
             }
         }
         ImGui::SameLine();
-        if (ImGui::Button("?##square_settings")) {
-            ShowToast("Square cells for top-down games. "
-                     "Markers snap to center only.",
-                Toast::Type::Info, 4.0f);
+        ImGui::TextDisabled("(?)");
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Square cells for top-down games. "
+                            "Markers snap to center only.");
         }
         
-        bool isRectangle = (model.grid.preset == GridPreset::Rectangle);
+                bool isRectangle = 
+                    (model.grid.preset == GridPreset::Rectangle);
         if (ImGui::RadioButton("Rectangle (32×16)", isRectangle)) {
             if (canChangePreset) {
                 model.ApplyGridPreset(GridPreset::Rectangle);
             } else {
-                ShowToast("Cannot change cell type - delete all markers first",
+                        ShowToast(
+                            "Cannot change cell type - delete all markers first",
                     Toast::Type::Warning, 3.0f);
             }
         }
         ImGui::SameLine();
-        if (ImGui::Button("?##rectangle_settings")) {
-            ShowToast("Rectangular cells for side-scrollers. "
-                     "Markers snap to left/right positions.",
-                Toast::Type::Info, 4.0f);
+        ImGui::TextDisabled("(?)");
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Rectangular cells for side-scrollers. "
+                            "Markers snap to left/right positions.");
         }
         
         if (!canChangePreset) {
@@ -3401,9 +3475,9 @@ void UI::RenderSettingsModal(Model& model) {
                 model.markers.size(),
                 model.markers.size() == 1 ? "" : "s");
             ImGui::SameLine();
-            if (ImGui::Button("?##locked_settings")) {
-                ShowToast("Delete all markers to change cell type",
-                    Toast::Type::Info, 3.0f);
+            ImGui::TextDisabled("(?)");
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Delete all markers to change cell type");
             }
         }
         
@@ -3416,94 +3490,87 @@ void UI::RenderSettingsModal(Model& model) {
         ImGui::Separator();
         ImGui::Spacing();
         
-        // Grid Dimensions
-        ImGui::Text("Grid Dimensions:");
-        
-        int tempCols = model.grid.cols;
-        int tempRows = model.grid.rows;
-        
-        ImGui::InputInt("Grid Width (cells)", &tempCols);
-        if (tempCols < 16) tempCols = 16;
-        if (tempCols > 2048) tempCols = 2048;
-        model.grid.cols = tempCols;
-        
-        ImGui::InputInt("Grid Height (cells)", &tempRows);
-        if (tempRows < 16) tempRows = 16;
-        if (tempRows > 2048) tempRows = 2048;
-        model.grid.rows = tempRows;
-        
-        ImGui::Spacing();
+                // Edge Configuration
+                ImGui::Text("Edge/Wall Configuration");
         ImGui::Separator();
         ImGui::Spacing();
         
-        // Preview info
-        int totalCells = model.grid.cols * model.grid.rows;
-        int pixelWidth = model.grid.cols * model.grid.tileWidth;
-        int pixelHeight = model.grid.rows * model.grid.tileHeight;
-        
-        ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
-            "Total cells: %d | Canvas size: %dx%d px",
-            totalCells, pixelWidth, pixelHeight);
-        
-        ImGui::Spacing();
-        ImGui::Separator();
-        ImGui::Spacing();
-        
-        // Edge Configuration
-        ImGui::Text("Edge/Wall Configuration:");
-        
-        ImGui::Checkbox("Auto-expand grid", &model.grid.autoExpandGrid);
+                ImGui::Checkbox("Auto-expand grid", 
+                    &model.grid.autoExpandGrid);
         ImGui::SameLine();
-        if (ImGui::Button("?##autoexpand_settings")) {
-            ShowToast("Automatically expand grid when placing edges "
-                     "near boundaries", Toast::Type::Info, 4.0f);
+        ImGui::TextDisabled("(?)");
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Automatically expand grid when placing edges "
+                            "near boundaries");
         }
         
+        ImGui::SetNextItemWidth(250.0f);
         ImGui::SliderInt("Expansion threshold (cells)", 
                         &model.grid.expansionThreshold, 1, 20);
         ImGui::SameLine();
-        if (ImGui::Button("?##threshold_settings")) {
-            ShowToast("Distance from grid boundary to trigger expansion", 
-                     Toast::Type::Info, 4.0f);
+        ImGui::TextDisabled("(?)");
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Distance from grid boundary to trigger "
+                            "expansion");
         }
         
-        ImGui::SliderFloat("Expansion factor", &model.grid.expansionFactor, 
+        ImGui::SetNextItemWidth(250.0f);
+                ImGui::SliderFloat("Expansion factor", 
+                    &model.grid.expansionFactor, 
                           1.1f, 3.0f, "%.1fx");
         ImGui::SameLine();
-        if (ImGui::Button("?##factor_settings")) {
-            ShowToast("Grid growth multiplier (e.g., 1.5x = 50% growth)", 
-                     Toast::Type::Info, 4.0f);
+        ImGui::TextDisabled("(?)");
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Grid growth multiplier "
+                            "(e.g., 1.5x = 50%% growth)");
         }
         
+        ImGui::SetNextItemWidth(250.0f);
         ImGui::SliderFloat("Edge hover threshold", 
                           &model.grid.edgeHoverThreshold, 
                           0.1f, 0.5f, "%.2f");
         ImGui::SameLine();
-        if (ImGui::Button("?##hover_settings")) {
-            ShowToast("Distance from cell edge to activate edge mode "
-                     "(0.2 = 20% of cell size)", Toast::Type::Info, 4.0f);
+        ImGui::TextDisabled("(?)");
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Distance from cell edge to activate edge mode "
+                            "(0.2 = 20%% of cell size)");
         }
         
         ImGui::Spacing();
-        ImGui::Separator();
-        ImGui::Spacing();
+                
+                ImGui::EndTabItem();
+            }
+            
+            // ============================================================
+            // TAB 3: KEYBINDINGS
+            // ============================================================
+            if (ImGui::BeginTabItem("Keybindings")) {
+                settingsModalSelectedTab = 2;
+                ImGui::Spacing();
+                ImGui::Spacing();
         
-        // Keybindings section
-        ImGui::Text("Keybindings:");
+                ImGui::Text("Keyboard Shortcuts");
+                ImGui::Separator();
         ImGui::Spacing();
         
         if (ImGui::BeginTable("KeybindingsTable", 2, 
             ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
             
-            ImGui::TableSetupColumn("Action", ImGuiTableColumnFlags_WidthFixed, 
-                                   150.0f);
-            ImGui::TableSetupColumn("Binding", ImGuiTableColumnFlags_WidthStretch);
+                    ImGui::TableSetupColumn("Action", 
+                        ImGuiTableColumnFlags_WidthFixed, 250.0f);
+                    ImGui::TableSetupColumn("Binding", 
+                        ImGuiTableColumnFlags_WidthStretch);
             ImGui::TableHeadersRow();
             
             // Display key tool bindings
             const char* actions[] = {
-                "Paint (primary)", "Erase (primary)", "Erase (alternate)",
-                "Tool: Move", "Tool: Paint", "Tool: Erase", "Tool: Eyedropper"
+                        "Paint (primary)", 
+                        "Erase (primary)", 
+                        "Erase (alternate)",
+                        "Tool: Move", 
+                        "Tool: Paint", 
+                        "Tool: Erase", 
+                        "Tool: Eyedropper"
             };
             const char* keys[] = {
                 "paint", "erase", "eraseAlt",
@@ -3518,10 +3585,12 @@ void UI::RenderSettingsModal(Model& model) {
                 ImGui::TableNextColumn();
                 auto it = model.keymap.find(keys[i]);
                 if (it != model.keymap.end()) {
-                    ImGui::TextColored(ImVec4(0.7f, 0.9f, 1.0f, 1.0f), 
+                            ImGui::TextColored(
+                                ImVec4(0.7f, 0.9f, 1.0f, 1.0f), 
                                       "%s", it->second.c_str());
                 } else {
-                    ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), 
+                            ImGui::TextColored(
+                                ImVec4(0.5f, 0.5f, 0.5f, 1.0f), 
                                       "Not bound");
                 }
                 
@@ -3534,12 +3603,23 @@ void UI::RenderSettingsModal(Model& model) {
         ImGui::Spacing();
         ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f),
             "Note: Keybinding customization coming soon!");
+                
+                ImGui::Spacing();
+                
+                ImGui::EndTabItem();
+            }
+            
+            ImGui::EndTabBar();
+        }
+        
+        ImGui::PopStyleColor(3);
+        ImGui::PopStyleVar(3);
         
         ImGui::Spacing();
         ImGui::Separator();
         ImGui::Spacing();
         
-        // Buttons
+        // Buttons (outside tab content, always visible)
         if (ImGui::Button("Apply", ImVec2(120, 0))) {
             model.MarkDirty();
             showSettingsModal = false;

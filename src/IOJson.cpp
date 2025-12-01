@@ -200,7 +200,8 @@ std::string IOJson::SaveToString(const Model& model) {
     // Metadata
     j["meta"] = {
         {"title", model.meta.title},
-        {"author", model.meta.author}
+        {"author", model.meta.author},
+        {"description", model.meta.description}
     };
     
     return j.dump(2);  // Pretty print with 2-space indent
@@ -438,6 +439,7 @@ bool IOJson::LoadFromString(const std::string& jsonStr, Model& outModel) {
             const auto& meta = j["meta"];
             outModel.meta.title = meta.value("title", "Untitled");
             outModel.meta.author = meta.value("author", "");
+            outModel.meta.description = meta.value("description", "");
         }
         
         outModel.ClearDirty();

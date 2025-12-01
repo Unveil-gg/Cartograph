@@ -199,6 +199,7 @@ public:
     bool shouldShowExportPngDialog = false;
     ExportOptions exportOptions;
     bool showSettingsModal = false;
+    int settingsModalSelectedTab = 1;  // 0=Project, 1=Grid&Canvas, 2=Keybindings
     
     // Icon import state
     bool isImportingIcon = false;

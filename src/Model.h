@@ -280,6 +280,7 @@ struct Theme {
 struct Metadata {
     std::string title;
     std::string author;
+    std::string description;
 };
 
 // ============================================================================
