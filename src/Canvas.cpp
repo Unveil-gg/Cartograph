@@ -59,10 +59,8 @@ void Canvas::Render(
     bool showEdgesLayer = context ? context->showEdges : true;
     bool showMarkersLayer = context ? context->showMarkers : true;
     
-    // Render in order: grid, rooms, tiles, edges, doors, markers, overlays
-    if (showGridLayer) {
-        RenderGrid(renderer, model.grid);
-    }
+    // Render in order: rooms, tiles, edges, doors, markers, grid, overlays
+    // Grid is rendered after tiles so it appears on top of painted cells
     if (showRoomsLayer) {
         RenderRooms(renderer, model, context);
     }
@@ -75,6 +73,9 @@ void Canvas::Render(
     }
     if (showMarkersLayer) {
         RenderMarkers(renderer, model, icons, selectedMarker, hoveredMarker);
+    }
+    if (showGridLayer) {
+        RenderGrid(renderer, model.grid);
     }
     if (showRoomsLayer && showRoomOverlays) {
         RenderRoomOverlays(renderer, model);

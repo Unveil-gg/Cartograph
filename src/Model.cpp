@@ -791,4 +791,3 @@ ContentBounds Model::CalculateContentBounds() const {
 }
 
 } // namespace Cartograph
-
