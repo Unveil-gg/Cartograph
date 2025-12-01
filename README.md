@@ -79,7 +79,11 @@ cmake --build . --config Release
 
 ## Usage
 
-### Keyboard Shortcuts (macOS)
+### Keyboard Shortcuts
+
+**All keyboard shortcuts are fully customizable!** Access Settings (⚙️) to rebind any action.
+
+#### Default Shortcuts (macOS)
 
 - **Cmd+N**: New Project
 - **Cmd+O**: Open Project
@@ -87,10 +91,20 @@ cmake --build . --config Release
 - **Cmd+E**: Export PNG
 - **Cmd+Z**: Undo
 - **Cmd+Y**: Redo
+- **Cmd+P**: Toggle Properties Panel
 - **G**: Toggle Grid
 - **+/-**: Zoom In/Out
 - **Space+Drag**: Pan Canvas
 - **Mouse Wheel**: Zoom
+
+#### Tool Shortcuts
+
+- **V**: Move Tool
+- **S**: Select Tool
+- **B**: Paint Tool (Brush)
+- **E**: Erase Tool
+- **F**: Fill Tool
+- **I**: Eyedropper Tool
 
 ### Tools
 
@@ -100,7 +114,7 @@ cmake --build . --config Release
 - **Rectangle (R)**: Draw filled rectangles
 - **Door (D)**: Connect rooms with doors (rendered as dotted lines on walls)
 - **Marker (M)**: Place markers/items with custom icons
-- **Eyedropper (Alt+Mouse1)**: Pick tile type
+- **Eyedropper (I)**: Pick tile type
 
 ### Visual Design
 
