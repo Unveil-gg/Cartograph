@@ -6764,7 +6764,32 @@ void UI::LoadEyedropperCursor(IconManager& icons) {
         return;
     }
     
-    // Create SDL surface from icon pixel data
+    // Smart fill: only fill interior pixels with white
+    // Keep background transparent and outline dark
+    for (int i = 0; i < width * height; i++) {
+        int pixelIndex = i * 4;
+        uint8_t r = pixels[pixelIndex + 0];
+        uint8_t g = pixels[pixelIndex + 1];
+        uint8_t b = pixels[pixelIndex + 2];
+        uint8_t a = pixels[pixelIndex + 3];
+        
+        // Identify pixel types:
+        // - Background: fully transparent (alpha = 0)
+        // - Outline: dark pixels with high alpha
+        // - Interior: anything else with alpha > 0
+        bool isBackground = (a == 0);
+        bool isDarkPixel = (r < 128 && g < 128 && b < 128 && a > 200);
+        
+        // Only fill interior pixels (not background, not outline)
+        if (!isBackground && !isDarkPixel) {
+            pixels[pixelIndex + 0] = 255;  // R = white
+            pixels[pixelIndex + 1] = 255;  // G = white
+            pixels[pixelIndex + 2] = 255;  // B = white
+            pixels[pixelIndex + 3] = 255;  // A = fully opaque
+        }
+    }
+    
+    // Create SDL surface from processed pixel data
     SDL_Surface* surface = SDL_CreateSurfaceFrom(
         width, height,
         SDL_PIXELFORMAT_RGBA32,
@@ -6790,31 +6815,43 @@ void UI::LoadEyedropperCursor(IconManager& icons) {
 }
 
 void UI::UpdateCursor(IconManager& icons) {
-    // Only update cursor when tool changes (avoid unnecessary SDL calls)
-    if (currentTool != lastTool) {
-        if (currentTool == Tool::Eyedropper) {
-            // Disable ImGui's cursor management to use custom cursor
+    // Determine if we should show the pipette cursor
+    // Only show when eyedropper tool is active AND hovering over canvas
+    bool shouldShowPipette = 
+        (currentTool == Tool::Eyedropper && isHoveringCanvas);
+    
+    // Track last state to avoid unnecessary SDL calls every frame
+    static bool lastShowedPipette = false;
+    
+    // Only update cursor when state changes
+    if (shouldShowPipette != lastShowedPipette) {
+        if (shouldShowPipette) {
+            // Show custom pipette cursor
             ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
             
             // Load and set custom eyedropper cursor from IconManager
             LoadEyedropperCursor(icons);
             if (eyedropperCursor) {
-                SDL_SetCursor(eyedropperCursor.get());  // Get raw pointer
+                SDL_SetCursor(eyedropperCursor.get());
             } else {
                 // Fallback to default if cursor failed to load
                 SDL_SetCursor(SDL_GetDefaultCursor());
             }
         } else {
-            // Re-enable ImGui's cursor management for other tools
+            // Show default cursor (when not on canvas or different tool)
             ImGui::GetIO().ConfigFlags &= ~ImGuiConfigFlags_NoMouseCursorChange;
-            
-            // Let ImGui handle cursor (text cursor in inputs, etc.)
             SDL_SetCursor(SDL_GetDefaultCursor());
         }
         
+        lastShowedPipette = shouldShowPipette;
+    }
+    
+    // Track tool changes for other purposes
+    if (currentTool != lastTool) {
         lastTool = currentTool;
     }
 }
 
 } // namespace Cartograph
+
 
