@@ -419,14 +419,16 @@ private:
     );
     
     /**
-     * Load the eyedropper cursor from assets.
+     * Load the eyedropper cursor from IconManager.
+     * @param icons Icon manager to get cursor image from
      */
-    void LoadEyedropperCursor();
+    void LoadEyedropperCursor(IconManager& icons);
     
     /**
      * Update cursor based on current tool.
+     * @param icons Icon manager for cursor loading
      */
-    void UpdateCursor();
+    void UpdateCursor(IconManager& icons);
     
     std::vector<Toast> m_toasts;  // Legacy, will be removed
     std::vector<ConsoleMessage> m_consoleMessages;

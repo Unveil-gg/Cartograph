@@ -37,9 +37,6 @@
 #include <GL/gl.h>
 #endif
 
-// stb_image for PNG loading (already included in Icons.cpp)
-#include <stb/stb_image.h>
-
 // SDL_CursorDeleter implementation (outside namespace)
 void SDL_CursorDeleter::operator()(SDL_Cursor* cursor) const {
     if (cursor) {
@@ -229,7 +226,7 @@ void UI::Render(
     }
     
     // Update cursor based on current tool
-    UpdateCursor();
+    UpdateCursor(icons);
 }
 
 void UI::ShowToast(
@@ -6752,39 +6749,35 @@ void UI::HandleDroppedFile(const std::string& filePath, App& app,
     }
 }
 
-void UI::LoadEyedropperCursor() {
+void UI::LoadEyedropperCursor(IconManager& icons) {
     if (eyedropperCursor) {
         return;  // Already loaded, early exit
     }
     
-    // Load pipette.png from assets
-    std::string cursorPath = "assets/tools/pipette.png";
+    // Get pipette icon data from IconManager
+    std::vector<uint8_t> pixels;
+    int width, height;
+    std::string category;
     
-    int width, height, channels;
-    unsigned char* data = stbi_load(
-        cursorPath.c_str(), &width, &height, &channels, 4
-    );
-    
-    if (!data) {
-        // Failed to load, will use default cursor
+    if (!icons.GetIconData("pipette", pixels, width, height, category)) {
+        // Failed to get icon data, will use default cursor
         return;
     }
     
-    // Create SDL surface from image data
+    // Create SDL surface from icon pixel data
     SDL_Surface* surface = SDL_CreateSurfaceFrom(
         width, height,
         SDL_PIXELFORMAT_RGBA32,
-        data,
+        pixels.data(),
         width * 4
     );
     
     if (!surface) {
-        stbi_image_free(data);
         return;
     }
     
     // Create cursor with hot spot at tip of pipette
-    // Assuming pipette icon is roughly 32x32, tip is at bottom-left
+    // Pipette icon is 32x32, tip is at bottom-left
     int hotX = 4;   // Left edge plus a bit
     int hotY = height - 4;  // Near bottom (tip of pipette)
     
@@ -6794,18 +6787,17 @@ void UI::LoadEyedropperCursor() {
     }
     
     SDL_DestroySurface(surface);
-    stbi_image_free(data);
 }
 
-void UI::UpdateCursor() {
+void UI::UpdateCursor(IconManager& icons) {
     // Only update cursor when tool changes (avoid unnecessary SDL calls)
     if (currentTool != lastTool) {
         if (currentTool == Tool::Eyedropper) {
             // Disable ImGui's cursor management to use custom cursor
             ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
             
-            // Load and set custom eyedropper cursor
-            LoadEyedropperCursor();
+            // Load and set custom eyedropper cursor from IconManager
+            LoadEyedropperCursor(icons);
             if (eyedropperCursor) {
                 SDL_SetCursor(eyedropperCursor.get());  // Get raw pointer
             } else {
