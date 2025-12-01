@@ -4088,9 +4088,9 @@ void UI::RenderProjectBrowserModal(App& app) {
             showProjectBrowserModal = false;
             ImGui::CloseCurrentPopup();
         }
+        
+        ImGui::EndPopup();
     }
-    
-    ImGui::EndPopup();
 }
 
 void UI::RenderWhatsNewPanel() {
