@@ -57,17 +57,18 @@ public:
     void Update(Model& model, float deltaTime);
     
     // Render the canvas to the current viewport
+    // All pointer parameters are non-owning, borrowed references
     void Render(
         IRenderer& renderer,
         const Model& model,
-        IconManager* icons,
+        IconManager* icons,              // Optional, may be nullptr
         int viewportX, int viewportY,
         int viewportW, int viewportH,
-        const EdgeId* hoveredEdge = nullptr,
+        const EdgeId* hoveredEdge = nullptr,       // Optional
         bool showRoomOverlays = true,
-        const Marker* selectedMarker = nullptr,
-        const Marker* hoveredMarker = nullptr,
-        const RenderContext* context = nullptr
+        const Marker* selectedMarker = nullptr,    // Optional
+        const Marker* hoveredMarker = nullptr,     // Optional
+        const RenderContext* context = nullptr     // Optional
     );
     
     // Coordinate transformations

@@ -75,7 +75,8 @@ public:
     /**
      * Create an offscreen framebuffer for export rendering.
      * @param width, height Framebuffer dimensions
-     * @return RAII-managed FBO handle (automatically cleans up GL resources)
+     * @return RAII-managed FBO handle that automatically cleans up GL resources
+     *         Returns nullptr on failure. Ownership transferred to caller.
      */
     std::unique_ptr<FboHandle> CreateFramebuffer(int width, int height);
     

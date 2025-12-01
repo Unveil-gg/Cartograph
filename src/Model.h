@@ -325,7 +325,7 @@ public:
     void MarkDirty();
     void ClearDirty();
     
-    // Helper queries
+    // Helper queries (non-owning pointers, valid until rooms modified)
     Room* FindRoom(const std::string& id);
     const Room* FindRoom(const std::string& id) const;
     TileRow* FindTileRow(const std::string& roomId, int y);
@@ -372,7 +372,7 @@ public:
     bool IsPaletteColorInUse(int tileId) const;
     int GetNextPaletteTileId() const;
     
-    // Marker queries
+    // Marker queries (non-owning pointers, valid until markers modified)
     Marker* FindMarker(const std::string& id);
     const Marker* FindMarker(const std::string& id) const;
     Marker* FindMarkerNear(float x, float y, float tolerance);

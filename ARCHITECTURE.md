@@ -355,24 +355,98 @@ User → UI (Menu: Undo) → History::Undo(model)
 
 ## Memory Management
 
-### Ownership
-- **App** owns:
-  - Renderer (unique_ptr)
-  - Model (value)
-  - Canvas (value)
-  - UI (value)
-  - History (value)
-  - Systems (value)
+### Ownership Philosophy
+Cartograph follows modern C++17 RAII principles with zero manual memory management.
+All resources are automatically managed through smart pointers and RAII wrappers.
 
-- **Model** owns:
-  - Vectors of data (rooms, tiles, doors, markers)
+### Ownership Types
 
-- **History** owns:
-  - Command stacks (unique_ptr)
+**1. Exclusive Ownership (`std::unique_ptr<T>`)**
+- SDL resources: Window, GLContext, Cursor
+- OpenGL resources: FboHandle (framebuffer objects)
+- Command objects: All ICommand implementations in History
+- Renderer: GlRenderer owned by App
+- **Rule**: Use when exactly one owner exists
+
+**2. Non-Owning References (raw pointers or references)**
+- Function parameters borrowing data
+- Pointers into containers (Model::FindMarker, etc.)
+- ImGui API pointers (ImDrawList*, texture IDs)
+- SDL callback userdata (transferred ownership via unique_ptr)
+- **Rule**: Use for borrowed/temporary access, never own resources
+
+**3. Value Semantics (stack objects)**
+- Model, Canvas, UI, History, IconManager, JobQueue (owned by App)
+- Vectors, strings, standard containers
+- **Rule**: Prefer value semantics when possible
+
+### Never Use
+❌ `std::shared_ptr` - No shared ownership in this codebase  
+❌ Manual `new`/`delete` - Use `std::make_unique` or RAII classes  
+❌ Naked `malloc`/`free` - Use `std::vector` for buffers  
+❌ `std::auto_ptr` - Deprecated, use `unique_ptr`
+
+### Ownership Conventions
+
+**Function Parameters:**
+```cpp
+// Borrowed, non-owning (preferred for parameters)
+void Process(Model& model);           // Non-null reference
+void Render(IconManager* icons);     // Optional pointer (can be nullptr)
+
+// Transferring ownership (rare, use sparingly)
+void AddCommand(std::unique_ptr<ICommand> cmd);
+```
+
+**Return Values:**
+```cpp
+// Returning ownership
+std::unique_ptr<FboHandle> CreateFramebuffer(int w, int h);
+
+// Returning borrowed reference (valid until container modification)
+Marker* FindMarker(const std::string& id);  // May return nullptr
+```
+
+**Lifetime Rules:**
+- ImGui pointers (`ImDrawList*`) valid only within frame
+- Model query pointers (`Marker*`, `Room*`) valid until container mutation
+- SDL callbacks receive transferred ownership via `unique_ptr::release()`
+- OpenGL resources cleaned up by FboHandle destructor
+
+### Resource Management Examples
+
+**SDL Resources (Custom Deleters):**
+```cpp
+struct SDL_WindowDeleter {
+    void operator()(SDL_Window* w) const { SDL_DestroyWindow(w); }
+};
+std::unique_ptr<SDL_Window, SDL_WindowDeleter> m_window;
+```
+
+**OpenGL Resources (RAII Class):**
+```cpp
+class FboHandle {
+    ~FboHandle() { /* cleanup GL resources */ }
+    // Move-only, non-copyable
+};
+std::unique_ptr<FboHandle> fbo = renderer.CreateFramebuffer(w, h);
+```
+
+**SDL Callbacks (Ownership Transfer):**
+```cpp
+auto data = std::make_unique<CallbackData>();
+SDL_ShowDialog([](void* userdata, ...) {
+    std::unique_ptr<CallbackData> data(  // Take ownership
+        static_cast<CallbackData*>(userdata)
+    );
+    // Automatic cleanup at end of scope
+}, data.release());  // Transfer ownership
+```
 
 ### Allocation Strategy
 - Stack allocation for small objects
-- Heap allocation for large buffers (FBO pixels)
+- Heap allocation for large buffers (managed by std::vector)
+- All heap allocations wrapped in smart pointers or RAII classes
 - No manual `new`/`delete` (RAII via smart pointers)
 
 ---

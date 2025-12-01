@@ -60,7 +60,8 @@ public:
     /**
      * Get an icon by name.
      * @param name Icon name
-     * @return Pointer to icon, or nullptr if not found
+     * @return Non-owning pointer to icon, valid until atlas rebuilt.
+     *         Returns nullptr if not found.
      */
     const Icon* GetIcon(const std::string& name) const;
     

@@ -55,8 +55,8 @@ public:
     
     /**
      * Add a command to the history.
-     * @param cmd Command to add (takes ownership)
-     * @param model Model to operate on
+     * @param cmd Command to add (transfers ownership via unique_ptr)
+     * @param model Model to operate on (borrowed reference)
      * @param execute If true, executes the command; if false, assumes 
      *                already applied
      */
