@@ -28,6 +28,7 @@ set(CARTOGRAPH_SOURCES
     src/main.cpp
     src/App.cpp
     src/UI.cpp
+    src/UI/CanvasPanel.cpp
     src/Canvas.cpp
     src/Model.cpp
     src/History.cpp
@@ -55,6 +56,7 @@ endif()
 set(CARTOGRAPH_HEADERS
     src/App.h
     src/UI.h
+    src/UI/CanvasPanel.h
     src/Canvas.h
     src/Model.h
     src/History.h

@@ -46,61 +46,14 @@ void SDL_CursorDeleter::operator()(SDL_Cursor* cursor) const {
 
 namespace Cartograph {
 
-// ============================================================================
-// Helper functions
-// ============================================================================
-
-/**
- * Get all tiles along a line from (x0, y0) to (x1, y1).
- * Uses Bresenham's line algorithm to ensure continuous painting.
- * @param x0 Start X coordinate
- * @param y0 Start Y coordinate
- * @param x1 End X coordinate
- * @param y1 End Y coordinate
- * @return Vector of (x, y) tile coordinates along the line
- */
-static std::vector<std::pair<int, int>> GetTilesAlongLine(
-    int x0, int y0, 
-    int x1, int y1
-) {
-    std::vector<std::pair<int, int>> tiles;
-    
-    // Bresenham's line algorithm
-    int dx = std::abs(x1 - x0);
-    int dy = std::abs(y1 - y0);
-    int sx = (x0 < x1) ? 1 : -1;
-    int sy = (y0 < y1) ? 1 : -1;
-    int err = dx - dy;
-    
-    int x = x0;
-    int y = y0;
-    
-    while (true) {
-        tiles.push_back({x, y});
-        
-        if (x == x1 && y == y1) {
-            break;
-        }
-        
-        int e2 = 2 * err;
-        if (e2 > -dy) {
-            err -= dy;
-            x += sx;
-        }
-        if (e2 < dx) {
-            err += dx;
-            y += sy;
-        }
-    }
-    
-    return tiles;
-}
-
 UI::UI() {
+    // Connect canvas panel to UI state for shared members
+    m_canvasPanel.showPropertiesPanel = &showPropertiesPanel;
+    m_canvasPanel.layoutInitialized = &m_layoutInitialized;
 }
 
 UI::~UI() {
-    // eyedropperCursor automatically cleaned up by unique_ptr
+    UnloadThumbnailTextures();
 }
 
 void UI::SetupDockspace() {
@@ -185,7 +138,7 @@ void UI::Render(
     
     // Render all panels (they will dock into the dockspace)
     // Canvas first (background layer), then side panels (on top for tooltips)
-    RenderCanvasPanel(renderer, model, canvas, history, icons, keymap);
+    m_canvasPanel.Render(renderer, model, canvas, history, icons, keymap);
     RenderStatusBar(model, canvas);
     RenderToolsPanel(model, history, icons, jobs);
     
@@ -225,8 +178,7 @@ void UI::Render(
         RenderQuitConfirmationModal(app, model);
     }
     
-    // Update cursor based on current tool
-    UpdateCursor(icons);
+    // Note: Cursor updates are now handled by CanvasPanel
 }
 
 void UI::ShowToast(
@@ -739,19 +691,19 @@ void UI::RenderPalettePanel(Model& model) {
     for (const auto& tile : model.palette) {
         ImGui::PushID(tile.id);
         
-        bool selected = (selectedTileId == tile.id);
+        bool selected = (m_canvasPanel.selectedTileId == tile.id);
         ImVec4 color = tile.color.ToImVec4();
         
         // Color button
         if (ImGui::ColorButton("##color", color, 0, ImVec2(24, 24))) {
-            selectedTileId = tile.id;
+            m_canvasPanel.selectedTileId = tile.id;
         }
         
         ImGui::SameLine();
         
         // Selectable name
         if (ImGui::Selectable(tile.name.c_str(), selected)) {
-            selectedTileId = tile.id;
+            m_canvasPanel.selectedTileId = tile.id;
         }
         
         ImGui::PopID();
@@ -795,7 +747,7 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
     ImGui::Dummy(ImVec2(0, panelPadding * 0.5f));
     
     for (int i = 0; i < 7; ++i) {
-        bool selected = (static_cast<int>(currentTool) == i);
+        bool selected = (static_cast<int>(m_canvasPanel.currentTool) == i);
         
         ImGui::PushID(i);
         
@@ -897,7 +849,7 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
         }
         
         if (clicked) {
-            currentTool = static_cast<Tool>(i);
+            m_canvasPanel.currentTool = static_cast<CanvasPanel::Tool>(i);
         }
         
         // Fixed 4-column grid layout
@@ -913,7 +865,7 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
     ImGui::Spacing();
     
     // Show eyedropper preview when Eyedropper tool is active
-    if (currentTool == Tool::Eyedropper) {
+    if (m_canvasPanel.currentTool == CanvasPanel::Tool::Eyedropper) {
         ImGui::Text("Eyedropper Tool");
         ImGui::Separator();
         
@@ -927,10 +879,10 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
         std::string hoverName = "No tile";
         bool isHoveringTile = false;
         
-        if (isHoveringCanvas && hoveredTileX >= 0 && hoveredTileY >= 0) {
+        if (m_canvasPanel.isHoveringCanvas && m_canvasPanel.hoveredTileX >= 0 && m_canvasPanel.hoveredTileY >= 0) {
             const std::string globalRoomId = "";
             int hoveredTileId = model.GetTileAt(
-                globalRoomId, hoveredTileX, hoveredTileY
+                globalRoomId, m_canvasPanel.hoveredTileX, m_canvasPanel.hoveredTileY
             );
             
             if (hoveredTileId != 0) {
@@ -948,7 +900,7 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
         // If not hovering, show selected color as fallback
         if (!isHoveringTile) {
             for (const auto& tile : model.palette) {
-                if (tile.id == selectedTileId) {
+                if (tile.id == m_canvasPanel.selectedTileId) {
                     hoverColor = tile.color;
                     hoverName = tile.name;
                     break;
@@ -1006,7 +958,7 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
         Color selectedColor(0.8f, 0.8f, 0.8f, 1.0f);
         std::string selectedName = "Empty";
         for (const auto& tile : model.palette) {
-            if (tile.id == selectedTileId) {
+            if (tile.id == m_canvasPanel.selectedTileId) {
                 selectedColor = tile.color;
                 selectedName = tile.name;
                 break;
@@ -1049,7 +1001,7 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
         ImGui::Spacing();
         
         // Auto-switch to Paint toggle
-        ImGui::Checkbox("Auto-switch to Paint", &eyedropperAutoSwitchToPaint);
+        ImGui::Checkbox("Auto-switch to Paint", &m_canvasPanel.eyedropperAutoSwitchToPaint);
         
         if (ImGui::IsItemHovered()) {
             ImGui::SetTooltip(
@@ -1060,7 +1012,7 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
     }
     
     // Show palette when Paint tool is active
-    if (currentTool == Tool::Paint || currentTool == Tool::Fill) {
+    if (m_canvasPanel.currentTool == CanvasPanel::Tool::Paint || m_canvasPanel.currentTool == CanvasPanel::Tool::Fill) {
         ImGui::Text("Paint Color");
         ImGui::Separator();
         
@@ -1070,7 +1022,7 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
             
             ImGui::PushID(tile.id);
             
-            bool selected = (selectedTileId == tile.id);
+            bool selected = (m_canvasPanel.selectedTileId == tile.id);
             ImVec4 color = tile.color.ToImVec4();
             bool inUse = model.IsPaletteColorInUse(tile.id);
             
@@ -1078,7 +1030,7 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
             ImGuiColorEditFlags colorBtnFlags = 0;
             if (ImGui::ColorButton("##color", color, colorBtnFlags, 
                                   ImVec2(24, 24))) {
-                selectedTileId = tile.id;
+                m_canvasPanel.selectedTileId = tile.id;
             }
             
             // Double-click to edit
@@ -1172,8 +1124,8 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
                         history.AddCommand(std::move(cmd), model, true);
                         
                         // If this was selected, switch to default
-                        if (selectedTileId == tile.id) {
-                            selectedTileId = 1;  // Default to "Solid"
+                        if (m_canvasPanel.selectedTileId == tile.id) {
+                            m_canvasPanel.selectedTileId = 1;  // Default to "Solid"
                         }
                         
                         ShowToast("Color deleted: " + tile.name, 
@@ -1189,7 +1141,7 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
             // Selectable name
             if (ImGui::Selectable(tile.name.c_str(), selected, 0, 
                                   ImVec2(0, 24))) {
-                selectedTileId = tile.id;
+                m_canvasPanel.selectedTileId = tile.id;
             }
             
             // Same context menu on name
@@ -1242,8 +1194,8 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
                             tile.id, 0);
                         history.AddCommand(std::move(cmd), model, true);
                         
-                        if (selectedTileId == tile.id) {
-                            selectedTileId = 1;
+                        if (m_canvasPanel.selectedTileId == tile.id) {
+                            m_canvasPanel.selectedTileId = 1;
                         }
                         
                         ShowToast("Color deleted: " + tile.name, 
@@ -1295,7 +1247,7 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
     }
     
     // Show eraser options when Erase tool is active
-    if (currentTool == Tool::Erase) {
+    if (m_canvasPanel.currentTool == CanvasPanel::Tool::Erase) {
         ImGui::Text("Eraser Options");
         ImGui::Separator();
         
@@ -1311,7 +1263,7 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
         
         // Slider below label
         ImGui::SetNextItemWidth(-1);  // Full width
-        ImGui::SliderInt("##eraserSize", &eraserBrushSize, 1, 5);
+        ImGui::SliderInt("##eraserSize", &m_canvasPanel.eraserBrushSize, 1, 5);
         
         // Visual preview of eraser size
         ImGui::Spacing();
@@ -1330,7 +1282,7 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
                 
                 // Calculate if this cell is within brush
                 int centerOffset = 2;  // Center of 5x5 grid
-                int halfBrush = eraserBrushSize / 2;
+                int halfBrush = m_canvasPanel.eraserBrushSize / 2;
                 bool inBrush = (x >= centerOffset - halfBrush && 
                                x <= centerOffset + halfBrush &&
                                y >= centerOffset - halfBrush && 
@@ -1353,22 +1305,22 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
     }
     
     // Show marker options when Marker tool is active
-    if (currentTool == Tool::Marker) {
+    if (m_canvasPanel.currentTool == CanvasPanel::Tool::Marker) {
         ImGui::Text("Marker Settings");
         ImGui::Separator();
         
         // Label input
         char labelBuf[128];
-        std::strncpy(labelBuf, markerLabel.c_str(), sizeof(labelBuf) - 1);
+        std::strncpy(labelBuf, m_canvasPanel.markerLabel.c_str(), sizeof(labelBuf) - 1);
         labelBuf[sizeof(labelBuf) - 1] = '\0';
         
         if (ImGui::InputText("Label", labelBuf, sizeof(labelBuf))) {
-            markerLabel = labelBuf;
+            m_canvasPanel.markerLabel = labelBuf;
             
             // Update selected marker if editing
-            if (selectedMarker) {
-                selectedMarker->label = markerLabel;
-                selectedMarker->showLabel = !markerLabel.empty();
+            if (m_canvasPanel.selectedMarker) {
+                m_canvasPanel.selectedMarker->label = m_canvasPanel.markerLabel;
+                m_canvasPanel.selectedMarker->showLabel = !m_canvasPanel.markerLabel.empty();
                 model.MarkDirty();
             }
         }
@@ -1378,7 +1330,7 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
         ImGui::SameLine();
         
         // Color preview button (clickable to open picker)
-        ImVec4 colorPreview = markerColor.ToImVec4();
+        ImVec4 colorPreview = m_canvasPanel.markerColor.ToImVec4();
         if (ImGui::ColorButton("##colorpreview", colorPreview, 
                               ImGuiColorEditFlags_NoAlpha, 
                               ImVec2(40, 20))) {
@@ -1389,25 +1341,25 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
         // Color picker popup
         if (ImGui::BeginPopup("ColorPicker")) {
             float colorArray[4] = {
-                markerColor.r, markerColor.g, 
-                markerColor.b, markerColor.a
+                m_canvasPanel.markerColor.r, m_canvasPanel.markerColor.g, 
+                m_canvasPanel.markerColor.b, m_canvasPanel.markerColor.a
             };
             if (ImGui::ColorPicker4("##picker", colorArray, 
                                    ImGuiColorEditFlags_NoAlpha)) {
-                markerColor = Color(
+                m_canvasPanel.markerColor = Color(
                     colorArray[0], colorArray[1], 
                     colorArray[2], colorArray[3]
                 );
                 
                 // Update hex input
-                std::string hexStr = markerColor.ToHex(false);
-                std::strncpy(markerColorHex, hexStr.c_str(), 
-                            sizeof(markerColorHex) - 1);
-                markerColorHex[sizeof(markerColorHex) - 1] = '\0';
+                std::string hexStr = m_canvasPanel.markerColor.ToHex(false);
+                std::strncpy(m_canvasPanel.markerColorHex, hexStr.c_str(), 
+                            sizeof(m_canvasPanel.markerColorHex) - 1);
+                m_canvasPanel.markerColorHex[sizeof(m_canvasPanel.markerColorHex) - 1] = '\0';
                 
                 // Update selected marker if editing
-                if (selectedMarker) {
-                    selectedMarker->color = markerColor;
+                if (m_canvasPanel.selectedMarker) {
+                    m_canvasPanel.selectedMarker->color = m_canvasPanel.markerColor;
                     model.MarkDirty();
                 }
             }
@@ -1417,19 +1369,19 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
         // Hex input field
         ImGui::SameLine();
         ImGui::SetNextItemWidth(100);
-        if (ImGui::InputText("##colorhex", markerColorHex, 
-                            sizeof(markerColorHex))) {
+        if (ImGui::InputText("##colorhex", m_canvasPanel.markerColorHex, 
+                            sizeof(m_canvasPanel.markerColorHex))) {
             // Parse hex input
-            std::string hexStr(markerColorHex);
+            std::string hexStr(m_canvasPanel.markerColorHex);
             Color newColor = Color::FromHex(hexStr);
             
             // Only update if valid (not black unless intentional)
             if (!hexStr.empty() && hexStr[0] == '#') {
-                markerColor = newColor;
+                m_canvasPanel.markerColor = newColor;
                 
                 // Update selected marker if editing
-                if (selectedMarker) {
-                    selectedMarker->color = markerColor;
+                if (m_canvasPanel.selectedMarker) {
+                    m_canvasPanel.selectedMarker->color = m_canvasPanel.markerColor;
                     model.MarkDirty();
                 }
             }
@@ -1513,7 +1465,7 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
                             ShowToast("Icon imported: " + capturedIconName, 
                                      Toast::Type::Success, 2.0f);
                             // Auto-select the imported icon
-                            selectedIconName = capturedIconName;
+                            m_canvasPanel.selectedIconName = capturedIconName;
                         } else {
                             ShowToast("Failed to import: " + error, 
                                      Toast::Type::Error, 3.0f);
@@ -1592,7 +1544,7 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
                     ImGui::BeginGroup();
                     
                     // Draw icon button
-                    bool isSelected = (selectedIconName == iconName);
+                    bool isSelected = (m_canvasPanel.selectedIconName == iconName);
                     
                     // Highlight selected icon
                     if (isSelected) {
@@ -1614,11 +1566,11 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
                             icons.GetAtlasTexture(),
                             ImVec2(buttonSize, buttonSize),
                             uvMin, uvMax)) {
-                            selectedIconName = iconName;
+                            m_canvasPanel.selectedIconName = iconName;
                             
                             // Update selected marker if editing
-                            if (selectedMarker) {
-                                selectedMarker->icon = selectedIconName;
+                            if (m_canvasPanel.selectedMarker) {
+                                m_canvasPanel.selectedMarker->icon = m_canvasPanel.selectedIconName;
                                 model.MarkDirty();
                             }
                         }
@@ -1626,10 +1578,10 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
                         // Fallback if no texture
                         if (ImGui::Button("##icon", 
                                          ImVec2(buttonSize, buttonSize))) {
-                            selectedIconName = iconName;
+                            m_canvasPanel.selectedIconName = iconName;
                             
-                            if (selectedMarker) {
-                                selectedMarker->icon = selectedIconName;
+                            if (m_canvasPanel.selectedMarker) {
+                                m_canvasPanel.selectedMarker->icon = m_canvasPanel.selectedIconName;
                                 model.MarkDirty();
                             }
                         }
@@ -1728,13 +1680,13 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
         // Actions
         ImGui::Separator();
         
-        if (selectedMarker) {
+        if (m_canvasPanel.selectedMarker) {
             ImGui::Text("Editing marker:");
             ImGui::TextDisabled("Position: (%.1f, %.1f)", 
-                               selectedMarker->x, selectedMarker->y);
+                               m_canvasPanel.selectedMarker->x, m_canvasPanel.selectedMarker->y);
             
             if (ImGui::Button("Deselect", ImVec2(-1, 0))) {
-                selectedMarker = nullptr;
+                m_canvasPanel.selectedMarker = nullptr;
             }
         }
     }
@@ -1757,7 +1709,7 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs)
     // Rooms management
     if (ImGui::CollapsingHeader("Rooms", ImGuiTreeNodeFlags_DefaultOpen)) {
         // Room overlay toggle
-        if (ImGui::Checkbox("Show Overlays", &showRoomOverlays)) {
+        if (ImGui::Checkbox("Show Overlays", &m_canvasPanel.showRoomOverlays)) {
             // Visual change only, no model change
         }
         
@@ -1773,7 +1725,7 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs)
             ImGui::TextDisabled("No rooms created yet");
         } else {
             for (auto& room : model.rooms) {
-                bool isSelected = (selectedRoomId == room.id);
+                bool isSelected = (m_canvasPanel.selectedRoomId == room.id);
                 ImGuiTreeNodeFlags nodeFlags = 
                     ImGuiTreeNodeFlags_Leaf |
                     ImGuiTreeNodeFlags_NoTreePushOnOpen |
@@ -1790,8 +1742,8 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs)
                 // Room name (selectable)
                 ImGui::TreeNodeEx(room.name.c_str(), nodeFlags);
                 if (ImGui::IsItemClicked()) {
-                    selectedRoomId = room.id;
-                    roomPaintMode = false;  // Reset paint mode on select
+                    m_canvasPanel.selectedRoomId = room.id;
+                    m_canvasPanel.roomPaintMode = false;  // Reset paint mode on select
                 }
             }
         }
@@ -1800,8 +1752,8 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs)
     ImGui::Spacing();
     
     // Selected room details
-    if (!selectedRoomId.empty()) {
-        Room* room = model.FindRoom(selectedRoomId);
+    if (!m_canvasPanel.selectedRoomId.empty()) {
+        Room* room = model.FindRoom(m_canvasPanel.selectedRoomId);
         if (room) {
             if (ImGui::CollapsingHeader("Selected Room", 
                                       ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -1837,9 +1789,9 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs)
                 ImGui::Separator();
                 
                 // Room paint mode toggle
-                if (roomPaintMode) {
+                if (m_canvasPanel.roomPaintMode) {
                     if (ImGui::Button("Exit Room Paint Mode")) {
-                        roomPaintMode = false;
+                        m_canvasPanel.roomPaintMode = false;
                     }
                     ImGui::TextWrapped(
                         "Paint cells to assign them to this room. "
@@ -1847,7 +1799,7 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs)
                     );
                 } else {
                     if (ImGui::Button("Paint Room Cells")) {
-                        roomPaintMode = true;
+                        m_canvasPanel.roomPaintMode = true;
                     }
                 }
                 
@@ -1871,13 +1823,13 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs)
                         auto it = std::find_if(
                             model.rooms.begin(), 
                             model.rooms.end(),
-                            [&](const Room& r) { return r.id == selectedRoomId; }
+                            [&](const Room& r) { return r.id == m_canvasPanel.selectedRoomId; }
                         );
                         if (it != model.rooms.end()) {
                             model.rooms.erase(it);
                         }
-                        selectedRoomId.clear();
-                        roomPaintMode = false;
+                        m_canvasPanel.selectedRoomId.clear();
+                        m_canvasPanel.roomPaintMode = false;
                         model.MarkDirty();
                         ImGui::CloseCurrentPopup();
                     }
@@ -1900,13 +1852,13 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs)
                         auto it = std::find_if(
                             model.rooms.begin(), 
                             model.rooms.end(),
-                            [&](const Room& r) { return r.id == selectedRoomId; }
+                            [&](const Room& r) { return r.id == m_canvasPanel.selectedRoomId; }
                         );
                         if (it != model.rooms.end()) {
                             model.rooms.erase(it);
                         }
-                        selectedRoomId.clear();
-                        roomPaintMode = false;
+                        m_canvasPanel.selectedRoomId.clear();
+                        m_canvasPanel.roomPaintMode = false;
                         model.MarkDirty();
                         ImGui::CloseCurrentPopup();
                     }
@@ -1944,7 +1896,7 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs)
             newRoom.regionId = -1;
             
             model.rooms.push_back(newRoom);
-            selectedRoomId = roomId;
+            m_canvasPanel.selectedRoomId = roomId;
             model.MarkDirty();
             
             // Reset form
@@ -1971,1816 +1923,7 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs)
     ImGui::End();
 }
 
-bool UI::DetectEdgeHover(
-    float mouseX, float mouseY,
-    const Canvas& canvas,
-    const GridConfig& grid,
-    EdgeId* outEdgeId,
-    EdgeSide* outEdgeSide
-) {
-    // Convert mouse to world coordinates
-    float worldX, worldY;
-    canvas.ScreenToWorld(mouseX, mouseY, &worldX, &worldY);
-    
-    // Calculate which tile we're in (using floor for proper tile indexing)
-    int tx = static_cast<int>(std::floor(worldX / grid.tileWidth));
-    int ty = static_cast<int>(std::floor(worldY / grid.tileHeight));
-    
-    // Calculate position within the tile (0.0 to 1.0)
-    float tileWorldX = tx * grid.tileWidth;
-    float tileWorldY = ty * grid.tileHeight;
-    float relX = (worldX - tileWorldX) / grid.tileWidth;
-    float relY = (worldY - tileWorldY) / grid.tileHeight;
-    
-    // Clamp to [0, 1] (should already be, but just in case)
-    relX = std::max(0.0f, std::min(1.0f, relX));
-    relY = std::max(0.0f, std::min(1.0f, relY));
-    
-    // Threshold for edge detection (configurable)
-    float threshold = grid.edgeHoverThreshold;
-    
-    // Find the closest edge
-    float distToNorth = relY;
-    float distToSouth = 1.0f - relY;
-    float distToWest = relX;
-    float distToEast = 1.0f - relX;
-    
-    float minDist = std::min({distToNorth, distToSouth, distToWest, distToEast});
-    
-    // Only trigger if within threshold
-    if (minDist > threshold) {
-        return false;
-    }
-    
-    // Return the closest edge
-    if (minDist == distToNorth) {
-        *outEdgeId = MakeEdgeId(tx, ty, EdgeSide::North);
-        *outEdgeSide = EdgeSide::North;
-        return true;
-    } else if (minDist == distToSouth) {
-        *outEdgeId = MakeEdgeId(tx, ty, EdgeSide::South);
-        *outEdgeSide = EdgeSide::South;
-        return true;
-    } else if (minDist == distToWest) {
-        *outEdgeId = MakeEdgeId(tx, ty, EdgeSide::West);
-        *outEdgeSide = EdgeSide::West;
-        return true;
-    } else {  // distToEast
-        *outEdgeId = MakeEdgeId(tx, ty, EdgeSide::East);
-        *outEdgeSide = EdgeSide::East;
-        return true;
-    }
-}
 
-void UI::RenderCanvasPanel(
-    IRenderer& renderer,
-    Model& model, 
-    Canvas& canvas, 
-    History& history,
-    IconManager& icons,
-    KeymapManager& keymap
-) {
-    ImGuiWindowFlags flags = 
-        ImGuiWindowFlags_NoMove | 
-        ImGuiWindowFlags_NoCollapse |
-        ImGuiWindowFlags_NoScrollbar;
-    
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-    ImGui::Begin("Cartograph/Canvas", nullptr, flags);
-    ImGui::PopStyleVar();
-    
-    ImVec2 canvasPos = ImGui::GetCursorScreenPos();
-    ImVec2 canvasSize = ImGui::GetContentRegionAvail();
-    
-    // Reserve space for canvas
-    ImGui::InvisibleButton("canvas", canvasSize);
-    
-    // Accept drag-drop of marker icons
-    if (ImGui::BeginDragDropTarget()) {
-        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("MARKER_ICON")) {
-            // Get the icon name from payload
-            const char* droppedIconName = (const char*)payload->Data;
-            
-            // Get mouse position
-            ImVec2 mousePos = ImGui::GetMousePos();
-            
-            // Convert to world coordinates
-            float wx, wy;
-            canvas.ScreenToWorld(mousePos.x, mousePos.y, &wx, &wy);
-            
-            // Convert to fractional tile coordinates
-            float tileX = wx / model.grid.tileWidth;
-            float tileY = wy / model.grid.tileHeight;
-            
-            // Snap to nearest snap point based on grid preset
-            auto snapPoints = model.GetMarkerSnapPoints();
-            int baseTileX = static_cast<int>(std::floor(tileX));
-            int baseTileY = static_cast<int>(std::floor(tileY));
-            float fractionalX = tileX - baseTileX;
-            float fractionalY = tileY - baseTileY;
-            
-            float minDist = FLT_MAX;
-            float bestSnapX = 0.5f, bestSnapY = 0.5f;
-            
-            for (const auto& snap : snapPoints) {
-                float dx = fractionalX - snap.first;
-                float dy = fractionalY - snap.second;
-                float dist = dx*dx + dy*dy;
-                if (dist < minDist) {
-                    minDist = dist;
-                    bestSnapX = snap.first;
-                    bestSnapY = snap.second;
-                }
-            }
-            
-            tileX = baseTileX + bestSnapX;
-            tileY = baseTileY + bestSnapY;
-            
-            // Place marker at drop location
-            Marker newMarker;
-            newMarker.id = model.GenerateMarkerId();
-            newMarker.roomId = "";
-            newMarker.x = tileX;
-            newMarker.y = tileY;
-            newMarker.kind = "custom";
-            newMarker.label = markerLabel;
-            newMarker.icon = droppedIconName;
-            newMarker.color = markerColor;
-            newMarker.size = 0.6f;
-            newMarker.showLabel = !markerLabel.empty();
-            
-            auto cmd = std::make_unique<PlaceMarkerCommand>(newMarker, true);
-            history.AddCommand(std::move(cmd), model);
-        }
-        ImGui::EndDragDropTarget();
-    }
-    
-    // Global keyboard shortcuts for tool switching (work even when not hovering)
-    if (!ImGui::GetIO().WantCaptureKeyboard) {
-        // Toggle properties panel
-        if (keymap.IsActionTriggered("togglePropertiesPanel")) {
-            showPropertiesPanel = !showPropertiesPanel;
-            m_layoutInitialized = false;  // Trigger layout rebuild
-        }
-        
-        // Tool switching shortcuts
-        if (keymap.IsActionTriggered("toolMove")) {
-            currentTool = Tool::Move;
-        }
-        if (keymap.IsActionTriggered("toolSelect")) {
-            currentTool = Tool::Select;
-        }
-        if (keymap.IsActionTriggered("toolPaint")) {
-            currentTool = Tool::Paint;
-        }
-        if (keymap.IsActionTriggered("toolErase")) {
-            currentTool = Tool::Erase;
-        }
-        if (keymap.IsActionTriggered("toolFill")) {
-            currentTool = Tool::Fill;
-        }
-        if (keymap.IsActionTriggered("toolEyedropper")) {
-            currentTool = Tool::Eyedropper;
-        }
-    }
-    
-    // Handle input
-    if (ImGui::IsItemHovered()) {
-        // Mouse wheel zoom (available in all tools)
-        float wheel = ImGui::GetIO().MouseWheel;
-        if (wheel != 0.0f) {
-            float zoomFactor = (wheel > 0) ? 1.1f : 0.9f;
-            canvas.SetZoom(canvas.zoom * zoomFactor);
-        }
-        
-        // Middle mouse button panning (universal shortcut)
-        if (ImGui::IsMouseDragging(ImGuiMouseButton_Middle)) {
-            ImVec2 delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Middle);
-            canvas.Pan(-delta.x, -delta.y);
-            ImGui::ResetMouseDragDelta(ImGuiMouseButton_Middle);
-        }
-        
-        // Tool-specific input handling
-        if (currentTool == Tool::Move) {
-            // Move tool: Left mouse drag to pan
-            if (ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
-                ImVec2 delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left);
-                canvas.Pan(-delta.x, -delta.y);
-                ImGui::ResetMouseDragDelta(ImGuiMouseButton_Left);
-            }
-        }
-        else if (currentTool == Tool::Select) {
-            // Select tool: Left mouse drag to create selection rectangle
-            if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-                // Start selection
-                ImVec2 mousePos = ImGui::GetMousePos();
-                selectionStartX = mousePos.x;
-                selectionStartY = mousePos.y;
-                selectionEndX = mousePos.x;
-                selectionEndY = mousePos.y;
-                isSelecting = true;
-            }
-            
-            if (ImGui::IsMouseDragging(ImGuiMouseButton_Left) && isSelecting) {
-                // Update selection end position
-                ImVec2 mousePos = ImGui::GetMousePos();
-                selectionEndX = mousePos.x;
-                selectionEndY = mousePos.y;
-            }
-            
-            if (ImGui::IsMouseReleased(ImGuiMouseButton_Left) && isSelecting) {
-                // Finish selection
-                ImVec2 mousePos = ImGui::GetMousePos();
-                selectionEndX = mousePos.x;
-                selectionEndY = mousePos.y;
-                // Note: Keep selection visible until a different action
-            }
-        }
-        else if (currentTool == Tool::Paint) {
-            // Paint tool: 
-            // - Room paint mode: assign/unassign cells to selected room
-            // - Hover over edge: highlight and show state
-            // - Click edge: cycle through None -> Wall -> Door -> None
-            // - W key + click: set to Wall
-            // - D key + click: set to Door
-            // - Otherwise: paint/erase tiles
-            
-            ImVec2 mousePos = ImGui::GetMousePos();
-            
-            // Room paint mode: assign cells to selected room
-            if (roomPaintMode && !selectedRoomId.empty()) {
-                // Convert mouse position to tile coordinates
-                int tx, ty;
-                canvas.ScreenToTile(
-                    mousePos.x, mousePos.y,
-                    model.grid.tileWidth, model.grid.tileHeight,
-                    &tx, &ty
-                );
-                
-                // Left click: assign cell to room
-                if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-                    // Check if moved to new cell or just started
-                    if (!isPaintingRoomCells || tx != lastRoomPaintX || 
-                        ty != lastRoomPaintY) {
-                        
-                        // Get cells to assign (interpolate if dragging)
-                        std::vector<std::pair<int, int>> cellsToAssign;
-                        if (isPaintingRoomCells && lastRoomPaintX >= 0 && 
-                            lastRoomPaintY >= 0) {
-                            // Interpolate from last position to current
-                            cellsToAssign = GetTilesAlongLine(
-                                lastRoomPaintX, lastRoomPaintY, tx, ty
-                            );
-                        } else {
-                            // First cell
-                            cellsToAssign.push_back({tx, ty});
-                        }
-                        
-                        // Assign all cells along the line
-                        for (const auto& cell : cellsToAssign) {
-                            int cellX = cell.first;
-                            int cellY = cell.second;
-                            
-                            std::string oldRoomId = model.GetCellRoom(
-                                cellX, cellY
-                            );
-                            
-                            // Only assign if different
-                            if (oldRoomId != selectedRoomId) {
-                                ModifyRoomAssignmentsCommand::CellAssignment 
-                                    assignment;
-                                assignment.x = cellX;
-                                assignment.y = cellY;
-                                assignment.oldRoomId = oldRoomId;
-                                assignment.newRoomId = selectedRoomId;
-                                
-                                currentRoomAssignments.push_back(assignment);
-                                
-                                // Apply immediately for visual feedback
-                                model.SetCellRoom(cellX, cellY, selectedRoomId);
-                            }
-                        }
-                        
-                        lastRoomPaintX = tx;
-                        lastRoomPaintY = ty;
-                        isPaintingRoomCells = true;
-                    }
-                }
-                // Right click (two-finger): unassign cell from room
-                else if (ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
-                    // Check if moved to new cell or just started
-                    if (!isPaintingRoomCells || tx != lastRoomPaintX || 
-                        ty != lastRoomPaintY) {
-                        
-                        // Get cells to unassign (interpolate if dragging)
-                        std::vector<std::pair<int, int>> cellsToUnassign;
-                        if (isPaintingRoomCells && lastRoomPaintX >= 0 && 
-                            lastRoomPaintY >= 0) {
-                            // Interpolate from last position to current
-                            cellsToUnassign = GetTilesAlongLine(
-                                lastRoomPaintX, lastRoomPaintY, tx, ty
-                            );
-                        } else {
-                            // First cell
-                            cellsToUnassign.push_back({tx, ty});
-                        }
-                        
-                        // Unassign all cells along the line
-                        for (const auto& cell : cellsToUnassign) {
-                            int cellX = cell.first;
-                            int cellY = cell.second;
-                            
-                            std::string currentRoomId = model.GetCellRoom(
-                                cellX, cellY
-                            );
-                            
-                            // Only unassign if currently assigned to selected room
-                            if (currentRoomId == selectedRoomId) {
-                                ModifyRoomAssignmentsCommand::CellAssignment 
-                                    assignment;
-                                assignment.x = cellX;
-                                assignment.y = cellY;
-                                assignment.oldRoomId = currentRoomId;
-                                assignment.newRoomId = "";  // Empty = unassign
-                                
-                                currentRoomAssignments.push_back(assignment);
-                                
-                                // Apply immediately for visual feedback
-                                model.ClearCellRoom(cellX, cellY);
-                            }
-                        }
-                        
-                        lastRoomPaintX = tx;
-                        lastRoomPaintY = ty;
-                        isPaintingRoomCells = true;
-                    }
-                }
-                
-                // When mouse is released, commit the room assignment command
-                bool mouseReleased = 
-                    ImGui::IsMouseReleased(ImGuiMouseButton_Left) ||
-                    ImGui::IsMouseReleased(ImGuiMouseButton_Right);
-                
-                if (isPaintingRoomCells && mouseReleased) {
-                    if (!currentRoomAssignments.empty()) {
-                        auto cmd = std::make_unique<
-                            ModifyRoomAssignmentsCommand
-                        >(currentRoomAssignments);
-                        // Changes already applied, just store for undo/redo
-                        history.AddCommand(std::move(cmd), model, false);
-                        currentRoomAssignments.clear();
-                    }
-                    isPaintingRoomCells = false;
-                    lastRoomPaintX = -1;
-                    lastRoomPaintY = -1;
-                }
-            }
-            // Regular paint mode: edges and tiles
-            else {
-                // First, check if we're hovering near an edge
-                EdgeId edgeId;
-                EdgeSide edgeSide;
-                isHoveringEdge = DetectEdgeHover(
-                    mousePos.x, mousePos.y, canvas, model.grid,
-                    &edgeId, &edgeSide
-                );
-                
-                if (isHoveringEdge) {
-                hoveredEdge = edgeId;
-                
-                // Handle edge clicking
-                if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-                    EdgeState currentState = model.GetEdgeState(edgeId);
-                    EdgeState newState;
-                    
-                    // Check for direct state shortcuts
-                    if (ImGui::IsKeyDown(ImGuiKey_W)) {
-                        newState = EdgeState::Wall;
-                    } else if (ImGui::IsKeyDown(ImGuiKey_D)) {
-                        newState = EdgeState::Door;
-                    } else {
-                        // Cycle through states
-                        newState = model.CycleEdgeState(currentState);
-                    }
-                    
-                    // Only modify if state changed
-                    if (newState != currentState) {
-                        ModifyEdgesCommand::EdgeChange change;
-                        change.edgeId = edgeId;
-                        change.oldState = currentState;
-                        change.newState = newState;
-                        
-                        currentEdgeChanges.push_back(change);
-                        
-                        // Apply immediately for visual feedback
-                        model.SetEdgeState(edgeId, newState);
-                        
-                        // Trigger grid expansion if needed
-                        int tx, ty;
-                        canvas.ScreenToTile(
-                            mousePos.x, mousePos.y,
-                            model.grid.tileWidth, model.grid.tileHeight,
-                            &tx, &ty
-                        );
-                        model.ExpandGridIfNeeded(tx, ty);
-                        
-                        isModifyingEdges = true;
-                    }
-                }
-                
-                // When mouse is released, commit edge changes
-                if (isModifyingEdges && 
-                    ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
-                    if (!currentEdgeChanges.empty()) {
-                        auto cmd = std::make_unique<ModifyEdgesCommand>(
-                            currentEdgeChanges
-                        );
-                        history.AddCommand(std::move(cmd), model, false);
-                        currentEdgeChanges.clear();
-                    }
-                    isModifyingEdges = false;
-                }
-                } else {
-                // Not hovering edge, handle tile painting/erasing
-                bool shouldPaint = false;
-                bool shouldErase = false;
-                
-                // Check for two-finger gesture (acts as erase)
-                if (ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
-                    shouldErase = true;
-                    twoFingerEraseActive = true;
-                }
-                // Check for E key + left mouse (erase modifier)
-                else if (ImGui::IsMouseDown(ImGuiMouseButton_Left) && 
-                         ImGui::IsKeyDown(ImGuiKey_E)) {
-                    shouldErase = true;
-                }
-                // Check for left mouse button (primary paint input)
-                else if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-                    shouldPaint = true;
-                }
-                
-                if (shouldPaint) {
-                    // Convert mouse position to tile coordinates
-                    int tx, ty;
-                    canvas.ScreenToTile(
-                        mousePos.x, mousePos.y,
-                        model.grid.tileWidth, model.grid.tileHeight,
-                        &tx, &ty
-                    );
-                    
-                    // Check if we've moved to a new tile or just started
-                    if (!isPainting || tx != lastPaintedTileX || 
-                        ty != lastPaintedTileY) {
-                        
-                        // Paint tiles globally (using "" as roomId)
-                        const std::string globalRoomId = "";
-                        
-                        // Get tiles to paint (interpolate if dragging)
-                        std::vector<std::pair<int, int>> tilesToPaint;
-                        if (isPainting && lastPaintedTileX >= 0 && 
-                            lastPaintedTileY >= 0) {
-                            // Interpolate from last position to current
-                            tilesToPaint = GetTilesAlongLine(
-                                lastPaintedTileX, lastPaintedTileY, 
-                                tx, ty
-                            );
-                        } else {
-                            // First tile
-                            tilesToPaint.push_back({tx, ty});
-                        }
-                        
-                        // Paint all tiles along the line
-                        for (const auto& tile : tilesToPaint) {
-                            int tileX = tile.first;
-                            int tileY = tile.second;
-                            
-                            int oldTileId = model.GetTileAt(
-                                globalRoomId, tileX, tileY
-                            );
-                            
-                            // Only paint if the tile is different
-                            if (oldTileId != selectedTileId) {
-                                PaintTilesCommand::TileChange change;
-                                change.roomId = globalRoomId;
-                                change.x = tileX;
-                                change.y = tileY;
-                                change.oldTileId = oldTileId;
-                                change.newTileId = selectedTileId;
-                                
-                                currentPaintChanges.push_back(change);
-                                
-                                // Apply immediately for visual feedback
-                                model.SetTileAt(
-                                    globalRoomId, tileX, tileY, selectedTileId
-                                );
-                            }
-                        }
-                        
-                        lastPaintedTileX = tx;
-                        lastPaintedTileY = ty;
-                        isPainting = true;
-                    }
-                }
-                
-                
-                // Handle erase with E+Mouse1 or right-click/two-finger
-                if (shouldErase) {
-                    // Convert mouse position to tile coordinates
-                    int tx, ty;
-                    canvas.ScreenToTile(
-                        mousePos.x, mousePos.y,
-                        model.grid.tileWidth, model.grid.tileHeight,
-                        &tx, &ty
-                    );
-                    
-                    // Check if we've moved to a new tile or just started
-                    if (!isPainting || tx != lastPaintedTileX || 
-                        ty != lastPaintedTileY) {
-                        
-                        // Erase tiles globally (using "" as roomId)
-                        const std::string globalRoomId = "";
-                        
-                        // Get tiles to erase (interpolate if dragging)
-                        std::vector<std::pair<int, int>> tilesToErase;
-                        if (isPainting && lastPaintedTileX >= 0 && 
-                            lastPaintedTileY >= 0) {
-                            // Interpolate from last position to current
-                            tilesToErase = GetTilesAlongLine(
-                                lastPaintedTileX, lastPaintedTileY, 
-                                tx, ty
-                            );
-                        } else {
-                            // First tile
-                            tilesToErase.push_back({tx, ty});
-                        }
-                        
-                        // Erase all tiles along the line
-                        for (const auto& tile : tilesToErase) {
-                            int tileX = tile.first;
-                            int tileY = tile.second;
-                            
-                            int oldTileId = model.GetTileAt(
-                                globalRoomId, tileX, tileY
-                            );
-                            
-                            // Only erase if there's something to erase
-                            if (oldTileId != 0) {
-                                PaintTilesCommand::TileChange change;
-                                change.roomId = globalRoomId;
-                                change.x = tileX;
-                                change.y = tileY;
-                                change.oldTileId = oldTileId;
-                                change.newTileId = 0;  // 0 = empty/erase
-                                
-                                currentPaintChanges.push_back(change);
-                                
-                                // Apply immediately for visual feedback
-                                model.SetTileAt(globalRoomId, tileX, tileY, 0);
-                            }
-                        }
-                        
-                        lastPaintedTileX = tx;
-                        lastPaintedTileY = ty;
-                        isPainting = true;
-                    }
-                }
-                }  // End of "not hovering edge" block
-            }  // End of "regular paint mode" block
-        }
-        else if (currentTool == Tool::Erase) {
-            // Erase tool: Left mouse to erase (primary input)
-            // - Hover over edge: highlight and erase on click
-            // - Otherwise: erase tiles
-            // Right-click also supported for consistency
-            
-            ImVec2 mousePos = ImGui::GetMousePos();
-            
-            // First, check if we're hovering near an edge
-            EdgeId edgeId;
-            EdgeSide edgeSide;
-            isHoveringEdge = DetectEdgeHover(
-                mousePos.x, mousePos.y, canvas, model.grid,
-                &edgeId, &edgeSide
-            );
-            
-            if (isHoveringEdge) {
-                hoveredEdge = edgeId;
-                
-                // Handle edge deletion via hover (precise mode)
-                bool shouldEraseEdge = ImGui::IsMouseDown(ImGuiMouseButton_Left) ||
-                                      ImGui::IsMouseDown(ImGuiMouseButton_Right);
-                
-                if (shouldEraseEdge) {
-                    EdgeState currentState = model.GetEdgeState(edgeId);
-                    
-                    // Only delete if there's an edge to delete
-                    if (currentState != EdgeState::None) {
-                        ModifyEdgesCommand::EdgeChange change;
-                        change.edgeId = edgeId;
-                        change.oldState = currentState;
-                        change.newState = EdgeState::None;  // Delete edge
-                        
-                        currentEdgeChanges.push_back(change);
-                        
-                        // Apply immediately for visual feedback
-                        model.SetEdgeState(edgeId, EdgeState::None);
-                        
-                        isModifyingEdges = true;
-                    }
-                }
-            }
-            // Handle tile erasing (only when NOT hovering edge)
-            else {
-            bool shouldErase = false;
-            
-            // Check for left mouse button (primary erase input)
-            if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-                shouldErase = true;
-            }
-            // Also support right-click for two-finger trackpad gestures
-            else if (ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
-                shouldErase = true;
-            }
-            
-            if (shouldErase) {
-                // Convert mouse position to tile coordinates
-                int tx, ty;
-                canvas.ScreenToTile(
-                    mousePos.x, mousePos.y,
-                    model.grid.tileWidth, model.grid.tileHeight,
-                    &tx, &ty
-                );
-                
-                // Check if we've moved to a new tile or just started
-                if (!isPainting || tx != lastPaintedTileX || 
-                    ty != lastPaintedTileY) {
-                    
-                    // Erase tiles globally (using "" as roomId)
-                    const std::string globalRoomId = "";
-                    
-                    // Get tiles to erase (interpolate if dragging)
-                    std::vector<std::pair<int, int>> tilesToErase;
-                    if (isPainting && lastPaintedTileX >= 0 && 
-                        lastPaintedTileY >= 0) {
-                        // Interpolate from last position to current
-                        tilesToErase = GetTilesAlongLine(
-                            lastPaintedTileX, lastPaintedTileY, tx, ty
-                        );
-                    } else {
-                        // First tile
-                        tilesToErase.push_back({tx, ty});
-                    }
-                    
-                    // Track previous tile for edge crossing detection
-                    int prevX = lastPaintedTileX;
-                    int prevY = lastPaintedTileY;
-                    
-                    // Erase all tiles along the line with brush size
-                    for (const auto& tile : tilesToErase) {
-                        int centerX = tile.first;
-                        int centerY = tile.second;
-                        
-                        // Calculate brush area (NxN tiles centered on cursor)
-                        int halfBrush = eraserBrushSize / 2;
-                        int startX = centerX - halfBrush;
-                        int startY = centerY - halfBrush;
-                        int endX = centerX + halfBrush;
-                        int endY = centerY + halfBrush;
-                        
-                        // Erase all tiles in brush area
-                        for (int brushY = startY; brushY <= endY; brushY++) {
-                            for (int brushX = startX; brushX <= endX; brushX++) {
-                                int oldTileId = model.GetTileAt(
-                                    globalRoomId, brushX, brushY
-                                );
-                                
-                                // Only erase if there's something to erase
-                                if (oldTileId != 0) {
-                                    PaintTilesCommand::TileChange change;
-                                    change.roomId = globalRoomId;
-                                    change.x = brushX;
-                                    change.y = brushY;
-                                    change.oldTileId = oldTileId;
-                                    change.newTileId = 0;  // 0 = empty/erase
-                                    
-                                    currentPaintChanges.push_back(change);
-                                    
-                                    // Apply immediately for visual feedback
-                                    model.SetTileAt(globalRoomId, brushX, 
-                                                   brushY, 0);
-                                }
-                            }
-                        }
-                        
-                        // Check for crossed edges when dragging
-                        if (prevX >= 0 && prevY >= 0) {
-                            // Moved horizontally - crossed vertical edge
-                            if (centerX != prevX) {
-                                EdgeSide side = (centerX > prevX) ? 
-                                    EdgeSide::East : EdgeSide::West;
-                                EdgeId crossedEdge = MakeEdgeId(
-                                    prevX, prevY, side
-                                );
-                                EdgeState edgeState = model.GetEdgeState(
-                                    crossedEdge
-                                );
-                                
-                                if (edgeState != EdgeState::None) {
-                                    ModifyEdgesCommand::EdgeChange change;
-                                    change.edgeId = crossedEdge;
-                                    change.oldState = edgeState;
-                                    change.newState = EdgeState::None;
-                                    
-                                    currentEdgeChanges.push_back(change);
-                                    model.SetEdgeState(
-                                        crossedEdge, EdgeState::None
-                                    );
-                                }
-                            }
-                            
-                            // Moved vertically - crossed horizontal edge
-                            if (centerY != prevY) {
-                                EdgeSide side = (centerY > prevY) ? 
-                                    EdgeSide::South : EdgeSide::North;
-                                EdgeId crossedEdge = MakeEdgeId(
-                                    prevX, prevY, side
-                                );
-                                EdgeState edgeState = model.GetEdgeState(
-                                    crossedEdge
-                                );
-                                
-                                if (edgeState != EdgeState::None) {
-                                    ModifyEdgesCommand::EdgeChange change;
-                                    change.edgeId = crossedEdge;
-                                    change.oldState = edgeState;
-                                    change.newState = EdgeState::None;
-                                    
-                                    currentEdgeChanges.push_back(change);
-                                    model.SetEdgeState(
-                                        crossedEdge, EdgeState::None
-                                    );
-                                }
-                            }
-                        }
-                        
-                        // Update prev for next iteration
-                        prevX = centerX;
-                        prevY = centerY;
-                    }
-                    
-                    lastPaintedTileX = tx;
-                    lastPaintedTileY = ty;
-                    isPainting = true;
-                }
-            }
-            }  // End of else (tile erasing when not hovering edge)
-        }
-        else if (currentTool == Tool::Fill) {
-            // Fill tool: Left-click to flood fill connected tiles
-            if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-                ImVec2 mousePos = ImGui::GetMousePos();
-                
-                // Convert mouse position to tile coordinates
-                int tx, ty;
-                canvas.ScreenToTile(
-                    mousePos.x, mousePos.y,
-                    model.grid.tileWidth, model.grid.tileHeight,
-                    &tx, &ty
-                );
-                
-                // Fill tiles globally (using "" as roomId)
-                // TODO: Implement flood-fill with wall boundaries
-                const std::string globalRoomId = "";
-                
-                // Get the original tile ID to replace
-                int originalTileId = model.GetTileAt(globalRoomId, tx, ty);
-                
-                // Only fill if we're changing to a different tile
-                if (originalTileId != selectedTileId) {
-                    // Perform flood fill using BFS
-                    std::vector<PaintTilesCommand::TileChange> fillChanges;
-                    std::vector<std::pair<int, int>> toVisit;
-                    std::set<std::pair<int, int>> visited;
-                    
-                    toVisit.push_back({tx, ty});
-                    
-                    while (!toVisit.empty()) {
-                        auto [x, y] = toVisit.back();
-                        toVisit.pop_back();
-                        
-                        // Skip if already visited
-                        if (visited.count({x, y})) {
-                            continue;
-                        }
-                        visited.insert({x, y});
-                        
-                        // Check grid bounds
-                        if (x < 0 || x >= model.grid.cols ||
-                            y < 0 || y >= model.grid.rows) {
-                            continue;
-                        }
-                        
-                        // Get current tile
-                        int currentTile = model.GetTileAt(globalRoomId, x, y);
-                        
-                        // Skip if not matching original tile
-                        if (currentTile != originalTileId) {
-                            continue;
-                        }
-                        
-                        // Add this tile to changes
-                        PaintTilesCommand::TileChange change;
-                        change.roomId = globalRoomId;
-                        change.x = x;
-                        change.y = y;
-                        change.oldTileId = originalTileId;
-                        change.newTileId = selectedTileId;
-                        fillChanges.push_back(change);
-                        
-                        // Add neighbors to visit (4-way connectivity)
-                        toVisit.push_back({x + 1, y});
-                        toVisit.push_back({x - 1, y});
-                        toVisit.push_back({x, y + 1});
-                        toVisit.push_back({x, y - 1});
-                    }
-                    
-                    // Apply all changes and add to history
-                    if (!fillChanges.empty()) {
-                        // Apply changes immediately
-                        for (const auto& change : fillChanges) {
-                            model.SetTileAt(
-                                change.roomId, 
-                                change.x, 
-                                change.y, 
-                                change.newTileId
-                            );
-                        }
-                        
-                        // Add to history
-                        auto cmd = std::make_unique<FillTilesCommand>(
-                            fillChanges
-                        );
-                        history.AddCommand(std::move(cmd), model, false);
-                    }
-                }
-            }
-        }
-        else if (currentTool == Tool::Eyedropper) {
-            // Eyedropper tool: Left-click to pick tile color/ID
-            if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-                ImVec2 mousePos = ImGui::GetMousePos();
-                
-                // Convert mouse position to tile coordinates
-                int tx, ty;
-                canvas.ScreenToTile(
-                    mousePos.x, mousePos.y,
-                    model.grid.tileWidth, model.grid.tileHeight,
-                    &tx, &ty
-                );
-                
-                // Pick tile globally (using "" as roomId)
-                const std::string globalRoomId = "";
-                int pickedTileId = model.GetTileAt(globalRoomId, tx, ty);
-                
-                // Only pick non-empty tiles
-                if (pickedTileId != 0) {
-                    selectedTileId = pickedTileId;
-                    
-                    // Find color name for toast message
-                    std::string colorName = "Unknown";
-                    for (const auto& tile : model.palette) {
-                        if (tile.id == pickedTileId) {
-                            colorName = tile.name;
-                            break;
-                        }
-                    }
-                    
-                    ShowToast("Picked: " + colorName, 
-                             Toast::Type::Success, 1.5f);
-                    
-                    // Auto-switch to Paint tool if toggle is enabled
-                    if (eyedropperAutoSwitchToPaint) {
-                        currentTool = Tool::Paint;
-                    }
-                }
-                // Note: "No tile to pick" message shown in console only
-            }
-        }
-        else if (currentTool == Tool::Marker) {
-            // Marker tool: Left-click to place/edit markers
-            if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-                ImVec2 mousePos = ImGui::GetMousePos();
-                
-                // Convert to world coordinates
-                float wx, wy;
-                canvas.ScreenToWorld(mousePos.x, mousePos.y, &wx, &wy);
-                
-                // Convert to fractional tile coordinates
-                float tileX = wx / model.grid.tileWidth;
-                float tileY = wy / model.grid.tileHeight;
-                
-                // Snap to nearest snap point based on grid preset
-                auto snapPoints = model.GetMarkerSnapPoints();
-                int baseTileX = static_cast<int>(std::floor(tileX));
-                int baseTileY = static_cast<int>(std::floor(tileY));
-                float fractionalX = tileX - baseTileX;
-                float fractionalY = tileY - baseTileY;
-                
-                float minDist = FLT_MAX;
-                float bestSnapX = 0.5f, bestSnapY = 0.5f;
-                
-                for (const auto& snap : snapPoints) {
-                    float dx = fractionalX - snap.first;
-                    float dy = fractionalY - snap.second;
-                    float dist = dx*dx + dy*dy;
-                    if (dist < minDist) {
-                        minDist = dist;
-                        bestSnapX = snap.first;
-                        bestSnapY = snap.second;
-                    }
-                }
-                
-                tileX = baseTileX + bestSnapX;
-                tileY = baseTileY + bestSnapY;
-                
-                // Check if we clicked near an existing marker
-                Marker* clickedMarker = 
-                    model.FindMarkerNear(tileX, tileY, 0.5f);
-                
-                if (clickedMarker && ImGui::IsKeyDown(ImGuiKey_LeftShift)) {
-                    // Shift+Click: Delete marker
-                    auto cmd = std::make_unique<DeleteMarkerCommand>(
-                        clickedMarker->id
-                    );
-                    history.AddCommand(std::move(cmd), model);
-                    
-                    selectedMarker = nullptr;  // Clear selection
-                } else if (clickedMarker) {
-                    // Click existing marker: Select and start drag
-                    selectedMarker = clickedMarker;
-                    isDraggingMarker = true;
-                    dragStartX = clickedMarker->x;
-                    dragStartY = clickedMarker->y;
-                    
-                    // Load marker properties into UI
-                    selectedIconName = clickedMarker->icon;
-                    markerLabel = clickedMarker->label;
-                    markerColor = clickedMarker->color;
-                    
-                    // Update hex input
-                    std::string hexStr = markerColor.ToHex(false);
-                    std::strncpy(markerColorHex, hexStr.c_str(), 
-                                sizeof(markerColorHex) - 1);
-                    markerColorHex[sizeof(markerColorHex) - 1] = '\0';
-                } else {
-                    // Place new marker
-                    Marker newMarker;
-                    newMarker.id = model.GenerateMarkerId();
-                    newMarker.roomId = "";  // Global for now
-                    newMarker.x = tileX;
-                    newMarker.y = tileY;
-                    newMarker.kind = "custom";
-                    newMarker.label = markerLabel;
-                    newMarker.icon = selectedIconName;
-                    newMarker.color = markerColor;
-                    newMarker.size = 0.6f;
-                    newMarker.showLabel = !markerLabel.empty();
-                    
-                    auto cmd = std::make_unique<PlaceMarkerCommand>(
-                        newMarker, true
-                    );
-                    history.AddCommand(std::move(cmd), model);
-                }
-            }
-            
-            // Right-click (two-finger) to delete marker
-            if (ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
-                ImVec2 mousePos = ImGui::GetMousePos();
-                
-                // Convert to world coordinates
-                float wx, wy;
-                canvas.ScreenToWorld(mousePos.x, mousePos.y, &wx, &wy);
-                
-                // Convert to fractional tile coordinates
-                float tileX = wx / model.grid.tileWidth;
-                float tileY = wy / model.grid.tileHeight;
-                
-                // Check if we right-clicked near an existing marker
-                Marker* clickedMarker = 
-                    model.FindMarkerNear(tileX, tileY, 0.5f);
-                
-                if (clickedMarker) {
-                    // Delete marker
-                    auto cmd = std::make_unique<DeleteMarkerCommand>(
-                        clickedMarker->id
-                    );
-                    history.AddCommand(std::move(cmd), model);
-                    
-                    // Clear selection if we deleted the selected marker
-                    if (selectedMarker && selectedMarker->id == clickedMarker->id) {
-                        selectedMarker = nullptr;
-                    }
-                }
-            }
-            
-            // Handle marker dragging
-            if (isDraggingMarker && selectedMarker) {
-                if (ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
-                    // Update marker position while dragging
-                    ImVec2 mousePos = ImGui::GetMousePos();
-                    
-                    float wx, wy;
-                    canvas.ScreenToWorld(mousePos.x, mousePos.y, &wx, &wy);
-                    
-                    float tileX = wx / model.grid.tileWidth;
-                    float tileY = wy / model.grid.tileHeight;
-                    
-                    // Snap to nearest snap point based on grid preset
-                    auto snapPoints = model.GetMarkerSnapPoints();
-                    int baseTileX = static_cast<int>(std::floor(tileX));
-                    int baseTileY = static_cast<int>(std::floor(tileY));
-                    float fractionalX = tileX - baseTileX;
-                    float fractionalY = tileY - baseTileY;
-                    
-                    float minDist = FLT_MAX;
-                    float bestSnapX = 0.5f, bestSnapY = 0.5f;
-                    
-                    for (const auto& snap : snapPoints) {
-                        float dx = fractionalX - snap.first;
-                        float dy = fractionalY - snap.second;
-                        float dist = dx*dx + dy*dy;
-                        if (dist < minDist) {
-                            minDist = dist;
-                            bestSnapX = snap.first;
-                            bestSnapY = snap.second;
-                        }
-                    }
-                    
-                    tileX = baseTileX + bestSnapX;
-                    tileY = baseTileY + bestSnapY;
-                    
-                    // Update marker position
-                    selectedMarker->x = tileX;
-                    selectedMarker->y = tileY;
-                    model.MarkDirty();
-                } else if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
-                    // Finish dragging, create command for undo
-                    if (dragStartX != selectedMarker->x || 
-                        dragStartY != selectedMarker->y) {
-                        auto cmd = std::make_unique<MoveMarkersCommand>(
-                            selectedMarker->id,
-                            dragStartX, dragStartY,
-                            selectedMarker->x, selectedMarker->y
-                        );
-                        history.AddCommand(std::move(cmd), model, false);
-                    }
-                    
-                    isDraggingMarker = false;
-                }
-            }
-        }
-    }
-    
-    // Handle mouse release for Paint/Erase tools (outside hover check)
-    // This ensures releases are detected even if mouse drifts outside canvas
-    if (currentTool == Tool::Paint || currentTool == Tool::Erase) {
-        // Check for paint/erase tile release
-        bool mouseReleased = ImGui::IsMouseReleased(ImGuiMouseButton_Left) ||
-                             ImGui::IsMouseReleased(ImGuiMouseButton_Right);
-        
-        if (isPainting && mouseReleased) {
-            if (!currentPaintChanges.empty()) {
-                auto cmd = std::make_unique<PaintTilesCommand>(
-                    currentPaintChanges
-                );
-                // Changes already applied, just store for undo/redo
-                history.AddCommand(std::move(cmd), model, false);
-                currentPaintChanges.clear();
-            }
-            isPainting = false;
-            lastPaintedTileX = -1;
-            lastPaintedTileY = -1;
-            twoFingerEraseActive = false;
-        }
-        
-        // Check for edge modification release (Erase tool)
-        if (isModifyingEdges && mouseReleased) {
-            if (!currentEdgeChanges.empty()) {
-                auto cmd = std::make_unique<ModifyEdgesCommand>(
-                    currentEdgeChanges
-                );
-                history.AddCommand(std::move(cmd), model, false);
-                currentEdgeChanges.clear();
-            }
-            isModifyingEdges = false;
-        }
-    }
-    
-    // Clear selection if we click outside canvas
-    if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && 
-        !ImGui::IsItemHovered() && isSelecting) {
-        isSelecting = false;
-    }
-    
-    // Keyboard shortcuts for markers
-    if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)) {
-        // Copy selected marker
-        if (keymap.IsActionTriggered("copy")) {
-            if (selectedMarker) {
-                copiedMarkers.clear();
-                copiedMarkers.push_back(*selectedMarker);
-            }
-        }
-        
-        // Paste marker
-        if (keymap.IsActionTriggered("paste")) {
-            if (!copiedMarkers.empty()) {
-                // Paste at mouse position or offset from original
-                ImVec2 mousePos = ImGui::GetMousePos();
-                float wx, wy;
-                canvas.ScreenToWorld(mousePos.x, mousePos.y, &wx, &wy);
-                
-                float tileX = wx / model.grid.tileWidth;
-                float tileY = wy / model.grid.tileHeight;
-                
-                // Snap to nearest snap point based on grid preset
-                auto snapPoints = model.GetMarkerSnapPoints();
-                int baseTileX = static_cast<int>(std::floor(tileX));
-                int baseTileY = static_cast<int>(std::floor(tileY));
-                float fractionalX = tileX - baseTileX;
-                float fractionalY = tileY - baseTileY;
-                
-                float minDist = FLT_MAX;
-                float bestSnapX = 0.5f, bestSnapY = 0.5f;
-                
-                for (const auto& snap : snapPoints) {
-                    float dx = fractionalX - snap.first;
-                    float dy = fractionalY - snap.second;
-                    float dist = dx*dx + dy*dy;
-                    if (dist < minDist) {
-                        minDist = dist;
-                        bestSnapX = snap.first;
-                        bestSnapY = snap.second;
-                    }
-                }
-                
-                tileX = baseTileX + bestSnapX;
-                tileY = baseTileY + bestSnapY;
-                
-                for (const auto& marker : copiedMarkers) {
-                    Marker newMarker = marker;
-                    newMarker.id = model.GenerateMarkerId();
-                    newMarker.x = tileX;
-                    newMarker.y = tileY;
-                    
-                    auto cmd = std::make_unique<PlaceMarkerCommand>(
-                        newMarker, true
-                    );
-                    history.AddCommand(std::move(cmd), model);
-                }
-            }
-        }
-        
-        // Delete selected marker
-        if (selectedMarker && 
-            (keymap.IsActionTriggered("delete") || 
-             keymap.IsActionTriggered("deleteAlt"))) {
-            auto cmd = std::make_unique<DeleteMarkerCommand>(
-                selectedMarker->id
-            );
-            history.AddCommand(std::move(cmd), model);   
-            selectedMarker = nullptr;
-        }
-    }
-    
-    // Draw canvas overlays using window DrawList
-    // (renders above canvas texture but below UI elements like tooltips/menus)
-    ImDrawList* drawList = ImGui::GetWindowDrawList();
-    
-    // Clip all canvas drawing to window bounds (prevent overlap with other panels)
-    ImVec2 canvasMin = ImGui::GetWindowPos();
-    ImVec2 canvasMax = ImVec2(canvasMin.x + ImGui::GetWindowSize().x,
-                               canvasMin.y + ImGui::GetWindowSize().y);
-    drawList->PushClipRect(canvasMin, canvasMax, true);
-    
-    // Draw background
-    ImU32 bgColor = ImGui::GetColorU32(ImVec4(0.15f, 0.15f, 0.15f, 1.0f));
-    drawList->AddRectFilled(canvasPos, 
-        ImVec2(canvasPos.x + canvasSize.x, canvasPos.y + canvasSize.y), 
-        bgColor);
-    
-    // Update hovered tile coordinates (for status bar)
-    if (ImGui::IsItemHovered()) {
-        isHoveringCanvas = true;
-        ImVec2 mousePos = ImGui::GetMousePos();
-        canvas.ScreenToTile(
-            mousePos.x, mousePos.y,
-            model.grid.tileWidth, model.grid.tileHeight,
-            &hoveredTileX, &hoveredTileY
-        );
-    } else {
-        isHoveringCanvas = false;
-        hoveredTileX = -1;
-        hoveredTileY = -1;
-    }
-    
-    // Update hovered marker (if Marker tool is active)
-    if (currentTool == Tool::Marker && ImGui::IsItemHovered()) {
-        ImVec2 mousePos = ImGui::GetMousePos();
-        float wx, wy;
-        canvas.ScreenToWorld(mousePos.x, mousePos.y, &wx, &wy);
-        
-        float tileX = wx / model.grid.tileWidth;
-        float tileY = wy / model.grid.tileHeight;
-        
-        hoveredMarker = model.FindMarkerNear(tileX, tileY, 0.5f);
-        
-        // Show tooltip for hovered marker
-        if (hoveredMarker && !isDraggingMarker) {
-            ImGui::BeginTooltip();
-            ImGui::Text("Marker: %s", hoveredMarker->label.empty() ? 
-                       "(no label)" : hoveredMarker->label.c_str());
-            ImGui::TextDisabled("Icon: %s", hoveredMarker->icon.c_str());
-            ImGui::TextDisabled("Position: (%.1f, %.1f)", 
-                               hoveredMarker->x, hoveredMarker->y);
-            ImGui::Separator();
-            ImGui::TextDisabled("Click: Select/Move");
-            ImGui::TextDisabled("Shift+Click: Delete");
-            ImGui::EndTooltip();
-        }
-    } else {
-        hoveredMarker = nullptr;
-    }
-    
-    // Render the actual canvas content (grid, tiles, rooms, doors, markers, overlays)
-    canvas.Render(
-        renderer,
-        model,
-        &icons,
-        static_cast<int>(canvasPos.x),
-        static_cast<int>(canvasPos.y),
-        static_cast<int>(canvasSize.x),
-        static_cast<int>(canvasSize.y),
-        isHoveringEdge ? &hoveredEdge : nullptr,
-        showRoomOverlays,  // Pass room overlay toggle state
-        selectedMarker,    // Pass selected marker for highlight
-        hoveredMarker      // Pass hovered marker for highlight
-    );
-    
-    // Note: Thumbnail capture moved to App::Render() after ImGui draw data
-    // is rendered to ensure pixels are actually in the framebuffer
-    
-    // Draw selection rectangle if Select tool is active
-    if (currentTool == Tool::Select && isSelecting) {
-        // Calculate rectangle bounds
-        float minX = std::min(selectionStartX, selectionEndX);
-        float minY = std::min(selectionStartY, selectionEndY);
-        float maxX = std::max(selectionStartX, selectionEndX);
-        float maxY = std::max(selectionStartY, selectionEndY);
-        
-        // Draw semi-transparent fill
-        ImU32 fillColor = ImGui::GetColorU32(ImVec4(0.3f, 0.6f, 1.0f, 0.2f));
-        drawList->AddRectFilled(
-            ImVec2(minX, minY),
-            ImVec2(maxX, maxY),
-            fillColor
-        );
-        
-        // Draw border
-        ImU32 borderColor = ImGui::GetColorU32(ImVec4(0.3f, 0.6f, 1.0f, 0.8f));
-        drawList->AddRect(
-            ImVec2(minX, minY),
-            ImVec2(maxX, maxY),
-            borderColor,
-            0.0f,
-            0,
-            2.0f
-        );
-    }
-    
-    // Draw paint cursor preview if Paint or Erase tool is active
-    if ((currentTool == Tool::Paint || currentTool == Tool::Erase) && 
-        ImGui::IsItemHovered()) {
-        ImVec2 mousePos = ImGui::GetMousePos();
-        
-        // Convert to tile coordinates
-        int tx, ty;
-        canvas.ScreenToTile(
-            mousePos.x, mousePos.y,
-            model.grid.tileWidth, model.grid.tileHeight,
-            &tx, &ty
-        );
-        
-        // Convert back to screen coordinates (snapped to grid)
-        float wx, wy;
-        canvas.TileToWorld(tx, ty, model.grid.tileWidth, 
-                          model.grid.tileHeight, &wx, &wy);
-        
-        float sx, sy;
-        canvas.WorldToScreen(wx, wy, &sx, &sy);
-        
-        float sw = model.grid.tileWidth * canvas.zoom;
-        float sh = model.grid.tileHeight * canvas.zoom;
-        
-        // Draw preview based on tool and state
-        // TODO: Make these colors customizable in theme/settings
-        if (currentTool == Tool::Erase || 
-            (currentTool == Tool::Paint && ImGui::IsKeyDown(ImGuiKey_E))) {
-            // Erase preview (red fill + red outline)
-            ImU32 eraseColor = ImGui::GetColorU32(
-                ImVec4(1.0f, 0.3f, 0.3f, 0.6f)
-            );
-            
-            // Calculate brush area for multi-tile eraser
-            int halfBrush = eraserBrushSize / 2;
-            int startTileX = tx - halfBrush;
-            int startTileY = ty - halfBrush;
-            int endTileX = tx + halfBrush;
-            int endTileY = ty + halfBrush;
-            
-            // Convert start tile to screen coords
-            float startWx, startWy;
-            canvas.TileToWorld(startTileX, startTileY, 
-                             model.grid.tileWidth, model.grid.tileHeight,
-                             &startWx, &startWy);
-            float startSx, startSy;
-            canvas.WorldToScreen(startWx, startWy, &startSx, &startSy);
-            
-            // Calculate total size of brush area in screen space
-            float totalWidth = sw * eraserBrushSize;
-            float totalHeight = sh * eraserBrushSize;
-            
-            // Draw filled semi-transparent rectangle for brush area
-            ImU32 eraseFillColor = ImGui::GetColorU32(
-                ImVec4(1.0f, 0.3f, 0.3f, 0.3f)
-            );
-            drawList->AddRectFilled(
-                ImVec2(startSx, startSy),
-                ImVec2(startSx + totalWidth, startSy + totalHeight),
-                eraseFillColor
-            );
-            
-            // Draw outline
-            drawList->AddRect(
-                ImVec2(startSx, startSy),
-                ImVec2(startSx + totalWidth, startSy + totalHeight),
-                eraseColor,
-                0.0f,
-                0,
-                2.0f
-            );
-        } else {
-            // Paint preview (brightened tile color + white border)
-            Color tileColor(0.8f, 0.8f, 0.8f, 0.4f);
-            for (const auto& tile : model.palette) {
-                if (tile.id == selectedTileId) {
-                    tileColor = tile.color;
-                    break;
-                }
-            }
-            
-            // Brighten color by 30% for visibility
-            // TODO: Make brightness boost customizable
-            float brightenAmount = 0.3f;
-            Color brightened;
-            brightened.r = std::min(tileColor.r + brightenAmount, 1.0f);
-            brightened.g = std::min(tileColor.g + brightenAmount, 1.0f);
-            brightened.b = std::min(tileColor.b + brightenAmount, 1.0f);
-            brightened.a = 0.6f;  // Semi-transparent
-            
-            // Draw preview fill
-            drawList->AddRectFilled(
-                ImVec2(sx, sy),
-                ImVec2(sx + sw, sy + sh),
-                brightened.ToU32()
-            );
-            
-            // Draw white border for visibility
-            // TODO: Make border color/thickness customizable
-            ImU32 borderColor = ImGui::GetColorU32(
-                ImVec4(1.0f, 1.0f, 1.0f, 0.9f)
-            );
-            float borderThickness = 3.0f;
-            drawList->AddRect(
-                ImVec2(sx, sy),
-                ImVec2(sx + sw, sy + sh),
-                borderColor,
-                0.0f,
-                0,
-                borderThickness
-            );
-        }
-        
-        // Draw edge hover preview for Paint tool
-        if (currentTool == Tool::Paint && isHoveringEdge) {
-            // Calculate edge line endpoints based on hovered edge
-            int x1 = hoveredEdge.x1;
-            int y1 = hoveredEdge.y1;
-            int x2 = hoveredEdge.x2;
-            int y2 = hoveredEdge.y2;
-            
-            // Determine if this is a vertical or horizontal edge
-            bool isVertical = (x1 != x2);
-            
-            float wx1, wy1, wx2, wy2;
-            if (isVertical) {
-                // Vertical edge
-                wx1 = std::max(x1, x2) * model.grid.tileWidth;
-                wx2 = wx1;
-                wy1 = std::min(y1, y2) * model.grid.tileHeight;
-                wy2 = wy1 + model.grid.tileHeight;
-            } else {
-                // Horizontal edge
-                wy1 = std::max(y1, y2) * model.grid.tileHeight;
-                wy2 = wy1;
-                wx1 = std::min(x1, x2) * model.grid.tileWidth;
-                wx2 = wx1 + model.grid.tileWidth;
-            }
-            
-            // Convert to screen coordinates
-            float esx1, esy1, esx2, esy2;
-            canvas.WorldToScreen(wx1, wy1, &esx1, &esy1);
-            canvas.WorldToScreen(wx2, wy2, &esx2, &esy2);
-            
-            // Get current edge state
-            EdgeState currentState = model.GetEdgeState(hoveredEdge);
-            
-            // Draw ghost preview showing what will happen
-            ImU32 edgePreviewColor;
-            if (currentState == EdgeState::None) {
-                // No edge exists - show wall preview (green)
-                edgePreviewColor = ImGui::GetColorU32(
-                    ImVec4(0.3f, 1.0f, 0.3f, 0.7f)
-                );
-            } else if (currentState == EdgeState::Wall) {
-                // Wall exists - show door preview (blue)
-                edgePreviewColor = ImGui::GetColorU32(
-                    ImVec4(0.3f, 0.6f, 1.0f, 0.7f)
-                );
-            } else {
-                // Door exists - show none/delete preview (red)
-                edgePreviewColor = ImGui::GetColorU32(
-                    ImVec4(1.0f, 0.3f, 0.3f, 0.7f)
-                );
-            }
-            
-            // Draw preview line (thicker to be visible)
-            drawList->AddLine(
-                ImVec2(esx1, esy1),
-                ImVec2(esx2, esy2),
-                edgePreviewColor,
-                4.0f * canvas.zoom
-            );
-        }
-    }
-    
-    // Draw fill cursor preview if Fill tool is active
-    if (currentTool == Tool::Fill && ImGui::IsItemHovered()) {
-        ImVec2 mousePos = ImGui::GetMousePos();
-        
-        // Convert to tile coordinates
-        int tx, ty;
-        canvas.ScreenToTile(
-            mousePos.x, mousePos.y,
-            model.grid.tileWidth, model.grid.tileHeight,
-            &tx, &ty
-        );
-        
-        // Convert back to screen coordinates (snapped to grid)
-        float wx, wy;
-        canvas.TileToWorld(tx, ty, model.grid.tileWidth, 
-                          model.grid.tileHeight, &wx, &wy);
-        
-        float sx, sy;
-        canvas.WorldToScreen(wx, wy, &sx, &sy);
-        
-        float sw = model.grid.tileWidth * canvas.zoom;
-        float sh = model.grid.tileHeight * canvas.zoom;
-        
-        // Get selected tile color for preview
-        Color tileColor(0.8f, 0.8f, 0.8f, 0.6f);
-        for (const auto& tile : model.palette) {
-            if (tile.id == selectedTileId) {
-                tileColor = tile.color;
-                tileColor.a = 0.6f;  // More opaque for fill preview
-                break;
-            }
-        }
-        
-        // Draw bucket icon indicator (center cross)
-        float centerX = sx + sw / 2.0f;
-        float centerY = sy + sh / 2.0f;
-        float crossSize = std::min(sw, sh) * 0.3f;
-        ImU32 crossColor = ImGui::GetColorU32(
-            ImVec4(1.0f, 1.0f, 1.0f, 0.8f)
-        );
-        
-        // Vertical line of cross
-        drawList->AddLine(
-            ImVec2(centerX, centerY - crossSize),
-            ImVec2(centerX, centerY + crossSize),
-            crossColor,
-            2.0f
-        );
-        
-        // Horizontal line of cross
-        drawList->AddLine(
-            ImVec2(centerX - crossSize, centerY),
-            ImVec2(centerX + crossSize, centerY),
-            crossColor,
-            2.0f
-        );
-        
-        // Draw semi-transparent fill preview
-        ImU32 previewColor = tileColor.ToU32();
-        drawList->AddRectFilled(
-            ImVec2(sx, sy),
-            ImVec2(sx + sw, sy + sh),
-            previewColor
-        );
-        
-        // Draw border
-        drawList->AddRect(
-            ImVec2(sx, sy),
-            ImVec2(sx + sw, sy + sh),
-            ImGui::GetColorU32(ImVec4(1.0f, 1.0f, 1.0f, 0.6f)),
-            0.0f,
-            0,
-            2.0f
-        );
-    }
-    
-    // Draw eyedropper hover highlight if Eyedropper tool is active
-    if (currentTool == Tool::Eyedropper && ImGui::IsItemHovered()) {
-        ImVec2 mousePos = ImGui::GetMousePos();
-        
-        // Convert to tile coordinates
-        int tx, ty;
-        canvas.ScreenToTile(
-            mousePos.x, mousePos.y,
-            model.grid.tileWidth, model.grid.tileHeight,
-            &tx, &ty
-        );
-        
-        // Check if there's a tile at this position
-        const std::string globalRoomId = "";
-        int hoveredTileId = model.GetTileAt(globalRoomId, tx, ty);
-        
-        // Only show highlight if there's a non-empty tile
-        if (hoveredTileId != 0) {
-            // Convert back to screen coordinates (snapped to grid)
-            float wx, wy;
-            canvas.TileToWorld(
-                tx, ty, model.grid.tileWidth, 
-                model.grid.tileHeight, &wx, &wy
-            );
-            
-            float sx, sy;
-            canvas.WorldToScreen(wx, wy, &sx, &sy);
-            
-            float sw = model.grid.tileWidth * canvas.zoom;
-            float sh = model.grid.tileHeight * canvas.zoom;
-            
-            // Find the tile color for the highlight
-            Color tileColor(0.8f, 0.8f, 0.8f, 0.3f);
-            for (const auto& tile : model.palette) {
-                if (tile.id == hoveredTileId) {
-                    tileColor = tile.color;
-                    tileColor.a = 0.3f;  // Semi-transparent overlay
-                    break;
-                }
-            }
-            
-            // Draw semi-transparent color overlay
-            drawList->AddRectFilled(
-                ImVec2(sx, sy),
-                ImVec2(sx + sw, sy + sh),
-                tileColor.ToU32()
-            );
-            
-            // Draw bright cyan border to indicate hovering
-            ImU32 borderColor = ImGui::GetColorU32(
-                ImVec4(0.0f, 0.8f, 1.0f, 1.0f)
-            );
-            drawList->AddRect(
-                ImVec2(sx, sy),
-                ImVec2(sx + sw, sy + sh),
-                borderColor,
-                0.0f,
-                0,
-                3.0f  // Thick border for visibility
-            );
-        }
-    }
-    
-    // Draw marker snap point preview if Marker tool is active
-    if (currentTool == Tool::Marker && ImGui::IsItemHovered()) {
-        ImVec2 mousePos = ImGui::GetMousePos();
-        
-        // Convert to world coordinates
-        float wx, wy;
-        canvas.ScreenToWorld(mousePos.x, mousePos.y, &wx, &wy);
-        
-        // Convert to fractional tile coordinates
-        float tileX = wx / model.grid.tileWidth;
-        float tileY = wy / model.grid.tileHeight;
-        
-        // Get base tile
-        int baseTileX = static_cast<int>(std::floor(tileX));
-        int baseTileY = static_cast<int>(std::floor(tileY));
-        float fractionalX = tileX - baseTileX;
-        float fractionalY = tileY - baseTileY;
-        
-        // Get snap points for current preset
-        auto snapPoints = model.GetMarkerSnapPoints();
-        
-        // Find nearest snap point
-        float minDist = FLT_MAX;
-        float bestSnapX = 0.5f, bestSnapY = 0.5f;
-        
-        for (const auto& snap : snapPoints) {
-            float dx = fractionalX - snap.first;
-            float dy = fractionalY - snap.second;
-            float dist = dx*dx + dy*dy;
-            if (dist < minDist) {
-                minDist = dist;
-                bestSnapX = snap.first;
-                bestSnapY = snap.second;
-            }
-        }
-        
-        // Calculate final snapped position
-        float snappedTileX = baseTileX + bestSnapX;
-        float snappedTileY = baseTileY + bestSnapY;
-        
-        // Convert to world coordinates
-        float snappedWx = snappedTileX * model.grid.tileWidth;
-        float snappedWy = snappedTileY * model.grid.tileHeight;
-        
-        // Convert to screen coordinates
-        float snappedSx, snappedSy;
-        canvas.WorldToScreen(snappedWx, snappedWy, &snappedSx, &snappedSy);
-        
-        // Draw all snap points for current tile (subtle indicators)
-        for (const auto& snap : snapPoints) {
-            float snapWx = (baseTileX + snap.first) * model.grid.tileWidth;
-            float snapWy = (baseTileY + snap.second) * model.grid.tileHeight;
-            
-            float snapSx, snapSy;
-            canvas.WorldToScreen(snapWx, snapWy, &snapSx, &snapSy);
-            
-            // Draw small dot at snap point
-            float dotRadius = 3.0f;
-            ImU32 dotColor = ImGui::GetColorU32(ImVec4(1.0f, 1.0f, 1.0f, 0.4f));
-            drawList->AddCircleFilled(
-                ImVec2(snapSx, snapSy),
-                dotRadius,
-                dotColor,
-                8
-            );
-        }
-        
-        // Draw ghost marker at snapped position (larger, highlighted)
-        float minDim = static_cast<float>(std::min(model.grid.tileWidth, model.grid.tileHeight));
-        float markerSize = minDim * canvas.zoom * 0.6f;
-        
-        // Draw ghost marker with pulsing effect
-        ImU32 ghostColor = ImGui::GetColorU32(ImVec4(
-            markerColor.r, 
-            markerColor.g, 
-            markerColor.b, 
-            0.5f  // Semi-transparent
-        ));
-        
-        drawList->AddCircleFilled(
-            ImVec2(snappedSx, snappedSy),
-            markerSize / 2.0f,
-            ghostColor,
-            16
-        );
-        
-        // Draw border around ghost marker
-        ImU32 borderColor = ImGui::GetColorU32(ImVec4(1.0f, 1.0f, 1.0f, 0.7f));
-        drawList->AddCircle(
-            ImVec2(snappedSx, snappedSy),
-            markerSize / 2.0f,
-            borderColor,
-            16,
-            2.0f
-        );
-        
-        // Draw crosshair at snap point for precision
-        float crossSize = 8.0f;
-        ImU32 crossColor = ImGui::GetColorU32(ImVec4(1.0f, 1.0f, 1.0f, 0.8f));
-        
-        drawList->AddLine(
-            ImVec2(snappedSx - crossSize, snappedSy),
-            ImVec2(snappedSx + crossSize, snappedSy),
-            crossColor,
-            1.5f
-        );
-        drawList->AddLine(
-            ImVec2(snappedSx, snappedSy - crossSize),
-            ImVec2(snappedSx, snappedSy + crossSize),
-            crossColor,
-            1.5f
-        );
-    }
-    
-    // Draw drag-drop preview when dragging icon over canvas
-    if (ImGui::IsDragDropActive() && ImGui::IsItemHovered()) {
-        const ImGuiPayload* payload = ImGui::GetDragDropPayload();
-        if (payload && payload->IsDataType("MARKER_ICON")) {
-            ImVec2 mousePos = ImGui::GetMousePos();
-            
-            // Convert to world coordinates
-            float wx, wy;
-            canvas.ScreenToWorld(mousePos.x, mousePos.y, &wx, &wy);
-            
-            // Convert to fractional tile coordinates
-            float tileX = wx / model.grid.tileWidth;
-            float tileY = wy / model.grid.tileHeight;
-            
-            // Snap to nearest snap point
-            auto snapPoints = model.GetMarkerSnapPoints();
-            int baseTileX = static_cast<int>(std::floor(tileX));
-            int baseTileY = static_cast<int>(std::floor(tileY));
-            float fractionalX = tileX - baseTileX;
-            float fractionalY = tileY - baseTileY;
-            
-            float minDist = FLT_MAX;
-            float bestSnapX = 0.5f, bestSnapY = 0.5f;
-            
-            for (const auto& snap : snapPoints) {
-                float dx = fractionalX - snap.first;
-                float dy = fractionalY - snap.second;
-                float dist = dx*dx + dy*dy;
-                if (dist < minDist) {
-                    minDist = dist;
-                    bestSnapX = snap.first;
-                    bestSnapY = snap.second;
-                }
-            }
-            
-            float snappedTileX = baseTileX + bestSnapX;
-            float snappedTileY = baseTileY + bestSnapY;
-            
-            // Convert to screen coordinates
-            float snappedWx = snappedTileX * model.grid.tileWidth;
-            float snappedWy = snappedTileY * model.grid.tileHeight;
-            float snappedSx, snappedSy;
-            canvas.WorldToScreen(snappedWx, snappedWy, &snappedSx, &snappedSy);
-            
-            // Draw ghost marker preview
-            float minDim = static_cast<float>(std::min(model.grid.tileWidth, model.grid.tileHeight));
-            float markerSize = minDim * canvas.zoom * 0.6f;
-            
-            ImU32 ghostColor = ImGui::GetColorU32(ImVec4(
-                markerColor.r, markerColor.g, markerColor.b, 0.5f
-            ));
-            
-            drawList->AddCircleFilled(
-                ImVec2(snappedSx, snappedSy),
-                markerSize / 2.0f,
-                ghostColor,
-                16
-            );
-            
-            // Draw border
-            ImU32 borderColor = ImGui::GetColorU32(ImVec4(1.0f, 1.0f, 1.0f, 0.7f));
-            drawList->AddCircle(
-                ImVec2(snappedSx, snappedSy),
-                markerSize / 2.0f,
-                borderColor,
-                16,
-                2.0f
-            );
-            
-            // Draw "drop here" text
-            const char* dropText = "Drop to place marker";
-            ImVec2 textSize = ImGui::CalcTextSize(dropText);
-            ImVec2 textPos(snappedSx - textSize.x / 2.0f, 
-                          snappedSy + markerSize / 2.0f + 8.0f);
-            
-            // Text background
-            drawList->AddRectFilled(
-                ImVec2(textPos.x - 4, textPos.y - 2),
-                ImVec2(textPos.x + textSize.x + 4, textPos.y + textSize.y + 2),
-                ImGui::GetColorU32(ImVec4(0.0f, 0.0f, 0.0f, 0.7f))
-            );
-            
-            drawList->AddText(textPos, 
-                ImGui::GetColorU32(ImVec4(1.0f, 1.0f, 1.0f, 1.0f)), 
-                dropText);
-        }
-    }
-    
-    // Pop clip rect before ending window
-    drawList->PopClipRect();
-    
-    ImGui::End();
-}
 
 void UI::RenderStatusBar(Model& model, Canvas& canvas) {
     ImGuiWindowFlags flags = 
@@ -3813,8 +1956,8 @@ void UI::RenderStatusBar(Model& model, Canvas& canvas) {
         ImGui::Begin("Cartograph/Console", nullptr, flags);
         
         // Left section: Tile coordinates (if hovering canvas)
-        if (isHoveringCanvas && hoveredTileX >= 0 && hoveredTileY >= 0) {
-            ImGui::Text("Tile: %d, %d", hoveredTileX, hoveredTileY);
+        if (m_canvasPanel.isHoveringCanvas && m_canvasPanel.hoveredTileX >= 0 && m_canvasPanel.hoveredTileY >= 0) {
+            ImGui::Text("Tile: %d, %d", m_canvasPanel.hoveredTileX, m_canvasPanel.hoveredTileY);
         } else {
             ImGui::TextDisabled("Tile: --, --");
         }
@@ -4488,8 +2631,8 @@ void UI::RenderRenameIconModal(Model& model, IconManager& icons) {
                     renameIconOldName, newName);
                 
                 // Update selected icon if it was the renamed one
-                if (selectedIconName == renameIconOldName) {
-                    selectedIconName = newName;
+                if (m_canvasPanel.selectedIconName == renameIconOldName) {
+                    m_canvasPanel.selectedIconName = newName;
                 }
                 
                 showRenameIconModal = false;
@@ -4649,20 +2792,20 @@ void UI::RenderDeleteIconModal(Model& model, IconManager& icons,
                 history.AddCommand(std::move(cmd), model, true);
                 
                 // Update selected icon if it was the deleted one
-                if (selectedIconName == deleteIconName) {
+                if (m_canvasPanel.selectedIconName == deleteIconName) {
                     // Try to select another icon if available
                     auto remainingIcons = 
                         icons.GetIconNamesByCategory("marker");
                     if (!remainingIcons.empty()) {
-                        selectedIconName = remainingIcons[0];
+                        m_canvasPanel.selectedIconName = remainingIcons[0];
                     } else {
-                        selectedIconName = "";
+                        m_canvasPanel.selectedIconName = "";
                     }
                 }
                 
                 // Deselect marker if it was using this icon
-                if (selectedMarker && selectedMarker->icon == deleteIconName) {
-                    selectedMarker = nullptr;
+                if (m_canvasPanel.selectedMarker && m_canvasPanel.selectedMarker->icon == deleteIconName) {
+                    m_canvasPanel.selectedMarker = nullptr;
                 }
                 
                 showDeleteIconModal = false;
@@ -5073,7 +3216,7 @@ void UI::RenderColorPickerModal(Model& model, History& history) {
                 history.AddCommand(std::move(cmd), model, true);
                 
                 // Select the newly added color
-                selectedTileId = model.palette.back().id;
+                m_canvasPanel.selectedTileId = model.palette.back().id;
                 
                 ShowToast("Color added: " + name, Toast::Type::Success);
             } else {
@@ -5169,8 +3312,8 @@ void UI::RenderColorPickerModal(Model& model, History& history) {
             history.AddCommand(std::move(cmd), model, true);
             
             // If this was the selected tile, switch to Empty
-            if (selectedTileId == colorPickerEditingTileId) {
-                selectedTileId = 0;
+            if (m_canvasPanel.selectedTileId == colorPickerEditingTileId) {
+                m_canvasPanel.selectedTileId = 0;
             }
             
             ShowToast("Color deleted", Toast::Type::Info);
@@ -6442,7 +4585,7 @@ void UI::ImportIcon(IconManager& iconManager, JobQueue& jobs) {
                         
                         dataShared->ui->ShowToast("Icon imported: " + iconName, 
                                           Toast::Type::Success, 2.0f);
-                        dataShared->ui->selectedIconName = iconName;
+                        dataShared->ui->m_canvasPanel.selectedIconName = iconName;
                     } else {
                         dataShared->ui->ShowToast("Failed to import: " + error, 
                                           Toast::Type::Error, 3.0f);
@@ -6765,107 +4908,6 @@ void UI::HandleDroppedFile(const std::string& filePath, App& app,
     }
 }
 
-void UI::LoadEyedropperCursor(IconManager& icons) {
-    if (eyedropperCursor) {
-        return;  // Already loaded, early exit
-    }
-    
-    // Get pipette icon data from IconManager
-    std::vector<uint8_t> pixels;
-    int width, height;
-    std::string category;
-    
-    if (!icons.GetIconData("pipette", pixels, width, height, category)) {
-        // Failed to get icon data, will use default cursor
-        return;
-    }
-    
-    // Smart fill: only fill interior pixels with white
-    // Keep background transparent and outline dark
-    for (int i = 0; i < width * height; i++) {
-        int pixelIndex = i * 4;
-        uint8_t r = pixels[pixelIndex + 0];
-        uint8_t g = pixels[pixelIndex + 1];
-        uint8_t b = pixels[pixelIndex + 2];
-        uint8_t a = pixels[pixelIndex + 3];
-        
-        // Identify pixel types:
-        // - Background: fully transparent (alpha = 0)
-        // - Outline: dark pixels with high alpha
-        // - Interior: anything else with alpha > 0
-        bool isBackground = (a == 0);
-        bool isDarkPixel = (r < 128 && g < 128 && b < 128 && a > 200);
-        
-        // Only fill interior pixels (not background, not outline)
-        if (!isBackground && !isDarkPixel) {
-            pixels[pixelIndex + 0] = 255;  // R = white
-            pixels[pixelIndex + 1] = 255;  // G = white
-            pixels[pixelIndex + 2] = 255;  // B = white
-            pixels[pixelIndex + 3] = 255;  // A = fully opaque
-        }
-    }
-    
-    // Create SDL surface from processed pixel data
-    SDL_Surface* surface = SDL_CreateSurfaceFrom(
-        width, height,
-        SDL_PIXELFORMAT_RGBA32,
-        pixels.data(),
-        width * 4
-    );
-    
-    if (!surface) {
-        return;
-    }
-    
-    // Create cursor with hot spot at tip of pipette
-    // Pipette icon is 32x32, tip is at bottom-left
-    int hotX = 4;   // Left edge plus a bit
-    int hotY = height - 4;  // Near bottom (tip of pipette)
-    
-    SDL_Cursor* rawCursor = SDL_CreateColorCursor(surface, hotX, hotY);
-    if (rawCursor) {
-        eyedropperCursor.reset(rawCursor);  // Transfer ownership to unique_ptr
-    }
-    
-    SDL_DestroySurface(surface);
-}
 
-void UI::UpdateCursor(IconManager& icons) {
-    // Determine if we should show the pipette cursor
-    // Only show when eyedropper tool is active AND hovering over canvas
-    bool shouldShowPipette = 
-        (currentTool == Tool::Eyedropper && isHoveringCanvas);
-    
-    // Track last state to avoid unnecessary SDL calls every frame
-    static bool lastShowedPipette = false;
-    
-    // Only update cursor when state changes
-    if (shouldShowPipette != lastShowedPipette) {
-        if (shouldShowPipette) {
-            // Show custom pipette cursor
-            ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
-            
-            // Load and set custom eyedropper cursor from IconManager
-            LoadEyedropperCursor(icons);
-            if (eyedropperCursor) {
-                SDL_SetCursor(eyedropperCursor.get());
-            } else {
-                // Fallback to default if cursor failed to load
-                SDL_SetCursor(SDL_GetDefaultCursor());
-            }
-        } else {
-            // Show default cursor (when not on canvas or different tool)
-            ImGui::GetIO().ConfigFlags &= ~ImGuiConfigFlags_NoMouseCursorChange;
-            SDL_SetCursor(SDL_GetDefaultCursor());
-        }
-        
-        lastShowedPipette = shouldShowPipette;
-    }
-    
-    // Track tool changes for other purposes
-    if (currentTool != lastTool) {
-        lastTool = currentTool;
-    }
-}
 
 } // namespace Cartograph

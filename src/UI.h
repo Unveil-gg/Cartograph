@@ -3,6 +3,7 @@
 #include "Model.h"
 #include "ExportPng.h"
 #include "History.h"
+#include "UI/CanvasPanel.h"
 #include <string>
 #include <vector>
 #include <atomic>
@@ -267,74 +268,8 @@ public:
     // Panel visibility
     bool showPropertiesPanel = false;  // Toggleable via View menu
     
-    // Selected palette tile
-    int selectedTileId = 1;
-    
-    // Hovered tile coordinates (for status bar)
-    int hoveredTileX = -1;
-    int hoveredTileY = -1;
-    bool isHoveringCanvas = false;
-    
-    // Current tool
-    enum class Tool {
-        Move, Select, Paint, Fill, Erase, Marker, Eyedropper
-    } currentTool = Tool::Move;
-    
-    // Selection state (for Select tool)
-    bool isSelecting = false;
-    float selectionStartX = 0.0f;
-    float selectionStartY = 0.0f;
-    float selectionEndX = 0.0f;
-    float selectionEndY = 0.0f;
-    
-    // Paint state (for Paint/Erase tools)
-    bool isPainting = false;
-    int lastPaintedTileX = -1;
-    int lastPaintedTileY = -1;
-    std::vector<PaintTilesCommand::TileChange> currentPaintChanges;
-    bool twoFingerEraseActive = false;
-    
-    // Edge modification state (for Paint tool)
-    bool isModifyingEdges = false;
-    std::vector<ModifyEdgesCommand::EdgeChange> currentEdgeChanges;
-    
-    // Marker tool state
-    std::string selectedIconName = "dot";  // Default icon
-    std::string markerLabel = "";
-    Color markerColor = Color(0.3f, 0.8f, 0.3f, 1.0f);  // Green
-    char markerColorHex[16] = "#4dcc4d";  // Hex representation
-    Marker* selectedMarker = nullptr;  // For editing existing markers
-    Marker* hoveredMarker = nullptr;   // For hover feedback
-    
-    // Marker drag state
-    bool isDraggingMarker = false;
-    float dragStartX = 0.0f;
-    float dragStartY = 0.0f;
-    
-    // Marker clipboard
-    std::vector<Marker> copiedMarkers;
-    EdgeId hoveredEdge;
-    bool isHoveringEdge = false;
-    
-    // Eyedropper tool state
-    bool eyedropperAutoSwitchToPaint = false;
-    std::unique_ptr<SDL_Cursor, SDL_CursorDeleter> eyedropperCursor;
-    Tool lastTool = Tool::Move;  // Track last tool for cursor restore
-    
-    // Room management state
-    std::string selectedRoomId;   // Currently selected room
-    bool roomPaintMode = false;   // Room painting mode active
-    bool showRoomOverlays = true; // Show room visual overlays
-    bool showNewRoomDialog = false;
-    char newRoomName[64] = "New Room";
-    float newRoomColor[3] = {1.0f, 0.5f, 0.5f};
-    
-    // Room assignment state (for room paint mode)
-    bool isPaintingRoomCells = false;
-    int lastRoomPaintX = -1;
-    int lastRoomPaintY = -1;
-    std::vector<ModifyRoomAssignmentsCommand::CellAssignment> 
-        currentRoomAssignments;
+    // Canvas panel (contains all canvas-related state and rendering)
+    CanvasPanel m_canvasPanel;
     
     // Color picker modal state
     bool showColorPickerModal = false;
@@ -344,8 +279,10 @@ public:
     float colorPickerOriginalColor[4] = {1.0f, 1.0f, 1.0f, 1.0f};
     bool colorPickerDeleteRequested = false;
     
-    // Eraser tool state
-    int eraserBrushSize = 1;  // 1-5, eraser brush size in tiles
+    // Room dialog state (for Properties panel)
+    bool showNewRoomDialog = false;
+    char newRoomName[64] = "New Room";
+    float newRoomColor[3] = {1.0f, 0.5f, 0.5f};
     
 private:
     void RenderMenuBar(
@@ -360,14 +297,6 @@ private:
     void RenderToolsPanel(Model& model, History& history, IconManager& icons, 
                          JobQueue& jobs);
     void RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs);
-    void RenderCanvasPanel(
-        IRenderer& renderer,
-        Model& model, 
-        Canvas& canvas, 
-        History& history,
-        IconManager& icons,
-        KeymapManager& keymap
-    );
     void RenderStatusBar(Model& model, Canvas& canvas);
     void RenderToasts(float deltaTime);
     void RenderExportModal(Model& model, Canvas& canvas);
@@ -399,36 +328,6 @@ private:
      * @param dockspaceId ImGui dockspace ID
      */
     void BuildFixedLayout(ImGuiID dockspaceId);
-    
-    /**
-     * Detect if mouse position is near a cell edge.
-     * @param mouseX Screen mouse X
-     * @param mouseY Screen mouse Y
-     * @param canvas Canvas for coordinate conversion
-     * @param grid Grid configuration
-     * @param outEdgeId Output: detected edge ID
-     * @param outEdgeSide Output: which side of the cell
-     * @return true if near an edge
-     */
-    bool DetectEdgeHover(
-        float mouseX, float mouseY,
-        const Canvas& canvas,
-        const GridConfig& grid,
-        EdgeId* outEdgeId,
-        EdgeSide* outEdgeSide
-    );
-    
-    /**
-     * Load the eyedropper cursor from IconManager.
-     * @param icons Icon manager to get cursor image from
-     */
-    void LoadEyedropperCursor(IconManager& icons);
-    
-    /**
-     * Update cursor based on current tool.
-     * @param icons Icon manager for cursor loading
-     */
-    void UpdateCursor(IconManager& icons);
     
     std::vector<Toast> m_toasts;  // Legacy, will be removed
     std::vector<ConsoleMessage> m_consoleMessages;
