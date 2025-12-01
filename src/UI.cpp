@@ -1324,6 +1324,9 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
         ImGui::Text("Select Icon");
         ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), 
             "Drag & drop image files here to import");
+        ImGui::SameLine();
+        ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), 
+            " | Right-click or Del key to delete");
         if (ImGui::BeginChild("IconPicker", ImVec2(0, 280), true)) {
             // Show loading overlay if importing
             if (isImportingIcon) {
@@ -1483,6 +1486,18 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
                         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + offset);
                     }
                     ImGui::TextWrapped("%s", iconName.c_str());
+                    
+                    // Handle Delete key for selected icon
+                    if (isSelected && ImGui::IsKeyPressed(ImGuiKey_Delete)) {
+                        showDeleteIconModal = true;
+                        deleteIconName = iconName;
+                        // Count markers using this icon
+                        deleteIconMarkerCount = 
+                            model.CountMarkersUsingIcon(iconName);
+                        // Get affected marker IDs (for display)
+                        deleteIconAffectedMarkers = 
+                            model.GetMarkersUsingIcon(iconName);
+                    }
                     
                     ImGui::EndGroup();
                     
@@ -4292,6 +4307,11 @@ void UI::RenderDeleteIconModal(Model& model, IconManager& icons,
             ImGui::Spacing();
         }
         
+        // Remind user that deletion is undoable
+        ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.8f, 1.0f), 
+            "Tip: You can undo this with Cmd+Z");
+        ImGui::Spacing();
+        
         ImGui::Separator();
         
         // Delete button (destructive action, so place on left)
@@ -4339,7 +4359,14 @@ void UI::RenderDeleteIconModal(Model& model, IconManager& icons,
                 
                 // Update selected icon if it was the deleted one
                 if (selectedIconName == deleteIconName) {
-                    selectedIconName = "";
+                    // Try to select another icon if available
+                    auto remainingIcons = 
+                        icons.GetIconNamesByCategory("marker");
+                    if (!remainingIcons.empty()) {
+                        selectedIconName = remainingIcons[0];
+                    } else {
+                        selectedIconName = "";
+                    }
                 }
                 
                 // Deselect marker if it was using this icon
