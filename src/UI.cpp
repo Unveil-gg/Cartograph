@@ -896,8 +896,7 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
     ImGui::Spacing();
     
     // Show palette when Paint tool is active
-    if (currentTool == Tool::Paint || currentTool == Tool::Erase || 
-        currentTool == Tool::Fill) {
+    if (currentTool == Tool::Paint || currentTool == Tool::Fill) {
         ImGui::Text("Paint Color");
         ImGui::Separator();
         
@@ -1129,6 +1128,64 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
                 ImGui::SetTooltip("Palette is full (max 32 colors)");
             }
         }
+    }
+    
+    // Show eraser options when Erase tool is active
+    if (currentTool == Tool::Erase) {
+        ImGui::Text("Eraser Options");
+        ImGui::Separator();
+        
+        // Label on its own line
+        ImGui::Text("Eraser Size");
+        ImGui::SameLine();
+        ImGui::TextDisabled("(?)");
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Size of eraser brush in tiles\n"
+                            "1 = single tile (precise)\n"
+                            "5 = 5x5 area (fast erase)");
+        }
+        
+        // Slider below label
+        ImGui::SetNextItemWidth(-1);  // Full width
+        ImGui::SliderInt("##eraserSize", &eraserBrushSize, 1, 5);
+        
+        // Visual preview of eraser size
+        ImGui::Spacing();
+        ImGui::Text("Preview:");
+        ImDrawList* drawList = ImGui::GetWindowDrawList();
+        ImVec2 cursorPos = ImGui::GetCursorScreenPos();
+        float previewSize = 80.0f;
+        float cellSize = previewSize / 5.0f;  // 5x5 grid
+        
+        // Draw grid background
+        for (int y = 0; y < 5; y++) {
+            for (int x = 0; x < 5; x++) {
+                ImVec2 p0(cursorPos.x + x * cellSize, 
+                         cursorPos.y + y * cellSize);
+                ImVec2 p1(p0.x + cellSize, p0.y + cellSize);
+                
+                // Calculate if this cell is within brush
+                int centerOffset = 2;  // Center of 5x5 grid
+                int halfBrush = eraserBrushSize / 2;
+                bool inBrush = (x >= centerOffset - halfBrush && 
+                               x <= centerOffset + halfBrush &&
+                               y >= centerOffset - halfBrush && 
+                               y <= centerOffset + halfBrush);
+                
+                // Draw cell
+                ImU32 fillColor = inBrush ? 
+                    ImGui::GetColorU32(ImVec4(1.0f, 0.3f, 0.3f, 0.4f)) :
+                    ImGui::GetColorU32(ImVec4(0.3f, 0.3f, 0.3f, 0.3f));
+                drawList->AddRectFilled(p0, p1, fillColor);
+                
+                // Draw grid lines
+                ImU32 lineColor = ImGui::GetColorU32(
+                    ImVec4(0.5f, 0.5f, 0.5f, 0.5f));
+                drawList->AddRect(p0, p1, lineColor);
+            }
+        }
+        
+        ImGui::Dummy(ImVec2(previewSize, previewSize));
     }
     
     // Show marker options when Marker tool is active
@@ -2340,35 +2397,48 @@ void UI::RenderCanvasPanel(
                     int prevX = lastPaintedTileX;
                     int prevY = lastPaintedTileY;
                     
-                    // Erase all tiles along the line
+                    // Erase all tiles along the line with brush size
                     for (const auto& tile : tilesToErase) {
-                        int tileX = tile.first;
-                        int tileY = tile.second;
+                        int centerX = tile.first;
+                        int centerY = tile.second;
                         
-                        int oldTileId = model.GetTileAt(
-                            globalRoomId, tileX, tileY
-                        );
+                        // Calculate brush area (NxN tiles centered on cursor)
+                        int halfBrush = eraserBrushSize / 2;
+                        int startX = centerX - halfBrush;
+                        int startY = centerY - halfBrush;
+                        int endX = centerX + halfBrush;
+                        int endY = centerY + halfBrush;
                         
-                        // Only erase if there's something to erase
-                        if (oldTileId != 0) {
-                            PaintTilesCommand::TileChange change;
-                            change.roomId = globalRoomId;
-                            change.x = tileX;
-                            change.y = tileY;
-                            change.oldTileId = oldTileId;
-                            change.newTileId = 0;  // 0 = empty/erase
-                            
-                            currentPaintChanges.push_back(change);
-                            
-                            // Apply immediately for visual feedback
-                            model.SetTileAt(globalRoomId, tileX, tileY, 0);
+                        // Erase all tiles in brush area
+                        for (int brushY = startY; brushY <= endY; brushY++) {
+                            for (int brushX = startX; brushX <= endX; brushX++) {
+                                int oldTileId = model.GetTileAt(
+                                    globalRoomId, brushX, brushY
+                                );
+                                
+                                // Only erase if there's something to erase
+                                if (oldTileId != 0) {
+                                    PaintTilesCommand::TileChange change;
+                                    change.roomId = globalRoomId;
+                                    change.x = brushX;
+                                    change.y = brushY;
+                                    change.oldTileId = oldTileId;
+                                    change.newTileId = 0;  // 0 = empty/erase
+                                    
+                                    currentPaintChanges.push_back(change);
+                                    
+                                    // Apply immediately for visual feedback
+                                    model.SetTileAt(globalRoomId, brushX, 
+                                                   brushY, 0);
+                                }
+                            }
                         }
                         
                         // Check for crossed edges when dragging
                         if (prevX >= 0 && prevY >= 0) {
                             // Moved horizontally - crossed vertical edge
-                            if (tileX != prevX) {
-                                EdgeSide side = (tileX > prevX) ? 
+                            if (centerX != prevX) {
+                                EdgeSide side = (centerX > prevX) ? 
                                     EdgeSide::East : EdgeSide::West;
                                 EdgeId crossedEdge = MakeEdgeId(
                                     prevX, prevY, side
@@ -2391,8 +2461,8 @@ void UI::RenderCanvasPanel(
                             }
                             
                             // Moved vertically - crossed horizontal edge
-                            if (tileY != prevY) {
-                                EdgeSide side = (tileY > prevY) ? 
+                            if (centerY != prevY) {
+                                EdgeSide side = (centerY > prevY) ? 
                                     EdgeSide::South : EdgeSide::North;
                                 EdgeId crossedEdge = MakeEdgeId(
                                     prevX, prevY, side
@@ -2416,8 +2486,8 @@ void UI::RenderCanvasPanel(
                         }
                         
                         // Update prev for next iteration
-                        prevX = tileX;
-                        prevY = tileY;
+                        prevX = centerX;
+                        prevY = centerY;
                     }
                     
                     lastPaintedTileX = tx;
@@ -2963,9 +3033,40 @@ void UI::RenderCanvasPanel(
             ImU32 eraseColor = ImGui::GetColorU32(
                 ImVec4(1.0f, 0.3f, 0.3f, 0.6f)
             );
+            
+            // Calculate brush area for multi-tile eraser
+            int halfBrush = eraserBrushSize / 2;
+            int startTileX = tx - halfBrush;
+            int startTileY = ty - halfBrush;
+            int endTileX = tx + halfBrush;
+            int endTileY = ty + halfBrush;
+            
+            // Convert start tile to screen coords
+            float startWx, startWy;
+            canvas.TileToWorld(startTileX, startTileY, 
+                             model.grid.tileWidth, model.grid.tileHeight,
+                             &startWx, &startWy);
+            float startSx, startSy;
+            canvas.WorldToScreen(startWx, startWy, &startSx, &startSy);
+            
+            // Calculate total size of brush area in screen space
+            float totalWidth = sw * eraserBrushSize;
+            float totalHeight = sh * eraserBrushSize;
+            
+            // Draw filled semi-transparent rectangle for brush area
+            ImU32 eraseFillColor = ImGui::GetColorU32(
+                ImVec4(1.0f, 0.3f, 0.3f, 0.3f)
+            );
+            drawList->AddRectFilled(
+                ImVec2(startSx, startSy),
+                ImVec2(startSx + totalWidth, startSy + totalHeight),
+                eraseFillColor
+            );
+            
+            // Draw outline
             drawList->AddRect(
-                ImVec2(sx, sy),
-                ImVec2(sx + sw, sy + sh),
+                ImVec2(startSx, startSy),
+                ImVec2(startSx + totalWidth, startSy + totalHeight),
                 eraseColor,
                 0.0f,
                 0,

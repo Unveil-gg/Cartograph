@@ -324,6 +324,9 @@ public:
     float colorPickerOriginalColor[4] = {1.0f, 1.0f, 1.0f, 1.0f};
     bool colorPickerDeleteRequested = false;
     
+    // Eraser tool state
+    int eraserBrushSize = 1;  // 1-5, eraser brush size in tiles
+    
 private:
     void RenderMenuBar(
         App& app,
