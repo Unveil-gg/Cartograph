@@ -2332,7 +2332,7 @@ void UI::RenderCanvasPanel(
                 bool shouldEraseEdge = ImGui::IsMouseDown(ImGuiMouseButton_Left) ||
                                       ImGui::IsMouseDown(ImGuiMouseButton_Right);
                 
-                if (shouldEraseEdge && !isModifyingEdges) {
+                if (shouldEraseEdge) {
                     EdgeState currentState = model.GetEdgeState(edgeId);
                     
                     // Only delete if there's an edge to delete
@@ -2351,8 +2351,8 @@ void UI::RenderCanvasPanel(
                     }
                 }
             }
-            
-            // Handle tile erasing (independent of edge hover state)
+            // Handle tile erasing (only when NOT hovering edge)
+            else {
             bool shouldErase = false;
             
             // Check for left mouse button (primary erase input)
@@ -2495,6 +2495,7 @@ void UI::RenderCanvasPanel(
                     isPainting = true;
                 }
             }
+            }  // End of else (tile erasing when not hovering edge)
         }
         else if (currentTool == Tool::Fill) {
             // Fill tool: Left-click to flood fill connected tiles
