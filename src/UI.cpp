@@ -4365,29 +4365,49 @@ void UI::RenderColorPickerModal(Model& model, History& history) {
         ImGui::Separator();
         ImGui::Spacing();
         
-        // Name input
+        // Name input with auto-focus on first open
         ImGui::Text("Name:");
         ImGui::SetNextItemWidth(-1);
-        ImGui::InputText("##colorname", colorPickerName, 
-                        sizeof(colorPickerName));
+        if (ImGui::IsWindowAppearing()) {
+            ImGui::SetKeyboardFocusHere();
+        }
+        bool nameEnterPressed = ImGui::InputText(
+            "##colorname", 
+            colorPickerName, 
+            sizeof(colorPickerName),
+            ImGuiInputTextFlags_EnterReturnsTrue
+        );
         
         ImGui::Spacing();
         
-        // Hex input
+        // Hex input with validation
         ImGui::Text("Hex Color:");
         ImGui::SetNextItemWidth(120);
+        bool hexValid = true;
         if (ImGui::InputText("##hexinput", colorPickerHexInput, 
                             sizeof(colorPickerHexInput))) {
-            // Parse hex and update color picker
-            Color parsed = Color::FromHex(colorPickerHexInput);
-            colorPickerColor[0] = parsed.r;
-            colorPickerColor[1] = parsed.g;
-            colorPickerColor[2] = parsed.b;
-            colorPickerColor[3] = parsed.a;
+            // Validate and parse hex
+            std::string hexStr = colorPickerHexInput;
+            if (!hexStr.empty() && hexStr[0] == '#' && 
+                (hexStr.length() == 7 || hexStr.length() == 9)) {
+                // Parse hex and update color picker
+                Color parsed = Color::FromHex(colorPickerHexInput);
+                colorPickerColor[0] = parsed.r;
+                colorPickerColor[1] = parsed.g;
+                colorPickerColor[2] = parsed.b;
+                colorPickerColor[3] = parsed.a;
+            } else if (!hexStr.empty()) {
+                hexValid = false;
+            }
         }
         
         ImGui::SameLine();
-        ImGui::TextDisabled("(e.g., #RRGGBB or #RRGGBBAA)");
+        if (!hexValid) {
+            ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f),
+                "Invalid format");
+        } else {
+            ImGui::TextDisabled("(e.g., #RRGGBB or #RRGGBBAA)");
+        }
         
         ImGui::Spacing();
         
@@ -4441,13 +4461,38 @@ void UI::RenderColorPickerModal(Model& model, History& history) {
         ImGui::Spacing();
         
         // Validation messages
-        bool nameValid = strlen(colorPickerName) > 0;
+        bool nameValid = strlen(colorPickerName) > 0 && 
+                        strlen(colorPickerName) < 64;
         bool canSave = nameValid;
         
-        if (!nameValid) {
+        // Check for empty name
+        if (strlen(colorPickerName) == 0) {
             ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.0f, 1.0f),
                 "Please enter a color name");
             ImGui::Spacing();
+        }
+        // Check for overly long name
+        else if (strlen(colorPickerName) >= 64) {
+            ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.0f, 1.0f),
+                "Color name is too long (max 63 characters)");
+            canSave = false;
+            ImGui::Spacing();
+        }
+        // Optional: Warn about duplicate names (non-blocking)
+        else {
+            bool duplicateFound = false;
+            for (const auto& tile : model.palette) {
+                if (tile.id != colorPickerEditingTileId &&
+                    tile.name == std::string(colorPickerName)) {
+                    duplicateFound = true;
+                    break;
+                }
+            }
+            if (duplicateFound) {
+                ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f),
+                    "Note: A color with this name already exists");
+                ImGui::Spacing();
+            }
         }
         
         // Check palette size limit
@@ -4458,12 +4503,24 @@ void UI::RenderColorPickerModal(Model& model, History& history) {
             ImGui::Spacing();
         }
         
+        // Keyboard shortcuts (Enter to save, Escape to cancel)
+        bool shouldSave = false;
+        bool shouldCancel = false;
+        
+        if (canSave && (nameEnterPressed || 
+            ImGui::IsKeyPressed(ImGuiKey_Enter, false))) {
+            shouldSave = true;
+        }
+        if (ImGui::IsKeyPressed(ImGuiKey_Escape, false)) {
+            shouldCancel = true;
+        }
+        
         // Action buttons
         if (!canSave) {
             ImGui::BeginDisabled();
         }
         
-        if (ImGui::Button("Save", ImVec2(120, 0))) {
+        if (ImGui::Button("Save", ImVec2(120, 0)) || shouldSave) {
             // Create color from picker
             Color color(colorPickerColor[0], colorPickerColor[1],
                        colorPickerColor[2], colorPickerColor[3]);
@@ -4498,10 +4555,14 @@ void UI::RenderColorPickerModal(Model& model, History& history) {
         
         ImGui::SameLine();
         
-        if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+        if (ImGui::Button("Cancel", ImVec2(120, 0)) || shouldCancel) {
             showColorPickerModal = false;
             ImGui::CloseCurrentPopup();
         }
+        
+        // Hint text for keyboard shortcuts
+        ImGui::Spacing();
+        ImGui::TextDisabled("Tip: Press Enter to save, Escape to cancel");
         
         // Delete button (only for editing existing colors, not Empty)
         if (colorPickerEditingTileId > 0) {
