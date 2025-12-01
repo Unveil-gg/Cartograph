@@ -15,12 +15,23 @@
 #include <nlohmann/json.hpp>
 #include <filesystem>
 
+// SDL resource deleters implementation (outside namespace)
+void SDL_WindowDeleter::operator()(SDL_Window* window) const {
+    if (window) {
+        SDL_DestroyWindow(window);
+    }
+}
+
+void SDL_GLContextDeleter::operator()(SDL_GLContextState* context) const {
+    if (context) {
+        SDL_GL_DestroyContext(context);
+    }
+}
+
 namespace Cartograph {
 
 App::App()
-    : m_window(nullptr)
-    , m_glContext(nullptr)
-    , m_running(false)
+    : m_running(false)
     , m_appState(AppState::Welcome)
     , m_lastEditTime(0)
     , m_lastAutosaveTime(0)
@@ -54,27 +65,27 @@ bool App::Init(const std::string& title, int width, int height) {
     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
     
     // Create window
-    m_window = SDL_CreateWindow(
+    m_window.reset(SDL_CreateWindow(
         title.c_str(),
         width, height,
         SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY
-    );
+    ));
     
     if (!m_window) {
         return false;
     }
     
     // Create OpenGL context
-    m_glContext = SDL_GL_CreateContext(m_window);
+    m_glContext.reset(SDL_GL_CreateContext(m_window.get()));
     if (!m_glContext) {
         return false;
     }
     
-    SDL_GL_MakeCurrent(m_window, m_glContext);
+    SDL_GL_MakeCurrent(m_window.get(), m_glContext.get());
     SDL_GL_SetSwapInterval(1);  // Enable VSync
     
-    // Initialize renderer
-    m_renderer = std::make_unique<GlRenderer>(m_window);
+    // Initialize renderer (passes non-owning pointer)
+    m_renderer = std::make_unique<GlRenderer>(m_window.get());
     
     // Initialize ImGui
     SetupImGui();
@@ -151,16 +162,10 @@ void App::Shutdown() {
     
     ShutdownImGui();
     
-    if (m_glContext) {
-        // SDL3 renamed DeleteContext to DestroyContext
-        SDL_GL_DestroyContext(m_glContext);
-        m_glContext = nullptr;
-    }
-    
-    if (m_window) {
-        SDL_DestroyWindow(m_window);
-        m_window = nullptr;
-    }
+    // SDL resources automatically cleaned up by unique_ptr deleters
+    // in proper order: context destroyed before window
+    m_glContext.reset();
+    m_window.reset();
     
     SDL_Quit();
 }
@@ -221,7 +226,7 @@ void App::ProcessEvents() {
                 break;
                 
             case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
-                if (event.window.windowID == SDL_GetWindowID(m_window)) {
+                if (event.window.windowID == SDL_GetWindowID(m_window.get())) {
                     RequestQuit();
                 }
                 break;
@@ -314,7 +319,7 @@ void App::Render() {
     }
     
     // Swap buffers
-    SDL_GL_SwapWindow(m_window);
+    SDL_GL_SwapWindow(m_window.get());
 }
 
 void App::SetupImGui() {
@@ -326,7 +331,7 @@ void App::SetupImGui() {
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     
     // Setup platform/renderer backends
-    ImGui_ImplSDL3_InitForOpenGL(m_window, m_glContext);
+    ImGui_ImplSDL3_InitForOpenGL(m_window.get(), m_glContext.get());
     ImGui_ImplOpenGL3_Init("#version 330");
     
     // Apply theme
@@ -685,7 +690,7 @@ void App::UpdateWindowTitle() {
         title = filename + " - Cartograph";
     }
     
-    SDL_SetWindowTitle(m_window, title.c_str());
+    SDL_SetWindowTitle(m_window.get(), title.c_str());
 }
 
 } // namespace Cartograph

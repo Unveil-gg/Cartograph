@@ -17,6 +17,15 @@ struct SDL_Window;
 struct SDL_GLContextState;
 typedef struct SDL_GLContextState* SDL_GLContext;
 
+// Custom deleters for SDL resources (RAII)
+struct SDL_WindowDeleter {
+    void operator()(SDL_Window* window) const;
+};
+
+struct SDL_GLContextDeleter {
+    void operator()(SDL_GLContextState* context) const;
+};
+
 namespace Cartograph {
 
 class IRenderer;
@@ -124,9 +133,9 @@ private:
     void SaveAutosaveMetadata();
     void CleanupAutosave();
     
-    // SDL window and OpenGL context
-    SDL_Window* m_window;
-    SDL_GLContext m_glContext;
+    // SDL window and OpenGL context (owned via RAII smart pointers)
+    std::unique_ptr<SDL_Window, SDL_WindowDeleter> m_window;
+    std::unique_ptr<SDL_GLContextState, SDL_GLContextDeleter> m_glContext;
     
     // Core systems
     std::unique_ptr<GlRenderer> m_renderer;
