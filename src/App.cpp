@@ -279,14 +279,14 @@ void App::Render() {
     
     // Handle dropped files
     if (m_hasDroppedFile) {
-        m_ui.HandleDroppedFile(m_droppedFilePath, *this);
+        m_ui.HandleDroppedFile(m_droppedFilePath, *this, m_jobs, m_icons);
         m_hasDroppedFile = false;
         m_droppedFilePath.clear();
     }
     
     // Render UI based on state
     if (m_appState == AppState::Welcome) {
-        m_ui.RenderWelcomeScreen(*this, m_model);
+        m_ui.RenderWelcomeScreen(*this, m_model, m_jobs, m_icons);
     } else {
         m_ui.Render(*this, *m_renderer, m_model, m_canvas, m_history, 
                     m_icons, m_jobs, m_keymap, 0.016f);

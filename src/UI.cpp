@@ -6,6 +6,7 @@
 #include "Jobs.h"
 #include "render/Renderer.h"
 #include "IOJson.h"
+#include "Package.h"
 #include "ProjectFolder.h"
 #include "platform/Paths.h"
 #include "platform/Fs.h"
@@ -242,7 +243,8 @@ void UI::AddConsoleMessage(const std::string& message, MessageType type) {
     }
 }
 
-void UI::RenderWelcomeScreen(App& app, Model& model) {
+void UI::RenderWelcomeScreen(App& app, Model& model, JobQueue& jobs,
+                             IconManager& icons) {
     ImGuiViewport* viewport = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos(viewport->WorkPos);
     ImGui::SetNextWindowSize(viewport->WorkSize);
@@ -400,13 +402,73 @@ void UI::RenderWelcomeScreen(App& app, Model& model) {
         );
         
         if (result) {
-            // User selected a file or folder - open it
-            app.OpenProject(*result);
+            // User selected a file or folder - start async loading
+            std::string filePath = *result;
             
-            // Transition to editor if successful
-            if (!app.GetModel().palette.empty()) {
-                app.ShowEditor();
+            showLoadingModal = true;
+            loadingFilePath = filePath;
+            loadingCancelled = false;
+            loadingStartTime = Platform::GetTime();
+            
+            // Extract filename for display
+            size_t lastSlash = filePath.find_last_of("/\\");
+            if (lastSlash != std::string::npos) {
+                loadingFileName = filePath.substr(lastSlash + 1);
+            } else {
+                loadingFileName = filePath;
             }
+            
+            // Create shared model to load into
+            auto loadedModel = std::make_shared<Model>();
+            auto tempIcons = std::make_shared<IconManager>();
+            
+            // Enqueue async loading job
+            jobs.Enqueue(
+                JobType::LoadProject,
+                [filePath, loadedModel, tempIcons, this]() {
+                    // Check for cancellation before starting
+                    if (loadingCancelled) {
+                        throw std::runtime_error("Cancelled by user");
+                    }
+                    
+                    bool success = false;
+                    bool isCartFile = (filePath.size() >= 5 && 
+                                      filePath.substr(filePath.size() - 5) == ".cart");
+                    if (isCartFile) {
+                        success = Package::Load(filePath, *loadedModel, 
+                                              tempIcons.get());
+                    } else {
+                        success = ProjectFolder::Load(filePath, *loadedModel,
+                                                     tempIcons.get());
+                    }
+                    
+                    if (!success) {
+                        throw std::runtime_error("Failed to load project");
+                    }
+                },
+                [this, &app, loadedModel, tempIcons, &icons, filePath](
+                    bool success, const std::string& error) {
+                    showLoadingModal = false;
+                    
+                    if (success && !loadingCancelled) {
+                        // Swap loaded model into app (main thread safe)
+                        app.OpenProject(filePath);
+                        
+                        // Merge loaded icons into main icon manager
+                        icons.BuildAtlas();  // Rebuild atlas on main thread
+                        
+                        // Transition to editor
+                        app.ShowEditor();
+                        
+                        ShowToast("Project loaded", Toast::Type::Success);
+                    } else if (loadingCancelled) {
+                        ShowToast("Loading cancelled", Toast::Type::Info);
+                    } else {
+                        ShowToast("Failed to load project: " + error, 
+                                 Toast::Type::Error);
+                    }
+                }
+            );
         }
         // If result is nullopt, user cancelled - no action needed
     }
@@ -535,6 +597,10 @@ void UI::RenderWelcomeScreen(App& app, Model& model) {
     
     if (showAutosaveRecoveryModal) {
         RenderAutosaveRecoveryModal(app, model);
+    }
+    
+    if (showLoadingModal) {
+        RenderLoadingModal(app, model, jobs, icons);
     }
     
     // Render toasts
@@ -4614,6 +4680,70 @@ void UI::RenderAutosaveRecoveryModal(App& app, Model& model) {
     }
 }
 
+void UI::RenderLoadingModal(App& app, Model& model, JobQueue& jobs, 
+                            IconManager& icons) {
+    if (!showLoadingModal) return;
+    
+    ImGui::SetNextWindowSize(ImVec2(400, 160), ImGuiCond_Always);
+    ImGui::OpenPopup("Loading Project");
+    
+    ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+    
+    if (ImGui::BeginPopupModal("Loading Project", nullptr,
+                               ImGuiWindowFlags_NoResize |
+                               ImGuiWindowFlags_NoMove |
+                               ImGuiWindowFlags_NoCollapse)) {
+        ImGui::Spacing();
+        
+        // Title
+        ImGui::TextColored(
+            ImVec4(0.4f, 0.7f, 1.0f, 1.0f),
+            "Opening Project"
+        );
+        
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        // File name (truncated if too long)
+        std::string displayName = loadingFileName;
+        if (displayName.length() > 45) {
+            displayName = "..." + displayName.substr(
+                displayName.length() - 42
+            );
+        }
+        ImGui::Text("%s", displayName.c_str());
+        
+        ImGui::Spacing();
+        
+        // Indeterminate progress bar (pulsing animation)
+        float time = static_cast<float>(ImGui::GetTime());
+        float progress = (sinf(time * 3.0f) + 1.0f) * 0.5f;  // 0.0-1.0 pulse
+        
+        ImGui::ProgressBar(
+            progress,
+            ImVec2(-1, 0),
+            ""  // No text overlay
+        );
+        
+        ImGui::Spacing();
+        ImGui::Spacing();
+        
+        // Cancel button
+        float buttonWidth = 120.0f;
+        ImGui::SetCursorPosX(
+            (ImGui::GetWindowWidth() - buttonWidth) * 0.5f
+        );
+        
+        if (ImGui::Button("Cancel", ImVec2(buttonWidth, 0))) {
+            loadingCancelled = true;
+        }
+        
+        ImGui::EndPopup();
+    }
+}
+
 void UI::RenderQuitConfirmationModal(App& app, Model& model) {
     ImGui::SetNextWindowSize(ImVec2(450, 180), ImGuiCond_Always);
     ImGui::OpenPopup("Unsaved Changes");
@@ -5426,7 +5556,8 @@ void UI::ShowExportPngDialog(App& app) {
     );
 }
 
-void UI::HandleDroppedFile(const std::string& filePath, App& app) {
+void UI::HandleDroppedFile(const std::string& filePath, App& app,
+                           JobQueue& jobs, IconManager& icons) {
     // Check if we're in Welcome Screen
     if (app.GetState() == AppState::Welcome) {
         // Try to import as project
@@ -5447,13 +5578,75 @@ void UI::HandleDroppedFile(const std::string& filePath, App& app) {
         }
         
         if (isValidProject) {
-            // Valid project - open it
-            app.OpenProject(filePath);
+            // Start async loading
+            showLoadingModal = true;
+            loadingFilePath = filePath;
+            loadingCancelled = false;
+            loadingStartTime = Platform::GetTime();
             
-            // Transition to editor if successful
-            if (!app.GetModel().palette.empty()) {
-                app.ShowEditor();
+            // Extract filename for display
+            size_t lastSlash = filePath.find_last_of("/\\");
+            if (lastSlash != std::string::npos) {
+                loadingFileName = filePath.substr(lastSlash + 1);
+            } else {
+                loadingFileName = filePath;
             }
+            
+            // Create shared model to load into
+            auto loadedModel = std::make_shared<Model>();
+            auto tempIcons = std::make_shared<IconManager>();
+            
+            // Capture necessary variables
+            std::string capturedPath = filePath;
+            
+            // Enqueue async loading job
+            jobs.Enqueue(
+                JobType::LoadProject,
+                [capturedPath, loadedModel, tempIcons, this]() {
+                    // Check for cancellation before starting
+                    if (loadingCancelled) {
+                        throw std::runtime_error("Cancelled by user");
+                    }
+                    
+                    bool success = false;
+                    bool isCartFile = (capturedPath.size() >= 5 && 
+                                      capturedPath.substr(capturedPath.size() - 5) == ".cart");
+                    if (isCartFile) {
+                        success = Package::Load(capturedPath, *loadedModel, 
+                                              tempIcons.get());
+                    } else {
+                        success = ProjectFolder::Load(capturedPath, *loadedModel,
+                                                     tempIcons.get());
+                    }
+                    
+                    if (!success) {
+                        throw std::runtime_error("Failed to load project");
+                    }
+                },
+                [this, &app, loadedModel, tempIcons, &icons, capturedPath](
+                    bool success, const std::string& error) {
+                    showLoadingModal = false;
+                    
+                    if (success && !loadingCancelled) {
+                        // Swap loaded model into app (main thread safe)
+                        app.OpenProject(capturedPath);
+                        
+                        // Merge loaded icons into main icon manager
+                        // (Icons were already added to tempIcons in background)
+                        icons.BuildAtlas();  // Rebuild atlas on main thread
+                        
+                        // Transition to editor
+                        app.ShowEditor();
+                        
+                        ShowToast("Project loaded", Toast::Type::Success);
+                    } else if (loadingCancelled) {
+                        ShowToast("Loading cancelled", Toast::Type::Info);
+                    } else {
+                        ShowToast("Failed to load project: " + error, 
+                                 Toast::Type::Error);
+                    }
+                }
+            );
         } else {
             // Invalid format
             ShowToast(

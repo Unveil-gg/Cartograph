@@ -5,6 +5,7 @@
 #include "History.h"
 #include <string>
 #include <vector>
+#include <atomic>
 
 // Forward declarations
 typedef unsigned int ImGuiID;
@@ -129,8 +130,11 @@ public:
      * Render welcome screen.
      * @param app Application instance
      * @param model Current model
+     * @param jobs Job queue for async operations
+     * @param icons Icon manager
      */
-    void RenderWelcomeScreen(App& app, Model& model);
+    void RenderWelcomeScreen(App& app, Model& model, JobQueue& jobs,
+                            IconManager& icons);
     
     /**
      * Show a message in the console.
@@ -179,8 +183,11 @@ public:
      * Handle dropped file (from OS drag-drop).
      * @param filePath Path to dropped file
      * @param app Application instance for state and project operations
+     * @param jobs Job queue for async loading
+     * @param icons Icon manager for loading project icons
      */
-    void HandleDroppedFile(const std::string& filePath, App& app);
+    void HandleDroppedFile(const std::string& filePath, App& app,
+                          JobQueue& jobs, IconManager& icons);
     
     /**
      * Load recent projects from persistent storage.
@@ -232,6 +239,13 @@ public:
     bool showProjectBrowserModal = false;  // "View more" projects modal
     bool showWhatsNew = false;
     bool showAutosaveRecoveryModal = false;
+    
+    // Project loading state
+    bool showLoadingModal = false;
+    std::string loadingFilePath;
+    std::string loadingFileName;
+    std::atomic<bool> loadingCancelled{false};
+    double loadingStartTime = 0.0;
     
     // Quit confirmation state
     bool showQuitConfirmationModal = false;
@@ -336,6 +350,8 @@ private:
     void RenderProjectTemplates();
     void RenderWhatsNewPanel();
     void RenderAutosaveRecoveryModal(App& app, Model& model);
+    void RenderLoadingModal(App& app, Model& model, JobQueue& jobs, 
+                           IconManager& icons);
     void RenderQuitConfirmationModal(App& app, Model& model);
     void ApplyTemplate(ProjectTemplate tmpl);
     void LoadThumbnailTexture(RecentProject& project);
