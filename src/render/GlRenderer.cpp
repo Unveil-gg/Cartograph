@@ -12,12 +12,58 @@
 
 namespace Cartograph {
 
-struct FboHandle {
-    GLuint fbo;
-    GLuint colorTexture;
-    GLuint depthRenderbuffer;
-    int width, height;
-};
+// FboHandle implementation
+
+FboHandle::FboHandle(int w, int h) 
+    : fbo(0), colorTexture(0), depthRenderbuffer(0), width(w), height(h) {}
+
+FboHandle::~FboHandle() {
+    Cleanup();
+}
+
+FboHandle::FboHandle(FboHandle&& other) noexcept
+    : fbo(other.fbo)
+    , colorTexture(other.colorTexture)
+    , depthRenderbuffer(other.depthRenderbuffer)
+    , width(other.width)
+    , height(other.height)
+{
+    other.fbo = 0;
+    other.colorTexture = 0;
+    other.depthRenderbuffer = 0;
+}
+
+FboHandle& FboHandle::operator=(FboHandle&& other) noexcept {
+    if (this != &other) {
+        Cleanup();
+        fbo = other.fbo;
+        colorTexture = other.colorTexture;
+        depthRenderbuffer = other.depthRenderbuffer;
+        width = other.width;
+        height = other.height;
+        other.fbo = 0;
+        other.colorTexture = 0;
+        other.depthRenderbuffer = 0;
+    }
+    return *this;
+}
+
+void FboHandle::Cleanup() {
+    if (fbo) {
+        glDeleteFramebuffers(1, &fbo);
+        fbo = 0;
+    }
+    if (colorTexture) {
+        glDeleteTextures(1, &colorTexture);
+        colorTexture = 0;
+    }
+    if (depthRenderbuffer) {
+        glDeleteRenderbuffers(1, &depthRenderbuffer);
+        depthRenderbuffer = 0;
+    }
+}
+
+// GlRenderer implementation
 
 GlRenderer::GlRenderer(SDL_Window* window)
     : m_window(window)
@@ -123,10 +169,8 @@ void GlRenderer::GetWindowSize(int* outW, int* outH) const {
     SDL_GetWindowSize(m_window, outW, outH);
 }
 
-void* GlRenderer::CreateFramebuffer(int width, int height) {
-    FboHandle* handle = new FboHandle();
-    handle->width = width;
-    handle->height = height;
+std::unique_ptr<FboHandle> GlRenderer::CreateFramebuffer(int width, int height) {
+    auto handle = std::make_unique<FboHandle>(width, height);
     
     // Create FBO
     glGenFramebuffers(1, &handle->fbo);
@@ -159,8 +203,7 @@ void* GlRenderer::CreateFramebuffer(int width, int height) {
     // Check status
     GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
     if (status != GL_FRAMEBUFFER_COMPLETE) {
-        // Error handling
-        DestroyFramebuffer(handle);
+        // Error handling - unique_ptr will automatically clean up
         return nullptr;
     }
     
@@ -168,24 +211,6 @@ void* GlRenderer::CreateFramebuffer(int width, int height) {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     
     return handle;
-}
-
-void GlRenderer::DestroyFramebuffer(void* fbo) {
-    if (!fbo) return;
-    
-    FboHandle* handle = static_cast<FboHandle*>(fbo);
-    
-    if (handle->fbo) {
-        glDeleteFramebuffers(1, &handle->fbo);
-    }
-    if (handle->colorTexture) {
-        glDeleteTextures(1, &handle->colorTexture);
-    }
-    if (handle->depthRenderbuffer) {
-        glDeleteRenderbuffers(1, &handle->depthRenderbuffer);
-    }
-    
-    delete handle;
 }
 
 void GlRenderer::ReadPixels(

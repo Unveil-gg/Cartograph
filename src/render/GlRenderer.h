@@ -3,8 +3,45 @@
 #include "Renderer.h"
 #include <SDL3/SDL.h>
 #include <imgui.h>
+#include <memory>
+
+// OpenGL types (forward declarations)
+typedef unsigned int GLuint;
+typedef unsigned int GLenum;
 
 namespace Cartograph {
+
+/**
+ * RAII wrapper for OpenGL framebuffer objects.
+ * Automatically cleans up GL resources on destruction.
+ */
+class FboHandle {
+public:
+    FboHandle(int w, int h);
+    ~FboHandle();
+    
+    // Disable copy (OpenGL resources can't be copied)
+    FboHandle(const FboHandle&) = delete;
+    FboHandle& operator=(const FboHandle&) = delete;
+    
+    // Enable move
+    FboHandle(FboHandle&& other) noexcept;
+    FboHandle& operator=(FboHandle&& other) noexcept;
+    
+    GLuint GetFBO() const { return fbo; }
+    GLuint GetColorTexture() const { return colorTexture; }
+    int GetWidth() const { return width; }
+    int GetHeight() const { return height; }
+    
+    // Public for CreateFramebuffer to initialize
+    GLuint fbo;
+    GLuint colorTexture;
+    GLuint depthRenderbuffer;
+    int width, height;
+    
+private:
+    void Cleanup();
+};
 
 /**
  * OpenGL 3.3 renderer implementation.
@@ -17,7 +54,7 @@ public:
     
     void BeginFrame() override;
     void EndFrame() override;
-    void SetRenderTarget(void* fbo) override;
+    void SetRenderTarget(void* fbo) override;  // Accepts FboHandle* (non-owning)
     void SetScissor(int x, int y, int w, int h) override;
     void Clear(const Color& color) override;
     void DrawRect(
@@ -38,15 +75,9 @@ public:
     /**
      * Create an offscreen framebuffer for export rendering.
      * @param width, height Framebuffer dimensions
-     * @return FBO handle (platform-specific, cast to GLuint internally)
+     * @return RAII-managed FBO handle (automatically cleans up GL resources)
      */
-    void* CreateFramebuffer(int width, int height);
-    
-    /**
-     * Destroy a framebuffer created by CreateFramebuffer.
-     * @param fbo Framebuffer handle
-     */
-    void DestroyFramebuffer(void* fbo);
+    std::unique_ptr<FboHandle> CreateFramebuffer(int width, int height);
     
     /**
      * Read pixels from the current framebuffer.

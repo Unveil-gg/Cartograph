@@ -6217,27 +6217,29 @@ void UI::ShowNewProjectFolderPicker() {
         UI* ui;
     };
     
-    // Allocate callback data on heap (freed in callback)
-    CallbackData* data = new CallbackData{this};
+    // Allocate callback data with unique_ptr (ownership transferred to callback)
+    auto dataPtr = std::make_unique<CallbackData>();
+    dataPtr->ui = this;
     
     // Show native folder picker dialog
     SDL_ShowOpenFolderDialog(
         // Callback
         [](void* userdata, const char* const* filelist, int filter) {
-            CallbackData* data = static_cast<CallbackData*>(userdata);
+            // Take ownership of callback data (automatic cleanup on exit)
+            std::unique_ptr<CallbackData> data(
+                static_cast<CallbackData*>(userdata)
+            );
             
             if (filelist == nullptr) {
                 // Error occurred
                 data->ui->ShowToast("Failed to open folder dialog", 
                                    Toast::Type::Error);
-                delete data;
-                return;
+                return;  // unique_ptr cleans up automatically
             }
             
             if (filelist[0] == nullptr) {
                 // User canceled - keep existing path
-                delete data;
-                return;
+                return;  // unique_ptr cleans up automatically
             }
             
             // User selected a folder
@@ -6247,10 +6249,10 @@ void UI::ShowNewProjectFolderPicker() {
             data->ui->newProjectConfig.saveDirectory = folderPath;
             data->ui->UpdateNewProjectPath();
             
-            delete data;
+            // unique_ptr cleans up automatically at end of scope
         },
-        // Userdata
-        data,
+        // Userdata - transfer ownership to SDL callback
+        dataPtr.release(),
         // Window (NULL for now)
         nullptr,
         // Default location - start with current directory
@@ -6368,27 +6370,31 @@ void UI::ImportIcon(IconManager& iconManager, JobQueue& jobs) {
         JobQueue* jobs;
     };
     
-    // Allocate callback data on heap (freed in callback)
-    CallbackData* data = new CallbackData{this, &iconManager, &jobs};
+    // Allocate callback data with unique_ptr (ownership transferred to callback)
+    auto dataPtr = std::make_unique<CallbackData>();
+    dataPtr->ui = this;
+    dataPtr->iconManager = &iconManager;
+    dataPtr->jobs = &jobs;
     
     // Show native file dialog
     SDL_ShowOpenFileDialog(
         // Callback
         [](void* userdata, const char* const* filelist, int filter) {
-            CallbackData* data = static_cast<CallbackData*>(userdata);
+            // Take ownership of callback data (automatic cleanup on exit)
+            std::unique_ptr<CallbackData> data(
+                static_cast<CallbackData*>(userdata)
+            );
             
             if (filelist == nullptr) {
                 // Error occurred
                 data->ui->ShowToast("Failed to open file dialog", 
                                    Toast::Type::Error);
-                delete data;
-                return;
+                return;  // unique_ptr cleans up automatically
             }
             
             if (filelist[0] == nullptr) {
                 // User canceled
-                delete data;
-                return;
+                return;  // unique_ptr cleans up automatically
             }
             
             // User selected a file
@@ -6405,10 +6411,14 @@ void UI::ImportIcon(IconManager& iconManager, JobQueue& jobs) {
             data->ui->isImportingIcon = true;
             data->ui->importingIconName = iconName;
             
+            // Transfer ownership to job callback using shared_ptr
+            // (job callback outlives this SDL callback)
+            auto dataShared = std::shared_ptr<CallbackData>(data.release());
+            
             // Enqueue processing job
-            data->jobs->Enqueue(
+            dataShared->jobs->Enqueue(
                 JobType::ProcessIcon,
-                [path, iconName, data]() {
+                [path, iconName, dataShared]() {
                     std::vector<uint8_t> pixels;
                     int width, height;
                     std::string errorMsg;
@@ -6418,32 +6428,32 @@ void UI::ImportIcon(IconManager& iconManager, JobQueue& jobs) {
                         throw std::runtime_error(errorMsg);
                     }
                     
-                    if (!data->iconManager->AddIconFromMemory(
+                    if (!dataShared->iconManager->AddIconFromMemory(
                             iconName, pixels.data(), width, height, "marker")) {
                         throw std::runtime_error("Failed to add icon to memory");
                     }
                 },
-                [data, iconName](bool success, const std::string& error) {
-                    data->ui->isImportingIcon = false;
+                [dataShared, iconName](bool success, const std::string& error) {
+                    dataShared->ui->isImportingIcon = false;
                     
                     if (success) {
                         // Build atlas on main thread
-                        data->iconManager->BuildAtlas();
+                        dataShared->iconManager->BuildAtlas();
                         
-                        data->ui->ShowToast("Icon imported: " + iconName, 
+                        dataShared->ui->ShowToast("Icon imported: " + iconName, 
                                           Toast::Type::Success, 2.0f);
-                        data->ui->selectedIconName = iconName;
+                        dataShared->ui->selectedIconName = iconName;
                     } else {
-                        data->ui->ShowToast("Failed to import: " + error, 
+                        dataShared->ui->ShowToast("Failed to import: " + error, 
                                           Toast::Type::Error, 3.0f);
                     }
                     
-                    delete data;
+                    // shared_ptr cleans up automatically when all lambdas done
                 }
             );
         },
-        // Userdata
-        data,
+        // Userdata - transfer ownership to SDL callback
+        dataPtr.release(),
         // Window (NULL for now, could pass SDL window)
         nullptr,
         // Filters
@@ -6464,27 +6474,30 @@ void UI::ShowSaveProjectDialog(App& app) {
         App* app;
     };
     
-    // Allocate callback data on heap (freed in callback)
-    CallbackData* data = new CallbackData{this, &app};
+    // Allocate callback data with unique_ptr (ownership transferred to callback)
+    auto dataPtr = std::make_unique<CallbackData>();
+    dataPtr->ui = this;
+    dataPtr->app = &app;
     
     // Show native folder picker dialog
     SDL_ShowOpenFolderDialog(
         // Callback
         [](void* userdata, const char* const* filelist, int filter) {
-            CallbackData* data = static_cast<CallbackData*>(userdata);
+            // Take ownership of callback data (automatic cleanup on exit)
+            std::unique_ptr<CallbackData> data(
+                static_cast<CallbackData*>(userdata)
+            );
             
             if (filelist == nullptr) {
                 // Error occurred
                 data->ui->ShowToast("Failed to open folder dialog", 
                                    Toast::Type::Error);
-                delete data;
-                return;
+                return;  // unique_ptr cleans up automatically
             }
             
             if (filelist[0] == nullptr) {
                 // User canceled
-                delete data;
-                return;
+                return;  // unique_ptr cleans up automatically
             }
             
             // User selected a folder
@@ -6493,10 +6506,10 @@ void UI::ShowSaveProjectDialog(App& app) {
             // Save project to folder
             data->app->SaveProjectFolder(folderPath);
             
-            delete data;
+            // unique_ptr cleans up automatically at end of scope
         },
-        // Userdata
-        data,
+        // Userdata - transfer ownership to SDL callback
+        dataPtr.release(),
         // Window (NULL for now)
         nullptr,
         // Default location
@@ -6513,8 +6526,10 @@ void UI::ShowExportPackageDialog(App& app) {
         App* app;
     };
     
-    // Allocate callback data on heap (freed in callback)
-    CallbackData* data = new CallbackData{this, &app};
+    // Allocate callback data with unique_ptr (ownership transferred to callback)
+    auto dataPtr = std::make_unique<CallbackData>();
+    dataPtr->ui = this;
+    dataPtr->app = &app;
     
     // Setup filter for .cart files
     static SDL_DialogFileFilter filter = { 
@@ -6525,20 +6540,21 @@ void UI::ShowExportPackageDialog(App& app) {
     SDL_ShowSaveFileDialog(
         // Callback
         [](void* userdata, const char* const* filelist, int filterIndex) {
-            CallbackData* data = static_cast<CallbackData*>(userdata);
+            // Take ownership of callback data (automatic cleanup on exit)
+            std::unique_ptr<CallbackData> data(
+                static_cast<CallbackData*>(userdata)
+            );
             
             if (filelist == nullptr) {
                 // Error occurred
                 data->ui->ShowToast("Failed to open save dialog", 
                                    Toast::Type::Error);
-                delete data;
-                return;
+                return;  // unique_ptr cleans up automatically
             }
             
             if (filelist[0] == nullptr) {
                 // User canceled
-                delete data;
-                return;
+                return;  // unique_ptr cleans up automatically
             }
             
             // User selected a path
@@ -6553,10 +6569,10 @@ void UI::ShowExportPackageDialog(App& app) {
             // Export package
             data->app->ExportPackage(path);
             
-            delete data;
+            // unique_ptr cleans up automatically at end of scope
         },
-        // Userdata
-        data,
+        // Userdata - transfer ownership to SDL callback
+        dataPtr.release(),
         // Window (NULL for now)
         nullptr,
         // Filters
@@ -6575,8 +6591,10 @@ void UI::ShowExportPngDialog(App& app) {
         App* app;
     };
     
-    // Allocate callback data on heap (freed in callback)
-    CallbackData* data = new CallbackData{this, &app};
+    // Allocate callback data with unique_ptr (ownership transferred to callback)
+    auto dataPtr = std::make_unique<CallbackData>();
+    dataPtr->ui = this;
+    dataPtr->app = &app;
     
     // Setup filters for PNG files
     static SDL_DialogFileFilter filters[] = {
@@ -6588,20 +6606,21 @@ void UI::ShowExportPngDialog(App& app) {
     SDL_ShowSaveFileDialog(
         // Callback
         [](void* userdata, const char* const* filelist, int filterIndex) {
-            CallbackData* data = static_cast<CallbackData*>(userdata);
+            // Take ownership of callback data (automatic cleanup on exit)
+            std::unique_ptr<CallbackData> data(
+                static_cast<CallbackData*>(userdata)
+            );
             
             if (filelist == nullptr) {
                 // Error occurred
                 data->ui->ShowToast("Failed to open save dialog", 
                                    Toast::Type::Error);
-                delete data;
-                return;
+                return;  // unique_ptr cleans up automatically
             }
             
             if (filelist[0] == nullptr) {
                 // User canceled
-                delete data;
-                return;
+                return;  // unique_ptr cleans up automatically
             }
             
             // User selected a path
@@ -6621,17 +6640,14 @@ void UI::ShowExportPngDialog(App& app) {
                 data->ui->ShowToast(
                     "Cannot export: No content drawn yet",
                     Toast::Type::Error);
-                delete data;
                 return;
             }
             
             // Export PNG
             data->app->ExportPng(path);
-            
-            delete data;
         },
-        // Userdata
-        data,
+        // Userdata - transfer ownership to SDL callback
+        dataPtr.release(),
         // Window (NULL for now)
         nullptr,
         // Filters
@@ -6853,5 +6869,3 @@ void UI::UpdateCursor(IconManager& icons) {
 }
 
 } // namespace Cartograph
-
-

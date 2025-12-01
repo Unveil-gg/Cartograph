@@ -57,14 +57,14 @@ bool Thumbnail::GenerateToMemory(
         return false;
     }
     
-    // Create offscreen framebuffer
-    void* fbo = glRenderer->CreateFramebuffer(WIDTH, HEIGHT);
+    // Create offscreen framebuffer (RAII-managed)
+    auto fbo = glRenderer->CreateFramebuffer(WIDTH, HEIGHT);
     if (!fbo) {
         return false;
     }
     
-    // Set render target
-    glRenderer->SetRenderTarget(fbo);
+    // Set render target (pass raw pointer, ownership stays with unique_ptr)
+    glRenderer->SetRenderTarget(fbo.get());
     
     // Clear with editor background color (dark gray, not transparent)
     glRenderer->Clear(Color(0.1f, 0.1f, 0.12f, 1.0f));
@@ -159,8 +159,7 @@ bool Thumbnail::GenerateToMemory(
         );
     }
     
-    // Cleanup
-    glRenderer->DestroyFramebuffer(fbo);
+    // Cleanup - FBO automatically destroyed by unique_ptr
     glRenderer->SetRenderTarget(nullptr);
     
     return true;
