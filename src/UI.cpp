@@ -390,9 +390,25 @@ void UI::RenderWelcomeScreen(App& app, Model& model) {
     ImGui::SameLine(0.0f, buttonSpacing);
     if (ImGui::Button("Import Project", ImVec2(buttonWidth, 
                                                 buttonHeight))) {
-        // TODO: Implement native file picker dialog
-        ShowToast("Use drag & drop to import a .cart file or project folder", 
-                 Toast::Type::Info, 4.0f);
+        // Show native file picker
+        auto result = Platform::ShowOpenDialogForImport(
+            "Import Cartograph Project",
+            true,  // Allow files
+            true,  // Allow folders
+            {"cart"},  // File extensions
+            Platform::GetDefaultProjectsDir()  // Default path
+        );
+        
+        if (result) {
+            // User selected a file or folder - open it
+            app.OpenProject(*result);
+            
+            // Transition to editor if successful
+            if (!app.GetModel().palette.empty()) {
+                app.ShowEditor();
+            }
+        }
+        // If result is nullopt, user cancelled - no action needed
     }
     
     // Hover tooltip

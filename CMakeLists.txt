@@ -45,6 +45,13 @@ set(CARTOGRAPH_SOURCES
     src/platform/Time.cpp
 )
 
+# Platform-specific sources
+if(APPLE)
+    list(APPEND CARTOGRAPH_SOURCES
+        src/platform/Fs_macos.mm
+    )
+endif()
+
 set(CARTOGRAPH_HEADERS
     src/App.h
     src/UI.h

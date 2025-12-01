@@ -18,6 +18,24 @@ std::optional<std::string> ShowOpenFileDialog(
 );
 
 /**
+ * Show native open dialog for files or folders.
+ * Used for importing projects which can be either .cart files or folders.
+ * @param title Dialog title
+ * @param allowFiles Allow file selection
+ * @param allowFolders Allow folder selection
+ * @param fileExtensions File extensions to filter (e.g., {"cart"})
+ * @param defaultPath Default directory to open in
+ * @return Selected file or folder path, or nullopt if cancelled
+ */
+std::optional<std::string> ShowOpenDialogForImport(
+    const std::string& title,
+    bool allowFiles,
+    bool allowFolders,
+    const std::vector<std::string>& fileExtensions = {},
+    const std::string& defaultPath = ""
+);
+
+/**
  * Show native save file dialog.
  * @param title Dialog title
  * @param defaultName Default filename
