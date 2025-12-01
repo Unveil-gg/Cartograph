@@ -178,8 +178,9 @@ public:
     /**
      * Handle dropped file (from OS drag-drop).
      * @param filePath Path to dropped file
+     * @param app Application instance for state and project operations
      */
-    void HandleDroppedFile(const std::string& filePath);
+    void HandleDroppedFile(const std::string& filePath, App& app);
     
     /**
      * Load recent projects from persistent storage.

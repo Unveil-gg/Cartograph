@@ -26,6 +26,7 @@ App::App()
     , m_lastAutosaveTime(0)
     , m_lastFrameTime(0)
     , m_hasDroppedFile(false)
+    , m_isDragging(false)
     , m_hasAutosaveRecovery(false)
     , m_lastDirtyState(false)
 {
@@ -225,12 +226,23 @@ void App::ProcessEvents() {
                 }
                 break;
                 
+            case SDL_EVENT_DROP_BEGIN:
+                // Drag operation started
+                m_isDragging = true;
+                break;
+                
             case SDL_EVENT_DROP_FILE:
                 // File was dropped on the window
+                m_isDragging = false;
                 if (event.drop.data) {
                     m_droppedFilePath = event.drop.data;
                     m_hasDroppedFile = true;
                 }
+                break;
+                
+            case SDL_EVENT_DROP_COMPLETE:
+                // Drag operation ended (dropped or cancelled)
+                m_isDragging = false;
                 break;
         }
     }
@@ -267,7 +279,7 @@ void App::Render() {
     
     // Handle dropped files
     if (m_hasDroppedFile) {
-        m_ui.HandleDroppedFile(m_droppedFilePath);
+        m_ui.HandleDroppedFile(m_droppedFilePath, *this);
         m_hasDroppedFile = false;
         m_droppedFilePath.clear();
     }

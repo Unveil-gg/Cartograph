@@ -89,6 +89,11 @@ public:
      */
     const Model& GetModel() const { return m_model; }
     
+    /**
+     * Check if a file is currently being dragged over the window.
+     */
+    bool IsDragging() const { return m_isDragging; }
+    
     // File operations
     void NewProject(const std::string& savePath = "");
     void OpenProject(const std::string& path);
@@ -152,6 +157,7 @@ private:
     // File drop handling
     std::string m_droppedFilePath;
     bool m_hasDroppedFile;
+    bool m_isDragging;  // True when file is being dragged over window
 };
 
 } // namespace Cartograph

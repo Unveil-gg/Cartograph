@@ -6,6 +6,7 @@
 #include "Jobs.h"
 #include "render/Renderer.h"
 #include "IOJson.h"
+#include "ProjectFolder.h"
 #include "platform/Paths.h"
 #include "platform/Fs.h"
 #include "platform/Time.h"
@@ -389,8 +390,16 @@ void UI::RenderWelcomeScreen(App& app, Model& model) {
     ImGui::SameLine(0.0f, buttonSpacing);
     if (ImGui::Button("Import Project", ImVec2(buttonWidth, 
                                                 buttonHeight))) {
-        // TODO: Implement file picker dialog for .cart files
-        ShowToast("Import feature coming soon!", Toast::Type::Info);
+        // TODO: Implement native file picker dialog
+        ShowToast("Use drag & drop to import a .cart file or project folder", 
+                 Toast::Type::Info, 4.0f);
+    }
+    
+    // Hover tooltip
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal)) {
+        ImGui::BeginTooltip();
+        ImGui::Text("Click to browse or drag & drop");
+        ImGui::EndTooltip();
     }
     
     ImGui::Spacing();
@@ -436,6 +445,61 @@ void UI::RenderWelcomeScreen(App& app, Model& model) {
     ImGui::SetCursorPos(ImVec2(windowSize.x - 140, windowSize.y - 40));
     if (ImGui::Button("What's New?", ImVec2(120, 30))) {
         showWhatsNew = !showWhatsNew;
+    }
+    
+    // Drag & drop overlay (only when actively dragging)
+    if (app.IsDragging()) {
+        // Semi-transparent overlay covering entire window
+        ImGui::SetCursorPos(ImVec2(0, 0));
+        ImDrawList* drawList = ImGui::GetWindowDrawList();
+        ImVec2 windowPos = ImGui::GetWindowPos();
+        ImVec2 windowEnd = ImVec2(
+            windowPos.x + windowSize.x,
+            windowPos.y + windowSize.y
+        );
+        
+        // Dark overlay with 30% opacity
+        drawList->AddRectFilled(
+            windowPos,
+            windowEnd,
+            IM_COL32(20, 20, 25, 76)  // Dark grey, ~30% alpha
+        );
+        
+        // Blue border glow (pulsing animation)
+        float time = static_cast<float>(ImGui::GetTime());
+        float pulseAlpha = 0.8f + 0.2f * sinf(time * 3.0f);  // 0.8-1.0
+        int alphaValue = static_cast<int>(pulseAlpha * 255);
+        
+        drawList->AddRect(
+            ImVec2(windowPos.x + 10, windowPos.y + 10),
+            ImVec2(windowEnd.x - 10, windowEnd.y - 10),
+            IM_COL32(74, 144, 226, alphaValue),  // Blue #4A90E2
+            4.0f,   // Rounding
+            0,      // Flags
+            3.0f    // Thickness
+        );
+        
+        // Centered text: "↓ Drop to import project"
+        const char* dropText = "Drop to import project";
+        ImVec2 textSize = ImGui::CalcTextSize(dropText);
+        ImVec2 textPos = ImVec2(
+            windowPos.x + (windowSize.x - textSize.x) * 0.5f,
+            windowPos.y + (windowSize.y - textSize.y) * 0.5f
+        );
+        
+        // Text shadow for better visibility
+        drawList->AddText(
+            ImVec2(textPos.x + 2, textPos.y + 2),
+            IM_COL32(0, 0, 0, 180),
+            dropText
+        );
+        
+        // Main text (white, pulsing slightly)
+        drawList->AddText(
+            textPos,
+            IM_COL32(255, 255, 255, alphaValue),
+            dropText
+        );
     }
     
     ImGui::End();
@@ -5346,9 +5410,47 @@ void UI::ShowExportPngDialog(App& app) {
     );
 }
 
-void UI::HandleDroppedFile(const std::string& filePath) {
-    droppedFilePath = filePath;
-    hasDroppedFile = true;
+void UI::HandleDroppedFile(const std::string& filePath, App& app) {
+    // Check if we're in Welcome Screen
+    if (app.GetState() == AppState::Welcome) {
+        // Try to import as project
+        bool isValidProject = false;
+        
+        // Check if it's a .cart file
+        if (filePath.size() >= 5 && 
+            filePath.substr(filePath.size() - 5) == ".cart") {
+            // Validate it's a real file and has ZIP magic bytes
+            namespace fs = std::filesystem;
+            if (fs::exists(filePath) && fs::is_regular_file(filePath)) {
+                isValidProject = true;
+            }
+        }
+        // Check if it's a project folder
+        else if (ProjectFolder::IsProjectFolder(filePath)) {
+            isValidProject = true;
+        }
+        
+        if (isValidProject) {
+            // Valid project - open it
+            app.OpenProject(filePath);
+            
+            // Transition to editor if successful
+            if (!app.GetModel().palette.empty()) {
+                app.ShowEditor();
+            }
+        } else {
+            // Invalid format
+            ShowToast(
+                "Invalid format. Drop a .cart file or project folder.",
+                Toast::Type::Warning,
+                4.0f
+            );
+        }
+    } else {
+        // In Editor state - handle as icon import (existing behavior)
+        droppedFilePath = filePath;
+        hasDroppedFile = true;
+    }
 }
 
 } // namespace Cartograph
