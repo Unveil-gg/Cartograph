@@ -176,7 +176,7 @@ void UI::Render(
     // Canvas first (background layer), then side panels (on top for tooltips)
     RenderCanvasPanel(renderer, model, canvas, history, icons, keymap);
     RenderStatusBar(model, canvas);
-    RenderToolsPanel(model, icons, jobs);
+    RenderToolsPanel(model, history, icons, jobs);
     
     if (showPropertiesPanel) {
         RenderPropertiesPanel(model, icons, jobs);
@@ -743,7 +743,8 @@ void UI::RenderPalettePanel(Model& model) {
     ImGui::End();
 }
 
-void UI::RenderToolsPanel(Model& model, IconManager& icons, JobQueue& jobs) {
+void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons, 
+                          JobQueue& jobs) {
     ImGuiWindowFlags flags = 
         ImGuiWindowFlags_NoMove | 
         ImGuiWindowFlags_NoCollapse;
@@ -908,21 +909,250 @@ void UI::RenderToolsPanel(Model& model, IconManager& icons, JobQueue& jobs) {
             
             bool selected = (selectedTileId == tile.id);
             ImVec4 color = tile.color.ToImVec4();
+            bool inUse = model.IsPaletteColorInUse(tile.id);
             
-            // Color button
-            if (ImGui::ColorButton("##color", color, 0, ImVec2(24, 24))) {
+            // Color button with visual indicator if in use
+            ImGuiColorEditFlags colorBtnFlags = 0;
+            if (ImGui::ColorButton("##color", color, colorBtnFlags, 
+                                  ImVec2(24, 24))) {
                 selectedTileId = tile.id;
+            }
+            
+            // Double-click to edit
+            if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0)) {
+                // Open edit modal
+                colorPickerEditingTileId = tile.id;
+                strncpy(colorPickerName, tile.name.c_str(), 
+                       sizeof(colorPickerName) - 1);
+                colorPickerName[sizeof(colorPickerName) - 1] = '\0';
+                
+                colorPickerColor[0] = tile.color.r;
+                colorPickerColor[1] = tile.color.g;
+                colorPickerColor[2] = tile.color.b;
+                colorPickerColor[3] = tile.color.a;
+                
+                // Save original for preview
+                colorPickerOriginalColor[0] = tile.color.r;
+                colorPickerOriginalColor[1] = tile.color.g;
+                colorPickerOriginalColor[2] = tile.color.b;
+                colorPickerOriginalColor[3] = tile.color.a;
+                
+                std::string hex = tile.color.ToHex(true);
+                strncpy(colorPickerHexInput, hex.c_str(), 
+                       sizeof(colorPickerHexInput) - 1);
+                colorPickerHexInput[sizeof(colorPickerHexInput) - 1] = '\0';
+                
+                showColorPickerModal = true;
+            }
+            
+            // Tooltip showing hex value and usage
+            if (ImGui::IsItemHovered()) {
+                ImGui::BeginTooltip();
+                ImGui::Text("%s", tile.color.ToHex(false).c_str());
+                if (inUse) {
+                    ImGui::TextColored(ImVec4(0.7f, 0.9f, 1.0f, 1.0f), 
+                                      "In use");
+                }
+                ImGui::Text("Double-click to edit");
+                ImGui::Text("Right-click for options");
+                ImGui::EndTooltip();
+            }
+            
+            // Right-click context menu
+            if (ImGui::BeginPopupContextItem("color_context")) {
+                ImGui::TextDisabled("%s", tile.name.c_str());
+                ImGui::Separator();
+                
+                if (ImGui::MenuItem("Edit...")) {
+                    // Open edit modal
+                    colorPickerEditingTileId = tile.id;
+                    strncpy(colorPickerName, tile.name.c_str(), 
+                           sizeof(colorPickerName) - 1);
+                    colorPickerName[sizeof(colorPickerName) - 1] = '\0';
+                    
+                    colorPickerColor[0] = tile.color.r;
+                    colorPickerColor[1] = tile.color.g;
+                    colorPickerColor[2] = tile.color.b;
+                    colorPickerColor[3] = tile.color.a;
+                    
+                    colorPickerOriginalColor[0] = tile.color.r;
+                    colorPickerOriginalColor[1] = tile.color.g;
+                    colorPickerOriginalColor[2] = tile.color.b;
+                    colorPickerOriginalColor[3] = tile.color.a;
+                    
+                    std::string hex = tile.color.ToHex(true);
+                    strncpy(colorPickerHexInput, hex.c_str(), 
+                           sizeof(colorPickerHexInput) - 1);
+                    colorPickerHexInput[sizeof(colorPickerHexInput) - 1] = 
+                        '\0';
+                    
+                    showColorPickerModal = true;
+                }
+                
+                if (ImGui::MenuItem("Duplicate")) {
+                    // Create a copy with "(Copy)" suffix
+                    std::string newName = tile.name + " (Copy)";
+                    auto cmd = std::make_unique<AddPaletteColorCommand>(
+                        newName, tile.color);
+                    history.AddCommand(std::move(cmd), model, true);
+                    
+                    ShowToast("Color duplicated: " + newName, 
+                             Toast::Type::Success);
+                }
+                
+                ImGui::Separator();
+                
+                // Delete option with warning if in use
+                if (inUse) {
+                    ImGui::PushStyleColor(ImGuiCol_Text, 
+                        ImVec4(1.0f, 0.6f, 0.0f, 1.0f));
+                    if (ImGui::MenuItem("Delete (in use)...")) {
+                        // Open delete confirmation
+                        colorPickerEditingTileId = tile.id;
+                        colorPickerDeleteRequested = true;
+                    }
+                    ImGui::PopStyleColor();
+                } else {
+                    if (ImGui::MenuItem("Delete")) {
+                        // Direct delete without confirmation
+                        auto cmd = std::make_unique<RemovePaletteColorCommand>(
+                            tile.id, 0);
+                        history.AddCommand(std::move(cmd), model, true);
+                        
+                        // If this was selected, switch to default
+                        if (selectedTileId == tile.id) {
+                            selectedTileId = 1;  // Default to "Solid"
+                        }
+                        
+                        ShowToast("Color deleted: " + tile.name, 
+                                 Toast::Type::Info);
+                    }
+                }
+                
+                ImGui::EndPopup();
             }
             
             ImGui::SameLine();
             
-            // Selectable name
-            if (ImGui::Selectable(tile.name.c_str(), selected, 0, 
+            // Selectable name with in-use indicator
+            std::string displayName = tile.name;
+            if (inUse) {
+                displayName += " \xE2\x80\xA2";  // UTF-8 bullet point
+            }
+            
+            if (ImGui::Selectable(displayName.c_str(), selected, 0, 
                                   ImVec2(0, 24))) {
                 selectedTileId = tile.id;
             }
             
+            // Same context menu on name
+            if (ImGui::BeginPopupContextItem("name_context")) {
+                ImGui::TextDisabled("%s", tile.name.c_str());
+                ImGui::Separator();
+                
+                if (ImGui::MenuItem("Edit...")) {
+                    colorPickerEditingTileId = tile.id;
+                    strncpy(colorPickerName, tile.name.c_str(), 
+                           sizeof(colorPickerName) - 1);
+                    colorPickerName[sizeof(colorPickerName) - 1] = '\0';
+                    
+                    colorPickerColor[0] = tile.color.r;
+                    colorPickerColor[1] = tile.color.g;
+                    colorPickerColor[2] = tile.color.b;
+                    colorPickerColor[3] = tile.color.a;
+                    
+                    colorPickerOriginalColor[0] = tile.color.r;
+                    colorPickerOriginalColor[1] = tile.color.g;
+                    colorPickerOriginalColor[2] = tile.color.b;
+                    colorPickerOriginalColor[3] = tile.color.a;
+                    
+                    std::string hex = tile.color.ToHex(true);
+                    strncpy(colorPickerHexInput, hex.c_str(), 
+                           sizeof(colorPickerHexInput) - 1);
+                    colorPickerHexInput[sizeof(colorPickerHexInput) - 1] = 
+                        '\0';
+                    
+                    showColorPickerModal = true;
+                }
+                
+                if (ImGui::MenuItem("Duplicate")) {
+                    std::string newName = tile.name + " (Copy)";
+                    auto cmd = std::make_unique<AddPaletteColorCommand>(
+                        newName, tile.color);
+                    history.AddCommand(std::move(cmd), model, true);
+                    
+                    ShowToast("Color duplicated: " + newName, 
+                             Toast::Type::Success);
+                }
+                
+                ImGui::Separator();
+                
+                if (inUse) {
+                    ImGui::PushStyleColor(ImGuiCol_Text, 
+                        ImVec4(1.0f, 0.6f, 0.0f, 1.0f));
+                    if (ImGui::MenuItem("Delete (in use)...")) {
+                        colorPickerEditingTileId = tile.id;
+                        colorPickerDeleteRequested = true;
+                    }
+                    ImGui::PopStyleColor();
+                } else {
+                    if (ImGui::MenuItem("Delete")) {
+                        auto cmd = std::make_unique<RemovePaletteColorCommand>(
+                            tile.id, 0);
+                        history.AddCommand(std::move(cmd), model, true);
+                        
+                        if (selectedTileId == tile.id) {
+                            selectedTileId = 1;
+                        }
+                        
+                        ShowToast("Color deleted: " + tile.name, 
+                                 Toast::Type::Info);
+                    }
+                }
+                
+                ImGui::EndPopup();
+            }
+            
             ImGui::PopID();
+        }
+        
+        ImGui::Spacing();
+        
+        // Add Color button
+        bool canAddMore = model.palette.size() < 32;
+        
+        if (!canAddMore) {
+            ImGui::BeginDisabled();
+        }
+        
+        if (ImGui::Button("+ Add Color", ImVec2(-1, 0))) {
+            // Open modal in "new color" mode
+            colorPickerEditingTileId = -1;
+            
+            // Generate a smart default name
+            int colorNum = static_cast<int>(model.palette.size());
+            std::string defaultName = "Color " + std::to_string(colorNum);
+            strncpy(colorPickerName, defaultName.c_str(), 
+                   sizeof(colorPickerName) - 1);
+            colorPickerName[sizeof(colorPickerName) - 1] = '\0';
+            
+            // Start with white color
+            colorPickerColor[0] = 1.0f;
+            colorPickerColor[1] = 1.0f;
+            colorPickerColor[2] = 1.0f;
+            colorPickerColor[3] = 1.0f;
+            
+            strncpy(colorPickerHexInput, "#ffffff", 
+                   sizeof(colorPickerHexInput) - 1);
+            
+            showColorPickerModal = true;
+        }
+        
+        if (!canAddMore) {
+            ImGui::EndDisabled();
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+                ImGui::SetTooltip("Palette is full (max 32 colors)");
+            }
         }
     }
     

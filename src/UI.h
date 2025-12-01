@@ -335,7 +335,8 @@ private:
         JobQueue& jobs
     );
     void RenderPalettePanel(Model& model);
-    void RenderToolsPanel(Model& model, IconManager& icons, JobQueue& jobs);
+    void RenderToolsPanel(Model& model, History& history, IconManager& icons, 
+                         JobQueue& jobs);
     void RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs);
     void RenderCanvasPanel(
         IRenderer& renderer,
