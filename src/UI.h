@@ -6,9 +6,16 @@
 #include <string>
 #include <vector>
 #include <atomic>
+#include <memory>
 
 // Forward declarations
 typedef unsigned int ImGuiID;
+struct SDL_Cursor;
+
+// Custom deleter for SDL_Cursor (RAII)
+struct SDL_CursorDeleter {
+    void operator()(SDL_Cursor* cursor) const;
+};
 
 namespace Cartograph {
 
@@ -96,6 +103,7 @@ struct RecentProject {
 class UI {
 public:
     UI();
+    ~UI();
     
     /**
      * Setup ImGui docking layout (call once at startup).
@@ -308,6 +316,11 @@ public:
     EdgeId hoveredEdge;
     bool isHoveringEdge = false;
     
+    // Eyedropper tool state
+    bool eyedropperAutoSwitchToPaint = false;
+    std::unique_ptr<SDL_Cursor, SDL_CursorDeleter> eyedropperCursor;
+    Tool lastTool = Tool::Move;  // Track last tool for cursor restore
+    
     // Room management state
     std::string selectedRoomId;   // Currently selected room
     bool roomPaintMode = false;   // Room painting mode active
@@ -404,6 +417,16 @@ private:
         EdgeId* outEdgeId,
         EdgeSide* outEdgeSide
     );
+    
+    /**
+     * Load the eyedropper cursor from assets.
+     */
+    void LoadEyedropperCursor();
+    
+    /**
+     * Update cursor based on current tool.
+     */
+    void UpdateCursor();
     
     std::vector<Toast> m_toasts;  // Legacy, will be removed
     std::vector<ConsoleMessage> m_consoleMessages;

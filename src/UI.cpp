@@ -14,7 +14,10 @@
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <SDL3/SDL_dialog.h>
+#include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_surface.h>
 #include <nlohmann/json.hpp>
+#include <stb/stb_image.h>
 #include <algorithm>
 #include <cctype>
 #include <cmath>
@@ -36,6 +39,13 @@
 
 // stb_image for PNG loading (already included in Icons.cpp)
 #include <stb/stb_image.h>
+
+// SDL_CursorDeleter implementation (outside namespace)
+void SDL_CursorDeleter::operator()(SDL_Cursor* cursor) const {
+    if (cursor) {
+        SDL_DestroyCursor(cursor);
+    }
+}
 
 namespace Cartograph {
 
@@ -90,6 +100,10 @@ static std::vector<std::pair<int, int>> GetTilesAlongLine(
 }
 
 UI::UI() {
+}
+
+UI::~UI() {
+    // eyedropperCursor automatically cleaned up by unique_ptr
 }
 
 void UI::SetupDockspace() {
@@ -213,6 +227,9 @@ void UI::Render(
     if (showQuitConfirmationModal) {
         RenderQuitConfirmationModal(app, model);
     }
+    
+    // Update cursor based on current tool
+    UpdateCursor();
 }
 
 void UI::ShowToast(
@@ -897,6 +914,153 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
     ImGui::Spacing();
     ImGui::Separator();
     ImGui::Spacing();
+    
+    // Show eyedropper preview when Eyedropper tool is active
+    if (currentTool == Tool::Eyedropper) {
+        ImGui::Text("Eyedropper Tool");
+        ImGui::Separator();
+        
+        ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
+            "Hover to preview");
+        
+        ImGui::Spacing();
+        
+        // Get hover preview color (what WILL be picked)
+        Color hoverColor(0.5f, 0.5f, 0.5f, 1.0f);
+        std::string hoverName = "No tile";
+        bool isHoveringTile = false;
+        
+        if (isHoveringCanvas && hoveredTileX >= 0 && hoveredTileY >= 0) {
+            const std::string globalRoomId = "";
+            int hoveredTileId = model.GetTileAt(
+                globalRoomId, hoveredTileX, hoveredTileY
+            );
+            
+            if (hoveredTileId != 0) {
+                for (const auto& tile : model.palette) {
+                    if (tile.id == hoveredTileId) {
+                        hoverColor = tile.color;
+                        hoverName = tile.name;
+                        isHoveringTile = true;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        // If not hovering, show selected color as fallback
+        if (!isHoveringTile) {
+            for (const auto& tile : model.palette) {
+                if (tile.id == selectedTileId) {
+                    hoverColor = tile.color;
+                    hoverName = tile.name;
+                    break;
+                }
+            }
+        }
+        
+        // Large hover preview
+        float previewWidth = ImGui::GetContentRegionAvail().x;
+        float hoverHeight = 60.0f;
+        
+        ImVec2 cursorPos = ImGui::GetCursorScreenPos();
+        ImVec2 hoverMin = cursorPos;
+        ImVec2 hoverMax = ImVec2(
+            cursorPos.x + previewWidth, 
+            cursorPos.y + hoverHeight
+        );
+        
+        ImDrawList* drawList = ImGui::GetWindowDrawList();
+        
+        // Draw hover preview
+        drawList->AddRectFilled(hoverMin, hoverMax, hoverColor.ToU32());
+        
+        // Draw border (highlight if hovering tile)
+        ImU32 hoverBorderColor = isHoveringTile ? 
+            ImGui::GetColorU32(ImVec4(0.0f, 0.8f, 1.0f, 1.0f)) :  // Cyan
+            ImGui::GetColorU32(ImVec4(0.3f, 0.3f, 0.3f, 1.0f));   // Dark
+        float hoverBorderThickness = isHoveringTile ? 2.5f : 1.5f;
+        drawList->AddRect(
+            hoverMin, hoverMax, hoverBorderColor, 0.0f, 0, 
+            hoverBorderThickness
+        );
+        
+        ImGui::Dummy(ImVec2(previewWidth, hoverHeight));
+        
+        // Display hover color name (centered)
+        ImGui::Spacing();
+        float hoverTextWidth = ImGui::CalcTextSize(hoverName.c_str()).x;
+        float hoverCenterX = 
+            (ImGui::GetContentRegionAvail().x - hoverTextWidth) * 0.5f;
+        if (hoverCenterX > 0) {
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + hoverCenterX);
+        }
+        ImGui::Text("%s", hoverName.c_str());
+        
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        // Current selection (smaller preview)
+        ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
+            "Current Selection:");
+        ImGui::Spacing();
+        
+        Color selectedColor(0.8f, 0.8f, 0.8f, 1.0f);
+        std::string selectedName = "Empty";
+        for (const auto& tile : model.palette) {
+            if (tile.id == selectedTileId) {
+                selectedColor = tile.color;
+                selectedName = tile.name;
+                break;
+            }
+        }
+        
+        // Smaller selected preview
+        float selectedHeight = 40.0f;
+        cursorPos = ImGui::GetCursorScreenPos();
+        ImVec2 selectedMin = cursorPos;
+        ImVec2 selectedMax = ImVec2(
+            cursorPos.x + previewWidth, 
+            cursorPos.y + selectedHeight
+        );
+        
+        drawList->AddRectFilled(
+            selectedMin, selectedMax, selectedColor.ToU32()
+        );
+        drawList->AddRect(
+            selectedMin, selectedMax,
+            ImGui::GetColorU32(ImVec4(0.3f, 0.3f, 0.3f, 1.0f)),
+            0.0f, 0, 1.5f
+        );
+        
+        ImGui::Dummy(ImVec2(previewWidth, selectedHeight));
+        
+        // Display selected name (centered)
+        float selectedTextWidth = ImGui::CalcTextSize(selectedName.c_str()).x;
+        float selectedCenterX = 
+            (ImGui::GetContentRegionAvail().x - selectedTextWidth) * 0.5f;
+        if (selectedCenterX > 0) {
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + selectedCenterX);
+        }
+        ImGui::TextColored(
+            ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "%s", selectedName.c_str()
+        );
+        
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        // Auto-switch to Paint toggle
+        ImGui::Checkbox("Auto-switch to Paint", &eyedropperAutoSwitchToPaint);
+        
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip(
+                "Automatically switch to Paint tool\n"
+                "after picking a color"
+            );
+        }
+    }
     
     // Show palette when Paint tool is active
     if (currentTool == Tool::Paint || currentTool == Tool::Fill) {
@@ -2685,11 +2849,23 @@ void UI::RenderCanvasPanel(
                 // Only pick non-empty tiles
                 if (pickedTileId != 0) {
                     selectedTileId = pickedTileId;
-                    ShowToast("Picked tile #" + std::to_string(pickedTileId), 
+                    
+                    // Find color name for toast message
+                    std::string colorName = "Unknown";
+                    for (const auto& tile : model.palette) {
+                        if (tile.id == pickedTileId) {
+                            colorName = tile.name;
+                            break;
+                        }
+                    }
+                    
+                    ShowToast("Picked: " + colorName, 
                              Toast::Type::Success, 1.5f);
                     
-                    // Auto-switch to Paint tool after picking
-                    currentTool = Tool::Paint;
+                    // Auto-switch to Paint tool if toggle is enabled
+                    if (eyedropperAutoSwitchToPaint) {
+                        currentTool = Tool::Paint;
+                    }
                 }
                 // Note: "No tile to pick" message shown in console only
             }
@@ -3336,6 +3512,69 @@ void UI::RenderCanvasPanel(
             0,
             2.0f
         );
+    }
+    
+    // Draw eyedropper hover highlight if Eyedropper tool is active
+    if (currentTool == Tool::Eyedropper && ImGui::IsItemHovered()) {
+        ImVec2 mousePos = ImGui::GetMousePos();
+        
+        // Convert to tile coordinates
+        int tx, ty;
+        canvas.ScreenToTile(
+            mousePos.x, mousePos.y,
+            model.grid.tileWidth, model.grid.tileHeight,
+            &tx, &ty
+        );
+        
+        // Check if there's a tile at this position
+        const std::string globalRoomId = "";
+        int hoveredTileId = model.GetTileAt(globalRoomId, tx, ty);
+        
+        // Only show highlight if there's a non-empty tile
+        if (hoveredTileId != 0) {
+            // Convert back to screen coordinates (snapped to grid)
+            float wx, wy;
+            canvas.TileToWorld(
+                tx, ty, model.grid.tileWidth, 
+                model.grid.tileHeight, &wx, &wy
+            );
+            
+            float sx, sy;
+            canvas.WorldToScreen(wx, wy, &sx, &sy);
+            
+            float sw = model.grid.tileWidth * canvas.zoom;
+            float sh = model.grid.tileHeight * canvas.zoom;
+            
+            // Find the tile color for the highlight
+            Color tileColor(0.8f, 0.8f, 0.8f, 0.3f);
+            for (const auto& tile : model.palette) {
+                if (tile.id == hoveredTileId) {
+                    tileColor = tile.color;
+                    tileColor.a = 0.3f;  // Semi-transparent overlay
+                    break;
+                }
+            }
+            
+            // Draw semi-transparent color overlay
+            drawList->AddRectFilled(
+                ImVec2(sx, sy),
+                ImVec2(sx + sw, sy + sh),
+                tileColor.ToU32()
+            );
+            
+            // Draw bright cyan border to indicate hovering
+            ImU32 borderColor = ImGui::GetColorU32(
+                ImVec4(0.0f, 0.8f, 1.0f, 1.0f)
+            );
+            drawList->AddRect(
+                ImVec2(sx, sy),
+                ImVec2(sx + sw, sy + sh),
+                borderColor,
+                0.0f,
+                0,
+                3.0f  // Thick border for visibility
+            );
+        }
     }
     
     // Draw marker snap point preview if Marker tool is active
@@ -6510,6 +6749,78 @@ void UI::HandleDroppedFile(const std::string& filePath, App& app,
         // In Editor state - handle as icon import (existing behavior)
         droppedFilePath = filePath;
         hasDroppedFile = true;
+    }
+}
+
+void UI::LoadEyedropperCursor() {
+    if (eyedropperCursor) {
+        return;  // Already loaded, early exit
+    }
+    
+    // Load pipette.png from assets
+    std::string cursorPath = "assets/tools/pipette.png";
+    
+    int width, height, channels;
+    unsigned char* data = stbi_load(
+        cursorPath.c_str(), &width, &height, &channels, 4
+    );
+    
+    if (!data) {
+        // Failed to load, will use default cursor
+        return;
+    }
+    
+    // Create SDL surface from image data
+    SDL_Surface* surface = SDL_CreateSurfaceFrom(
+        width, height,
+        SDL_PIXELFORMAT_RGBA32,
+        data,
+        width * 4
+    );
+    
+    if (!surface) {
+        stbi_image_free(data);
+        return;
+    }
+    
+    // Create cursor with hot spot at tip of pipette
+    // Assuming pipette icon is roughly 32x32, tip is at bottom-left
+    int hotX = 4;   // Left edge plus a bit
+    int hotY = height - 4;  // Near bottom (tip of pipette)
+    
+    SDL_Cursor* rawCursor = SDL_CreateColorCursor(surface, hotX, hotY);
+    if (rawCursor) {
+        eyedropperCursor.reset(rawCursor);  // Transfer ownership to unique_ptr
+    }
+    
+    SDL_DestroySurface(surface);
+    stbi_image_free(data);
+}
+
+void UI::UpdateCursor() {
+    // Only update cursor when tool changes (avoid unnecessary SDL calls)
+    if (currentTool != lastTool) {
+        if (currentTool == Tool::Eyedropper) {
+            // Disable ImGui's cursor management to use custom cursor
+            ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
+            
+            // Load and set custom eyedropper cursor
+            LoadEyedropperCursor();
+            if (eyedropperCursor) {
+                SDL_SetCursor(eyedropperCursor.get());  // Get raw pointer
+            } else {
+                // Fallback to default if cursor failed to load
+                SDL_SetCursor(SDL_GetDefaultCursor());
+            }
+        } else {
+            // Re-enable ImGui's cursor management for other tools
+            ImGui::GetIO().ConfigFlags &= ~ImGuiConfigFlags_NoMouseCursorChange;
+            
+            // Let ImGui handle cursor (text cursor in inputs, etc.)
+            SDL_SetCursor(SDL_GetDefaultCursor());
+        }
+        
+        lastTool = currentTool;
     }
 }
 
