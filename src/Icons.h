@@ -197,6 +197,23 @@ public:
         std::string& errorMsg
     );
     
+    /**
+     * Get icon pixel data for backup/restoration.
+     * @param name Icon name
+     * @param outPixels Output pixel data (RGBA8)
+     * @param outWidth Output width
+     * @param outHeight Output height
+     * @param outCategory Output category
+     * @return true if icon exists
+     */
+    bool GetIconData(
+        const std::string& name,
+        std::vector<uint8_t>& outPixels,
+        int& outWidth,
+        int& outHeight,
+        std::string& outCategory
+    ) const;
+    
 private:
     struct IconData {
         std::string name;

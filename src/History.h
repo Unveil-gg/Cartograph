@@ -281,6 +281,40 @@ private:
 };
 
 /**
+ * Command to delete a custom icon.
+ * Optionally removes all markers using the icon.
+ * Fully undoable - restores icon and any deleted markers.
+ */
+class DeleteIconCommand : public ICommand {
+public:
+    /**
+     * Create a delete icon command.
+     * @param iconName Name of icon to delete
+     * @param removeMarkers If true, also remove markers using this icon
+     */
+    DeleteIconCommand(const std::string& iconName, bool removeMarkers);
+    
+    void Execute(Model& model) override;
+    void Undo(Model& model) override;
+    std::string GetDescription() const override;
+    
+    // Called by UI to capture icon state before execution
+    void CaptureIconState(class IconManager& icons);
+    
+private:
+    std::string m_iconName;
+    bool m_removeMarkers;
+    
+    // Saved state for undo
+    std::vector<uint8_t> m_savedPixels;
+    int m_savedWidth;
+    int m_savedHeight;
+    std::string m_savedCategory;
+    std::vector<Marker> m_deletedMarkers;
+    bool m_iconCaptured;
+};
+
+/**
  * Command to add a new color to the palette.
  */
 class AddPaletteColorCommand : public ICommand {

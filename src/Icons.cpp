@@ -543,5 +543,26 @@ bool IconManager::DeleteIcon(
     return true;
 }
 
+bool IconManager::GetIconData(
+    const std::string& name,
+    std::vector<uint8_t>& outPixels,
+    int& outWidth,
+    int& outHeight,
+    std::string& outCategory
+) const {
+    auto it = m_iconData.find(name);
+    if (it == m_iconData.end()) {
+        return false;
+    }
+    
+    const IconData& data = it->second;
+    outPixels = data.pixels;
+    outWidth = data.width;
+    outHeight = data.height;
+    outCategory = data.category;
+    
+    return true;
+}
+
 } // namespace Cartograph
 

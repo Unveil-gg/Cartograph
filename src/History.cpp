@@ -1,5 +1,6 @@
 #include "History.h"
 #include "Model.h"
+#include "Icons.h"
 #include "platform/Time.h"
 
 namespace Cartograph {
@@ -395,6 +396,71 @@ std::string MoveMarkersCommand::GetDescription() const {
     } else {
         return "Move " + std::to_string(m_moves.size()) + " Markers";
     }
+}
+
+// ============================================================================
+// DeleteIconCommand
+// ============================================================================
+
+DeleteIconCommand::DeleteIconCommand(const std::string& iconName, 
+                                     bool removeMarkers)
+    : m_iconName(iconName)
+    , m_removeMarkers(removeMarkers)
+    , m_savedWidth(0)
+    , m_savedHeight(0)
+    , m_iconCaptured(false)
+{
+}
+
+void DeleteIconCommand::CaptureIconState(IconManager& icons) {
+    if (!m_iconCaptured) {
+        icons.GetIconData(m_iconName, m_savedPixels, m_savedWidth, 
+                         m_savedHeight, m_savedCategory);
+        m_iconCaptured = true;
+    }
+}
+
+void DeleteIconCommand::Execute(Model& model) {
+    // Capture marker state before deleting (only first time)
+    if (m_removeMarkers && m_deletedMarkers.empty()) {
+        // Get list of markers using this icon
+        std::vector<std::string> markerIds = 
+            model.GetMarkersUsingIcon(m_iconName);
+        
+        // Save marker state for undo
+        for (const auto& id : markerIds) {
+            const Marker* marker = model.FindMarker(id);
+            if (marker) {
+                m_deletedMarkers.push_back(*marker);
+            }
+        }
+    }
+    
+    // Delete markers if requested
+    if (m_removeMarkers) {
+        model.RemoveMarkersUsingIcon(m_iconName);
+    }
+    
+    // Note: Icon deletion is handled by IconManager, not Model
+    // The UI layer must call icons.DeleteIcon() separately
+}
+
+void DeleteIconCommand::Undo(Model& model) {
+    // Restore deleted markers
+    for (const auto& marker : m_deletedMarkers) {
+        model.AddMarker(marker);
+    }
+    
+    // Note: Icon restoration is handled by UI layer via 
+    // icons.AddIconFromMemory() with saved pixel data
+}
+
+std::string DeleteIconCommand::GetDescription() const {
+    if (m_removeMarkers && !m_deletedMarkers.empty()) {
+        return "Delete Icon (+ " + std::to_string(m_deletedMarkers.size()) + 
+               " markers)";
+    }
+    return "Delete Icon";
 }
 
 // ============================================================================
