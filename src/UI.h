@@ -316,6 +316,15 @@ public:
     std::vector<ModifyRoomAssignmentsCommand::CellAssignment> 
         currentRoomAssignments;
     
+    // Color picker modal state
+    bool showColorPickerModal = false;
+    int colorPickerEditingTileId = -1;  // -1 = new color, >0 = editing
+    char colorPickerName[128] = "";
+    float colorPickerColor[4] = {1.0f, 1.0f, 1.0f, 1.0f};  // RGBA
+    float colorPickerOriginalColor[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+    char colorPickerHexInput[16] = "#ffffff";
+    bool colorPickerDeleteRequested = false;
+    
 private:
     void RenderMenuBar(
         App& app,
@@ -342,6 +351,7 @@ private:
     void RenderSettingsModal(Model& model, KeymapManager& keymap);
     void RenderRenameIconModal(Model& model, IconManager& icons);
     void RenderRebindModal(Model& model, KeymapManager& keymap);
+    void RenderColorPickerModal(Model& model, History& history);
     
     // Welcome screen components
     void RenderNewProjectModal(App& app, Model& model);

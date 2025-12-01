@@ -202,6 +202,9 @@ void UI::Render(
     if (showRebindModal) {
         RenderRebindModal(model, keymap);
     }
+    if (showColorPickerModal) {
+        RenderColorPickerModal(model, history);
+    }
     
     // Quit confirmation modal (when closing with unsaved changes)
     if (showQuitConfirmationModal) {
@@ -4104,6 +4107,259 @@ void UI::RenderRebindModal(Model& model, KeymapManager& keymap) {
         }
         
         ImGui::EndPopup();
+    }
+}
+
+void UI::RenderColorPickerModal(Model& model, History& history) {
+    if (!showColorPickerModal) {
+        return;
+    }
+    
+    ImGui::OpenPopup("Color Picker");
+    
+    ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, 
+        ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSize(ImVec2(450, 0), ImGuiCond_Appearing);
+    
+    bool modalOpen = true;
+    if (ImGui::BeginPopupModal("Color Picker", &modalOpen, 
+        ImGuiWindowFlags_AlwaysAutoResize)) {
+        
+        // Modal title/header
+        if (colorPickerEditingTileId == -1) {
+            ImGui::Text("Add New Color");
+        } else {
+            ImGui::Text("Edit Color");
+        }
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        // Name input
+        ImGui::Text("Name:");
+        ImGui::SetNextItemWidth(-1);
+        ImGui::InputText("##colorname", colorPickerName, 
+                        sizeof(colorPickerName));
+        
+        ImGui::Spacing();
+        
+        // Hex input
+        ImGui::Text("Hex Color:");
+        ImGui::SetNextItemWidth(120);
+        if (ImGui::InputText("##hexinput", colorPickerHexInput, 
+                            sizeof(colorPickerHexInput))) {
+            // Parse hex and update color picker
+            Color parsed = Color::FromHex(colorPickerHexInput);
+            colorPickerColor[0] = parsed.r;
+            colorPickerColor[1] = parsed.g;
+            colorPickerColor[2] = parsed.b;
+            colorPickerColor[3] = parsed.a;
+        }
+        
+        ImGui::SameLine();
+        ImGui::TextDisabled("(e.g., #RRGGBB or #RRGGBBAA)");
+        
+        ImGui::Spacing();
+        
+        // Color picker widget
+        ImGui::Text("Color:");
+        ImGuiColorEditFlags flags = 
+            ImGuiColorEditFlags_AlphaBar | 
+            ImGuiColorEditFlags_AlphaPreview |
+            ImGuiColorEditFlags_DisplayRGB |
+            ImGuiColorEditFlags_DisplayHex;
+        
+        if (ImGui::ColorPicker4("##colorpicker", colorPickerColor, flags)) {
+            // Update hex input when color picker changes
+            Color color(colorPickerColor[0], colorPickerColor[1], 
+                       colorPickerColor[2], colorPickerColor[3]);
+            std::string hex = color.ToHex(true);
+            strncpy(colorPickerHexInput, hex.c_str(), 
+                   sizeof(colorPickerHexInput) - 1);
+        }
+        
+        ImGui::Spacing();
+        
+        // Preview: Original vs New (only when editing)
+        if (colorPickerEditingTileId != -1) {
+            ImGui::Text("Preview:");
+            
+            ImGui::BeginGroup();
+            ImGui::Text("Original");
+            ImGui::ColorButton("##original", 
+                ImVec4(colorPickerOriginalColor[0], 
+                      colorPickerOriginalColor[1],
+                      colorPickerOriginalColor[2], 
+                      colorPickerOriginalColor[3]),
+                0, ImVec2(60, 60));
+            ImGui::EndGroup();
+            
+            ImGui::SameLine(0, 20);
+            
+            ImGui::BeginGroup();
+            ImGui::Text("New");
+            ImGui::ColorButton("##new", 
+                ImVec4(colorPickerColor[0], colorPickerColor[1],
+                      colorPickerColor[2], colorPickerColor[3]),
+                0, ImVec2(60, 60));
+            ImGui::EndGroup();
+            
+            ImGui::Spacing();
+        }
+        
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        // Validation messages
+        bool nameValid = strlen(colorPickerName) > 0;
+        bool canSave = nameValid;
+        
+        if (!nameValid) {
+            ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.0f, 1.0f),
+                "Please enter a color name");
+            ImGui::Spacing();
+        }
+        
+        // Check palette size limit
+        if (colorPickerEditingTileId == -1 && model.palette.size() >= 32) {
+            ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f),
+                "Palette is full (max 32 colors)");
+            canSave = false;
+            ImGui::Spacing();
+        }
+        
+        // Action buttons
+        if (!canSave) {
+            ImGui::BeginDisabled();
+        }
+        
+        if (ImGui::Button("Save", ImVec2(120, 0))) {
+            // Create color from picker
+            Color color(colorPickerColor[0], colorPickerColor[1],
+                       colorPickerColor[2], colorPickerColor[3]);
+            std::string name = colorPickerName;
+            
+            if (colorPickerEditingTileId == -1) {
+                // Add new color
+                auto cmd = std::make_unique<AddPaletteColorCommand>(
+                    name, color);
+                history.AddCommand(std::move(cmd), model, true);
+                
+                // Select the newly added color
+                selectedTileId = model.palette.back().id;
+                
+                ShowToast("Color added: " + name, Toast::Type::Success);
+            } else {
+                // Update existing color
+                auto cmd = std::make_unique<UpdatePaletteColorCommand>(
+                    colorPickerEditingTileId, name, color);
+                history.AddCommand(std::move(cmd), model, true);
+                
+                ShowToast("Color updated: " + name, Toast::Type::Success);
+            }
+            
+            showColorPickerModal = false;
+            ImGui::CloseCurrentPopup();
+        }
+        
+        if (!canSave) {
+            ImGui::EndDisabled();
+        }
+        
+        ImGui::SameLine();
+        
+        if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+            showColorPickerModal = false;
+            ImGui::CloseCurrentPopup();
+        }
+        
+        // Delete button (only for editing existing colors, not Empty)
+        if (colorPickerEditingTileId > 0) {
+            ImGui::SameLine();
+            
+            // Check if color is in use
+            bool inUse = model.IsPaletteColorInUse(colorPickerEditingTileId);
+            
+            if (inUse) {
+                ImGui::PushStyleColor(ImGuiCol_Button, 
+                    ImVec4(0.8f, 0.4f, 0.0f, 1.0f));
+            } else {
+                ImGui::PushStyleColor(ImGuiCol_Button, 
+                    ImVec4(0.8f, 0.2f, 0.2f, 1.0f));
+            }
+            
+            if (ImGui::Button("Delete", ImVec2(120, 0))) {
+                colorPickerDeleteRequested = true;
+            }
+            
+            ImGui::PopStyleColor();
+            
+            // Show warning if in use
+            if (inUse) {
+                ImGui::Spacing();
+                ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.0f, 1.0f),
+                    "Warning: This color is currently in use!");
+                ImGui::TextWrapped(
+                    "Deleting will replace all tiles with Empty (id=0)");
+            }
+        }
+        
+        ImGui::EndPopup();
+    }
+    
+    // Handle delete confirmation (separate popup)
+    if (colorPickerDeleteRequested) {
+        ImGui::OpenPopup("Delete Color?");
+        colorPickerDeleteRequested = false;
+    }
+    
+    if (ImGui::BeginPopupModal("Delete Color?", nullptr,
+        ImGuiWindowFlags_AlwaysAutoResize)) {
+        
+        ImGui::Text("Are you sure you want to delete this color?");
+        
+        bool inUse = model.IsPaletteColorInUse(colorPickerEditingTileId);
+        if (inUse) {
+            ImGui::Spacing();
+            ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.0f, 1.0f),
+                "This color is in use.");
+            ImGui::TextWrapped(
+                "All tiles using this color will be replaced with Empty.");
+        }
+        
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        if (ImGui::Button("Delete", ImVec2(120, 0))) {
+            // Delete the color (replace with Empty id=0)
+            auto cmd = std::make_unique<RemovePaletteColorCommand>(
+                colorPickerEditingTileId, 0);
+            history.AddCommand(std::move(cmd), model, true);
+            
+            // If this was the selected tile, switch to Empty
+            if (selectedTileId == colorPickerEditingTileId) {
+                selectedTileId = 0;
+            }
+            
+            ShowToast("Color deleted", Toast::Type::Info);
+            
+            showColorPickerModal = false;
+            ImGui::CloseCurrentPopup();
+        }
+        
+        ImGui::SameLine();
+        
+        if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+            ImGui::CloseCurrentPopup();
+        }
+        
+        ImGui::EndPopup();
+    }
+    
+    // Close modal if user clicked X
+    if (!modalOpen) {
+        showColorPickerModal = false;
     }
 }
 

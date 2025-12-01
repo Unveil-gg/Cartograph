@@ -397,5 +397,144 @@ std::string MoveMarkersCommand::GetDescription() const {
     }
 }
 
+// ============================================================================
+// AddPaletteColorCommand
+// ============================================================================
+
+AddPaletteColorCommand::AddPaletteColorCommand(
+    const std::string& name, 
+    const Color& color
+) : m_name(name), m_color(color), m_tileId(-1) {
+}
+
+void AddPaletteColorCommand::Execute(Model& model) {
+    if (m_tileId == -1) {
+        // First execution - add color and capture ID
+        m_tileId = model.AddPaletteColor(m_name, m_color);
+    } else {
+        // Redo - restore with same ID
+        model.palette.push_back({m_tileId, m_name, m_color});
+        model.MarkDirty();
+    }
+}
+
+void AddPaletteColorCommand::Undo(Model& model) {
+    // Remove the color we added
+    model.RemovePaletteColor(m_tileId);
+}
+
+std::string AddPaletteColorCommand::GetDescription() const {
+    return "Add Color: " + m_name;
+}
+
+// ============================================================================
+// RemovePaletteColorCommand
+// ============================================================================
+
+RemovePaletteColorCommand::RemovePaletteColorCommand(
+    int tileId, 
+    int replacementTileId
+) : m_tileId(tileId), 
+    m_replacementTileId(replacementTileId),
+    m_savedTile{} {
+}
+
+void RemovePaletteColorCommand::Execute(Model& model) {
+    // First execution - save tile data for undo
+    if (m_savedTile.id == 0 && m_tileId != 0) {
+        const TileType* tile = model.FindPaletteEntry(m_tileId);
+        if (tile) {
+            m_savedTile = *tile;
+        }
+    }
+    
+    // Replace all uses of this tile with replacement (if specified)
+    if (m_replacementTileId >= 0) {
+        // Only capture replacements on first execution
+        if (m_tileReplacements.empty()) {
+            for (auto& row : model.tiles) {
+                for (const auto& run : row.runs) {
+                    if (run.tileId == m_tileId) {
+                        // Record each tile that needs replacement
+                        for (int x = run.startX; x < run.startX + run.count; 
+                             ++x) {
+                            PaintTilesCommand::TileChange change;
+                            change.roomId = row.roomId;
+                            change.x = x;
+                            change.y = row.y;
+                            change.oldTileId = m_tileId;
+                            change.newTileId = m_replacementTileId;
+                            m_tileReplacements.push_back(change);
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Apply replacements
+        for (const auto& change : m_tileReplacements) {
+            model.SetTileAt(change.roomId, change.x, change.y, 
+                          change.newTileId);
+        }
+    }
+    
+    // Remove from palette
+    model.RemovePaletteColor(m_tileId);
+}
+
+void RemovePaletteColorCommand::Undo(Model& model) {
+    // Restore the palette entry
+    model.palette.push_back(m_savedTile);
+    
+    // Restore tiles that were replaced
+    for (const auto& change : m_tileReplacements) {
+        model.SetTileAt(change.roomId, change.x, change.y, change.oldTileId);
+    }
+    
+    model.MarkDirty();
+}
+
+std::string RemovePaletteColorCommand::GetDescription() const {
+    return "Remove Color: " + m_savedTile.name;
+}
+
+// ============================================================================
+// UpdatePaletteColorCommand
+// ============================================================================
+
+UpdatePaletteColorCommand::UpdatePaletteColorCommand(
+    int tileId,
+    const std::string& newName,
+    const Color& newColor
+) : m_tileId(tileId), 
+    m_newName(newName), 
+    m_newColor(newColor),
+    m_oldName(""),
+    m_oldColor() {
+}
+
+void UpdatePaletteColorCommand::Execute(Model& model) {
+    // Save old state on first execution
+    if (m_oldName.empty()) {
+        const TileType* tile = model.FindPaletteEntry(m_tileId);
+        if (tile) {
+            m_oldName = tile->name;
+            m_oldColor = tile->color;
+        }
+    }
+    
+    // Apply new values
+    model.UpdatePaletteColor(m_tileId, m_newName, m_newColor);
+}
+
+void UpdatePaletteColorCommand::Undo(Model& model) {
+    // Restore old values
+    model.UpdatePaletteColor(m_tileId, m_oldName, m_oldColor);
+}
+
+std::string UpdatePaletteColorCommand::GetDescription() const {
+    return "Update Color: " + m_newName;
+}
+
 } // namespace Cartograph
 

@@ -280,5 +280,64 @@ private:
     std::vector<MarkerMove> m_moves;
 };
 
+/**
+ * Command to add a new color to the palette.
+ */
+class AddPaletteColorCommand : public ICommand {
+public:
+    AddPaletteColorCommand(const std::string& name, const Color& color);
+    
+    void Execute(Model& model) override;
+    void Undo(Model& model) override;
+    std::string GetDescription() const override;
+    
+private:
+    std::string m_name;
+    Color m_color;
+    int m_tileId;  // Set after first Execute
+};
+
+/**
+ * Command to remove a color from the palette.
+ * Optionally replaces all uses with a replacement tile ID.
+ */
+class RemovePaletteColorCommand : public ICommand {
+public:
+    RemovePaletteColorCommand(int tileId, int replacementTileId = 0);
+    
+    void Execute(Model& model) override;
+    void Undo(Model& model) override;
+    std::string GetDescription() const override;
+    
+private:
+    int m_tileId;
+    int m_replacementTileId;
+    TileType m_savedTile;  // For undo
+    std::vector<PaintTilesCommand::TileChange> m_tileReplacements;  // Track
+};
+
+/**
+ * Command to update palette color name/color.
+ */
+class UpdatePaletteColorCommand : public ICommand {
+public:
+    UpdatePaletteColorCommand(
+        int tileId, 
+        const std::string& newName, 
+        const Color& newColor
+    );
+    
+    void Execute(Model& model) override;
+    void Undo(Model& model) override;
+    std::string GetDescription() const override;
+    
+private:
+    int m_tileId;
+    std::string m_newName;
+    Color m_newColor;
+    std::string m_oldName;
+    Color m_oldColor;
+};
+
 } // namespace Cartograph
 

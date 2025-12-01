@@ -218,6 +218,100 @@ bool Model::HasDoorAt(const std::string& roomId, int x, int y) const {
     return false;
 }
 
+// ============================================================================
+// Palette management
+// ============================================================================
+
+int Model::AddPaletteColor(const std::string& name, const Color& color) {
+    // Check palette size limit (max 32 colors including Empty)
+    const size_t MAX_PALETTE_SIZE = 32;
+    if (palette.size() >= MAX_PALETTE_SIZE) {
+        return -1;  // Palette full
+    }
+    
+    // Get next available tile ID
+    int newId = GetNextPaletteTileId();
+    
+    // Add new tile type to palette
+    palette.push_back({newId, name, color});
+    MarkDirty();
+    
+    return newId;
+}
+
+bool Model::RemovePaletteColor(int tileId) {
+    // Can't remove Empty (id=0) - it's protected
+    if (tileId == 0) {
+        return false;
+    }
+    
+    // Find tile in palette
+    auto it = std::find_if(palette.begin(), palette.end(),
+        [tileId](const TileType& t) { return t.id == tileId; });
+    
+    if (it == palette.end()) {
+        return false;  // Not found
+    }
+    
+    // Remove from palette
+    palette.erase(it);
+    MarkDirty();
+    
+    return true;
+}
+
+bool Model::UpdatePaletteColor(
+    int tileId, 
+    const std::string& name, 
+    const Color& color
+) {
+    TileType* tile = FindPaletteEntry(tileId);
+    if (!tile) {
+        return false;
+    }
+    
+    tile->name = name;
+    tile->color = color;
+    MarkDirty();
+    
+    return true;
+}
+
+TileType* Model::FindPaletteEntry(int tileId) {
+    auto it = std::find_if(palette.begin(), palette.end(),
+        [tileId](const TileType& t) { return t.id == tileId; });
+    return it != palette.end() ? &(*it) : nullptr;
+}
+
+const TileType* Model::FindPaletteEntry(int tileId) const {
+    auto it = std::find_if(palette.begin(), palette.end(),
+        [tileId](const TileType& t) { return t.id == tileId; });
+    return it != palette.end() ? &(*it) : nullptr;
+}
+
+bool Model::IsPaletteColorInUse(int tileId) const {
+    // Check all tile rows for any use of this tile ID
+    for (const auto& row : tiles) {
+        for (const auto& run : row.runs) {
+            if (run.tileId == tileId) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+int Model::GetNextPaletteTileId() const {
+    // Find highest existing ID and add 1
+    int maxId = 0;
+    for (const auto& tile : palette) {
+        if (tile.id > maxId) {
+            maxId = tile.id;
+        }
+    }
+    return maxId + 1;
+}
+
 EdgeState Model::GetEdgeState(const EdgeId& edgeId) const {
     auto it = edges.find(edgeId);
     return (it != edges.end()) ? it->second : EdgeState::None;

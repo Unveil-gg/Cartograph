@@ -362,6 +362,16 @@ public:
     void ClearCellRoom(int x, int y);  // Remove room assignment
     void ClearAllCellsForRoom(const std::string& roomId);  // Clear all cells
     
+    // Palette management
+    int AddPaletteColor(const std::string& name, const Color& color);
+    bool RemovePaletteColor(int tileId);
+    bool UpdatePaletteColor(int tileId, const std::string& name, 
+                           const Color& color);
+    TileType* FindPaletteEntry(int tileId);
+    const TileType* FindPaletteEntry(int tileId) const;
+    bool IsPaletteColorInUse(int tileId) const;
+    int GetNextPaletteTileId() const;
+    
     // Marker queries
     Marker* FindMarker(const std::string& id);
     const Marker* FindMarker(const std::string& id) const;
