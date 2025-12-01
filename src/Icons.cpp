@@ -516,5 +516,32 @@ bool IconManager::GetIconDimensions(
     return false;
 }
 
+bool IconManager::DeleteIcon(
+    const std::string& name,
+    std::string& errorMsg
+) {
+    // Check if icon exists
+    auto iconIt = m_icons.find(name);
+    if (iconIt == m_icons.end()) {
+        errorMsg = "Icon '" + name + "' not found";
+        return false;
+    }
+    
+    // Only allow deletion of custom marker icons (not built-in tool icons)
+    if (iconIt->second.category != "marker") {
+        errorMsg = "Cannot delete built-in icon '" + name + "'";
+        return false;
+    }
+    
+    // Remove from both maps
+    m_icons.erase(name);
+    m_iconData.erase(name);
+    
+    // Mark atlas for rebuild
+    m_atlasDirty = true;
+    
+    return true;
+}
+
 } // namespace Cartograph
 

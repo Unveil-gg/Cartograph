@@ -387,6 +387,13 @@ public:
     int UpdateMarkerIconNames(const std::string& oldName, 
                               const std::string& newName);
     
+    // Icon usage queries
+    int CountMarkersUsingIcon(const std::string& iconName) const;
+    std::vector<std::string> GetMarkersUsingIcon(
+        const std::string& iconName
+    ) const;
+    int RemoveMarkersUsingIcon(const std::string& iconName);
+    
     // Content bounds calculation for export
     ContentBounds CalculateContentBounds() const;
     

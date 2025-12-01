@@ -185,6 +185,18 @@ public:
         int& outHeight
     ) const;
     
+    /**
+     * Delete a custom icon.
+     * Only allows deletion of icons in the "marker" category.
+     * @param name Icon name to delete
+     * @param errorMsg Output error message if deletion fails
+     * @return true on success, false if icon doesn't exist or is protected
+     */
+    bool DeleteIcon(
+        const std::string& name,
+        std::string& errorMsg
+    );
+    
 private:
     struct IconData {
         std::string name;

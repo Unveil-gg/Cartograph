@@ -697,6 +697,47 @@ int Model::UpdateMarkerIconNames(
     return count;
 }
 
+int Model::CountMarkersUsingIcon(const std::string& iconName) const {
+    int count = 0;
+    for (const auto& marker : markers) {
+        if (marker.icon == iconName) {
+            count++;
+        }
+    }
+    return count;
+}
+
+std::vector<std::string> Model::GetMarkersUsingIcon(
+    const std::string& iconName
+) const {
+    std::vector<std::string> result;
+    for (const auto& marker : markers) {
+        if (marker.icon == iconName) {
+            result.push_back(marker.id);
+        }
+    }
+    return result;
+}
+
+int Model::RemoveMarkersUsingIcon(const std::string& iconName) {
+    int count = 0;
+    auto it = markers.begin();
+    while (it != markers.end()) {
+        if (it->icon == iconName) {
+            it = markers.erase(it);
+            count++;
+        } else {
+            ++it;
+        }
+    }
+    
+    if (count > 0) {
+        MarkDirty();
+    }
+    
+    return count;
+}
+
 std::string Model::GenerateMarkerId() {
     // Generate unique marker ID using timestamp + counter
     static int counter = 0;
