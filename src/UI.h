@@ -223,6 +223,12 @@ public:
     std::string renameIconOldName;
     char renameIconNewName[64] = "";
     
+    // Icon delete state
+    bool showDeleteIconModal = false;
+    std::string deleteIconName;
+    int deleteIconMarkerCount = 0;
+    std::vector<std::string> deleteIconAffectedMarkers;
+    
     // Keybinding rebind state
     bool showRebindModal = false;
     std::string rebindAction = "";
@@ -353,6 +359,8 @@ private:
     void RenderExportModal(Model& model, Canvas& canvas);
     void RenderSettingsModal(Model& model, KeymapManager& keymap);
     void RenderRenameIconModal(Model& model, IconManager& icons);
+    void RenderDeleteIconModal(Model& model, IconManager& icons, 
+                              History& history);
     void RenderRebindModal(Model& model, KeymapManager& keymap);
     void RenderColorPickerModal(Model& model, History& history);
     

@@ -291,19 +291,22 @@ public:
      * Create a delete icon command.
      * @param iconName Name of icon to delete
      * @param removeMarkers If true, also remove markers using this icon
+     * @param iconManager Reference to icon manager for restoration
      */
-    DeleteIconCommand(const std::string& iconName, bool removeMarkers);
+    DeleteIconCommand(const std::string& iconName, bool removeMarkers,
+                     class IconManager& iconManager);
     
     void Execute(Model& model) override;
     void Undo(Model& model) override;
     std::string GetDescription() const override;
     
     // Called by UI to capture icon state before execution
-    void CaptureIconState(class IconManager& icons);
+    void CaptureIconState();
     
 private:
     std::string m_iconName;
     bool m_removeMarkers;
+    class IconManager& m_iconManager;  // Reference for undo restoration
     
     // Saved state for undo
     std::vector<uint8_t> m_savedPixels;
