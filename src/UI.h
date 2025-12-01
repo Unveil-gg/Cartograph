@@ -294,6 +294,7 @@ public:
     std::string selectedIconName = "dot";  // Default icon
     std::string markerLabel = "";
     Color markerColor = Color(0.3f, 0.8f, 0.3f, 1.0f);  // Green
+    char markerColorHex[16] = "#4dcc4d";  // Hex representation
     Marker* selectedMarker = nullptr;  // For editing existing markers
     Marker* hoveredMarker = nullptr;   // For hover feedback
     

@@ -1212,22 +1212,71 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
             }
         }
         
-        // Color picker
-        float colorArray[4] = {
-            markerColor.r, markerColor.g, markerColor.b, markerColor.a
-        };
+        // Color picker (hex input)
+        ImGui::Text("Color");
+        ImGui::SameLine();
         
-        if (ImGui::ColorEdit4("Color", colorArray)) {
-            markerColor = Color(
-                colorArray[0], colorArray[1], 
-                colorArray[2], colorArray[3]
-            );
-            
-            // Update selected marker if editing
-            if (selectedMarker) {
-                selectedMarker->color = markerColor;
-                model.MarkDirty();
+        // Color preview button (clickable to open picker)
+        ImVec4 colorPreview = markerColor.ToImVec4();
+        if (ImGui::ColorButton("##colorpreview", colorPreview, 
+                              ImGuiColorEditFlags_NoAlpha, 
+                              ImVec2(40, 20))) {
+            // Open color picker popup
+            ImGui::OpenPopup("ColorPicker");
+        }
+        
+        // Color picker popup
+        if (ImGui::BeginPopup("ColorPicker")) {
+            float colorArray[4] = {
+                markerColor.r, markerColor.g, 
+                markerColor.b, markerColor.a
+            };
+            if (ImGui::ColorPicker4("##picker", colorArray, 
+                                   ImGuiColorEditFlags_NoAlpha)) {
+                markerColor = Color(
+                    colorArray[0], colorArray[1], 
+                    colorArray[2], colorArray[3]
+                );
+                
+                // Update hex input
+                std::string hexStr = markerColor.ToHex(false);
+                std::strncpy(markerColorHex, hexStr.c_str(), 
+                            sizeof(markerColorHex) - 1);
+                markerColorHex[sizeof(markerColorHex) - 1] = '\0';
+                
+                // Update selected marker if editing
+                if (selectedMarker) {
+                    selectedMarker->color = markerColor;
+                    model.MarkDirty();
+                }
             }
+            ImGui::EndPopup();
+        }
+        
+        // Hex input field
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(100);
+        if (ImGui::InputText("##colorhex", markerColorHex, 
+                            sizeof(markerColorHex))) {
+            // Parse hex input
+            std::string hexStr(markerColorHex);
+            Color newColor = Color::FromHex(hexStr);
+            
+            // Only update if valid (not black unless intentional)
+            if (!hexStr.empty() && hexStr[0] == '#') {
+                markerColor = newColor;
+                
+                // Update selected marker if editing
+                if (selectedMarker) {
+                    selectedMarker->color = markerColor;
+                    model.MarkDirty();
+                }
+            }
+        }
+        
+        // Show hint text
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Hex color (e.g., #4dcc4d)");
         }
         
         ImGui::Separator();
@@ -2705,6 +2754,12 @@ void UI::RenderCanvasPanel(
                     selectedIconName = clickedMarker->icon;
                     markerLabel = clickedMarker->label;
                     markerColor = clickedMarker->color;
+                    
+                    // Update hex input
+                    std::string hexStr = markerColor.ToHex(false);
+                    std::strncpy(markerColorHex, hexStr.c_str(), 
+                                sizeof(markerColorHex) - 1);
+                    markerColorHex[sizeof(markerColorHex) - 1] = '\0';
                 } else {
                     // Place new marker
                     Marker newMarker;
