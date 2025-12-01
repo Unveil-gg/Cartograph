@@ -215,6 +215,13 @@ public:
     std::string renameIconOldName;
     char renameIconNewName[64] = "";
     
+    // Keybinding rebind state
+    bool showRebindModal = false;
+    std::string rebindAction = "";
+    std::string rebindActionDisplayName = "";
+    std::string capturedBinding = "";
+    bool isCapturing = false;
+    
     // Welcome screen state
     bool showNewProjectModal = false;
     NewProjectConfig newProjectConfig;
@@ -317,8 +324,9 @@ private:
     void RenderStatusBar(Model& model, Canvas& canvas);
     void RenderToasts(float deltaTime);
     void RenderExportModal(Model& model, Canvas& canvas);
-    void RenderSettingsModal(Model& model);
+    void RenderSettingsModal(Model& model, KeymapManager& keymap);
     void RenderRenameIconModal(Model& model, IconManager& icons);
+    void RenderRebindModal(Model& model, KeymapManager& keymap);
     
     // Welcome screen components
     void RenderNewProjectModal(App& app, Model& model);
