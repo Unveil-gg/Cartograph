@@ -97,7 +97,7 @@ void UI::UpdateMenu(
     // Update menu state (native on macOS, ImGui on Windows/Linux)
     m_nativeMenu->Update(app, model, canvas, history, icons, jobs);
     
-    // For ImGui menus, we need to pass the showPropertiesPanel pointer
+    // For ImGui menus, we need to pass the hierarchy panel visibility pointer
     // This is a bit of a hack but necessary for the ImGui implementation
     if (!m_nativeMenu->IsNative()) {
         NativeMenuImGui* imguiMenu = 
@@ -429,7 +429,7 @@ void UI::RenderMenuBar(
         // View Menu
         if (ImGui::BeginMenu("View")) {
             std::string propPanelShortcut = Platform::FormatShortcut("P");
-            if (ImGui::MenuItem("Properties Panel", propPanelShortcut.c_str(),
+            if (ImGui::MenuItem("Hierarchy Panel", propPanelShortcut.c_str(),
                                showPropertiesPanel)) {
                 showPropertiesPanel = !showPropertiesPanel;
                 m_layoutInitialized = false;  // Trigger layout rebuild
@@ -1728,9 +1728,9 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
         ImGuiWindowFlags_NoMove | 
         ImGuiWindowFlags_NoCollapse;
     
-    ImGui::Begin("Cartograph/Inspector", nullptr, flags);
+    ImGui::Begin("Cartograph/Hierarchy", nullptr, flags);
     
-    ImGui::Text("Inspector");
+    ImGui::Text("Hierarchy");
     ImGui::Separator();
     
     // ========================================================================
@@ -2643,7 +2643,7 @@ void UI::BuildFixedLayout(ImGuiID dockspaceId) {
     ImGuiID rightId = 0;
     
     if (showPropertiesPanel) {
-        // 3-column mode: Split right for properties panel (320px)
+        // 3-column mode: Split right for hierarchy panel (320px)
         float rightWidth = 320.0f / (viewport->WorkSize.x - 220.0f);
         ImGui::DockBuilderSplitNode(
             remainingId, ImGuiDir_Right, rightWidth,
@@ -2657,7 +2657,7 @@ void UI::BuildFixedLayout(ImGuiID dockspaceId) {
     ImGui::DockBuilderDockWindow("Cartograph/Console", bottomId);
     
     if (showPropertiesPanel) {
-        ImGui::DockBuilderDockWindow("Cartograph/Inspector", rightId);
+        ImGui::DockBuilderDockWindow("Cartograph/Hierarchy", rightId);
     }
     
     // Configure node flags

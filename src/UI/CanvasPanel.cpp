@@ -211,7 +211,7 @@ void CanvasPanel::Render(
     
     // Global keyboard shortcuts for tool switching (work even when not hovering)
     if (!ImGui::GetIO().WantCaptureKeyboard) {
-        // Toggle properties panel
+        // Toggle hierarchy panel
         if (keymap.IsActionTriggered("togglePropertiesPanel")) {
             *showPropertiesPanel = !(*showPropertiesPanel);
             *layoutInitialized = false;  // Trigger layout rebuild

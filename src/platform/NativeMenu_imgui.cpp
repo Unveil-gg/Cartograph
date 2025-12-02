@@ -204,7 +204,7 @@ void NativeMenuImGui::RenderMenuBar() {
             std::string propPanelShortcut = Platform::FormatShortcut("P");
             bool showProps = m_showPropertiesPanel ? 
                             *m_showPropertiesPanel : false;
-            if (ImGui::MenuItem("Properties Panel", 
+            if (ImGui::MenuItem("Hierarchy Panel", 
                                propPanelShortcut.c_str(), showProps)) {
                 auto it = m_callbacks.find("view.properties");
                 if (it != m_callbacks.end()) it->second();

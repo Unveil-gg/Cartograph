@@ -767,7 +767,7 @@ void Modals::RenderSettingsModal(Model& model, KeymapManager& keymap) {
             renderBinding("Zoom In", "zoomIn");
             renderBinding("Zoom Out", "zoomOut");
             renderBinding("Toggle Grid", "toggleGrid");
-            renderBinding("Toggle Properties", "togglePropertiesPanel");
+            renderBinding("Toggle Hierarchy Panel", "togglePropertiesPanel");
             
             // EDIT CATEGORY
             ImGui::TableNextRow();

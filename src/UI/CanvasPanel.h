@@ -126,7 +126,7 @@ public:
     // Selected palette tile
     int selectedTileId = 1;
     
-    // Properties panel visibility (affects layout)
+    // Hierarchy panel visibility (affects layout)
     bool* showPropertiesPanel = nullptr;
     bool* layoutInitialized = nullptr;
     

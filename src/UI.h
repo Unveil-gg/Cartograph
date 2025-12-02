@@ -190,7 +190,7 @@ public:
     bool hasDroppedFile = false;
     
     // Panel visibility
-    bool showPropertiesPanel = false;  // Toggleable via View menu
+    bool showPropertiesPanel = false;  // Hierarchy panel visibility (View menu)
     
     // Canvas panel (contains all canvas-related state and rendering)
     CanvasPanel m_canvasPanel;

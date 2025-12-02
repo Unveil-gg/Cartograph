@@ -357,7 +357,7 @@ void NativeMenuMacOS::BuildViewMenu(NSMenu* menuBar) {
     [viewMenu setAutoenablesItems:NO];
     
     m_propertiesPanelItem = CreateMenuItem(
-        viewMenu, "Properties Panel", "view.properties", "p",
+        viewMenu, "Hierarchy Panel", "view.properties", "p",
         NSEventModifierFlagCommand
     );
     
