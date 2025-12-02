@@ -24,3 +24,6 @@ cmake-build-*/
 # User data
 autosave/
 *.cart.backup
+
+# ImGui
+imgui.ini
