@@ -103,6 +103,7 @@ public:
     bool showLoadingModal = false;
     bool showQuitConfirmationModal = false;
     bool showNewRoomDialog = false;
+    bool showAboutModal = false;
     
     // Export modal state
     ExportOptions exportOptions;
@@ -167,6 +168,7 @@ private:
     void RenderLoadingModal(App& app, Model& model, JobQueue& jobs, 
                            IconManager& icons);
     void RenderQuitConfirmationModal(App& app, Model& model);
+    void RenderAboutModal();
     void ApplyTemplate(ProjectTemplate tmpl);
     
     UI& m_ui;  // Reference to UI for ShowToast

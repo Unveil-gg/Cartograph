@@ -46,6 +46,7 @@ set(CARTOGRAPH_SOURCES
     src/platform/Fs.cpp
     src/platform/Paths.cpp
     src/platform/Time.cpp
+    src/platform/System.cpp
 )
 
 # Platform-specific sources
@@ -77,6 +78,7 @@ set(CARTOGRAPH_HEADERS
     src/platform/Fs.h
     src/platform/Paths.h
     src/platform/Time.h
+    src/platform/System.h
 )
 
 # Executable

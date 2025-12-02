@@ -112,6 +112,10 @@ public:
     void ExportPackage(const std::string& cartPath);
     void ExportPng(const std::string& path);
     
+    // File dialogs
+    void ShowNewProjectDialog();
+    void ShowOpenProjectDialog();
+    
     // Window management
     void UpdateWindowTitle();
     

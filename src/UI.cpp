@@ -11,6 +11,7 @@
 #include "platform/Paths.h"
 #include "platform/Fs.h"
 #include "platform/Time.h"
+#include "platform/System.h"
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <SDL3/SDL_dialog.h>
@@ -209,55 +210,124 @@ void UI::RenderMenuBar(
     JobQueue& jobs
 ) {
     if (ImGui::BeginMainMenuBar()) {
+        // File Menu
         if (ImGui::BeginMenu("File")) {
-            if (ImGui::MenuItem("New", "Cmd+N")) {
-                // TODO: New project
+            // New project
+            std::string newShortcut = Platform::FormatShortcut("N");
+            if (ImGui::MenuItem("New Project...", newShortcut.c_str())) {
+                app.ShowNewProjectDialog();
             }
-            if (ImGui::MenuItem("Open...", "Cmd+O")) {
-                // TODO: Open project
+            
+            // Open project
+            std::string openShortcut = Platform::FormatShortcut("O");
+            if (ImGui::MenuItem("Open Project...", openShortcut.c_str())) {
+                app.ShowOpenProjectDialog();
             }
+            
             ImGui::Separator();
-            if (ImGui::MenuItem("Save Project", "Cmd+S")) {
+            
+            // Save
+            std::string saveShortcut = Platform::FormatShortcut("S");
+            if (ImGui::MenuItem("Save", saveShortcut.c_str())) {
                 app.SaveProject();
             }
-            if (ImGui::MenuItem("Save Project As...", "Cmd+Shift+S")) {
-                // Save as project folder (git-friendly)
+            
+            // Save As
+            std::string saveAsShortcut = 
+                Platform::FormatShortcut("Shift+S");
+            if (ImGui::MenuItem("Save As...", saveAsShortcut.c_str())) {
                 ShowSaveProjectDialog(app);
             }
+            
             ImGui::Separator();
+            
+            // Export Package
+            std::string exportPkgShortcut = 
+                Platform::FormatShortcut("Shift+E");
             if (ImGui::MenuItem("Export Package (.cart)...", 
-                               "Cmd+Shift+E")) {
-                // Export as .cart package (single file distribution)
+                               exportPkgShortcut.c_str())) {
                 ShowExportPackageDialog(app);
             }
-            ImGui::Separator();
-            if (ImGui::MenuItem("Export PNG...", "Cmd+E")) {
+            
+            // Export PNG
+            std::string exportPngShortcut = Platform::FormatShortcut("E");
+            if (ImGui::MenuItem("Export PNG...", 
+                               exportPngShortcut.c_str())) {
                 m_modals.showExportModal = true;
             }
+            
             ImGui::Separator();
-            if (ImGui::MenuItem("Quit", "Cmd+Q")) {
+            
+            // Quit (platform-specific label)
+#ifdef _WIN32
+            std::string quitLabel = "Exit";
+#else
+            std::string quitLabel = "Quit";
+#endif
+            std::string quitShortcut = Platform::FormatShortcut("Q");
+            if (ImGui::MenuItem(quitLabel.c_str(), quitShortcut.c_str())) {
                 app.RequestQuit();
             }
+            
             ImGui::EndMenu();
         }
         
+        // Edit Menu
         if (ImGui::BeginMenu("Edit")) {
             bool canUndo = history.CanUndo();
             bool canRedo = history.CanRedo();
             
-            if (ImGui::MenuItem("Undo", "Cmd+Z", false, canUndo)) {
+            std::string undoShortcut = Platform::FormatShortcut("Z");
+            if (ImGui::MenuItem("Undo", undoShortcut.c_str(), 
+                               false, canUndo)) {
                 history.Undo(model);
             }
-            if (ImGui::MenuItem("Redo", "Cmd+Y", false, canRedo)) {
+            
+            std::string redoShortcut = Platform::FormatShortcut("Y");
+            if (ImGui::MenuItem("Redo", redoShortcut.c_str(), 
+                               false, canRedo)) {
                 history.Redo(model);
             }
+            
             ImGui::Separator();
-            if (ImGui::MenuItem("Settings...")) {
+            
+            std::string settingsShortcut = Platform::FormatShortcut(",");
+            if (ImGui::MenuItem("Settings...", settingsShortcut.c_str())) {
                 m_modals.showSettingsModal = true;
             }
+            
             ImGui::EndMenu();
         }
         
+        // View Menu
+        if (ImGui::BeginMenu("View")) {
+            std::string propPanelShortcut = Platform::FormatShortcut("P");
+            if (ImGui::MenuItem("Properties Panel", propPanelShortcut.c_str(),
+                               showPropertiesPanel)) {
+                showPropertiesPanel = !showPropertiesPanel;
+                m_layoutInitialized = false;  // Trigger layout rebuild
+            }
+            
+            ImGui::Separator();
+            
+            ImGui::MenuItem("Show Grid", "G", &canvas.showGrid);
+            
+            ImGui::Separator();
+            
+            if (ImGui::MenuItem("Zoom In", "=")) {
+                canvas.SetZoom(canvas.zoom * 1.2f);
+            }
+            if (ImGui::MenuItem("Zoom Out", "-")) {
+                canvas.SetZoom(canvas.zoom / 1.2f);
+            }
+            if (ImGui::MenuItem("Reset Zoom", "0")) {
+                canvas.SetZoom(2.5f);
+            }
+            
+            ImGui::EndMenu();
+        }
+        
+        // Assets Menu
         if (ImGui::BeginMenu("Assets")) {
             if (ImGui::MenuItem("Import Icon...")) {
                 ImportIcon(icons, jobs);
@@ -273,24 +343,27 @@ void UI::RenderMenuBar(
             ImGui::EndMenu();
         }
         
-        if (ImGui::BeginMenu("View")) {
-            if (ImGui::MenuItem("Show Properties Panel", "Cmd+P", 
-                               showPropertiesPanel)) {
-                showPropertiesPanel = !showPropertiesPanel;
-                m_layoutInitialized = false;  // Trigger layout rebuild
+        // Help Menu
+        if (ImGui::BeginMenu("Help")) {
+            if (ImGui::MenuItem("About Cartograph")) {
+                m_modals.showAboutModal = true;
             }
+            
+            if (ImGui::MenuItem("View License")) {
+                // Open LICENSE file
+                std::string licensePath = Platform::GetAssetsDir() + 
+                                         "../LICENSE";
+                Platform::OpenURL("file://" + licensePath);
+            }
+            
             ImGui::Separator();
-            ImGui::MenuItem("Show Grid", "G", &canvas.showGrid);
-            ImGui::Separator();
-            if (ImGui::MenuItem("Zoom In", "=")) {
-                canvas.SetZoom(canvas.zoom * 1.2f);
+            
+            if (ImGui::MenuItem("Report Bug...")) {
+                Platform::OpenURL(
+                    "https://github.com/Unveil-gg/Cartograph/issues/new"
+                );
             }
-            if (ImGui::MenuItem("Zoom Out", "-")) {
-                canvas.SetZoom(canvas.zoom / 1.2f);
-            }
-            if (ImGui::MenuItem("Reset Zoom", "0")) {
-                canvas.SetZoom(2.5f);
-            }
+            
             ImGui::EndMenu();
         }
         

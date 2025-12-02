@@ -456,6 +456,106 @@ void App::OpenProject(const std::string& path) {
     }
 }
 
+void App::ShowNewProjectDialog() {
+    // Callback struct
+    struct CallbackData {
+        App* app;
+    };
+    
+    // Allocate callback data (ownership transferred to callback)
+    auto dataPtr = std::make_unique<CallbackData>();
+    dataPtr->app = this;
+    
+    // Show native folder picker dialog for save location
+    SDL_ShowOpenFolderDialog(
+        // Callback
+        [](void* userdata, const char* const* filelist, int filter) {
+            // Take ownership of callback data (automatic cleanup on exit)
+            std::unique_ptr<CallbackData> data(
+                static_cast<CallbackData*>(userdata)
+            );
+            
+            if (filelist == nullptr) {
+                // Error occurred
+                return;
+            }
+            
+            if (filelist[0] == nullptr) {
+                // User canceled
+                return;
+            }
+            
+            // User selected a folder - create new project there
+            std::string folderPath = filelist[0];
+            data->app->NewProject(folderPath);
+            data->app->ShowEditor();
+        },
+        // Userdata - transfer ownership to SDL callback
+        dataPtr.release(),
+        // Window (NULL for now)
+        nullptr,
+        // Default location
+        nullptr,
+        // Allow multiple folders
+        false
+    );
+}
+
+void App::ShowOpenProjectDialog() {
+    // Callback struct
+    struct CallbackData {
+        App* app;
+    };
+    
+    // Allocate callback data (ownership transferred to callback)
+    auto dataPtr = std::make_unique<CallbackData>();
+    dataPtr->app = this;
+    
+    // Setup filters for both .cart files and folders
+    static SDL_DialogFileFilter filters[] = {
+        { "Cartograph Project", "cart" },
+        { "All Files", "*" }
+    };
+    
+    // Show native file dialog for opening
+    SDL_ShowOpenFileDialog(
+        // Callback
+        [](void* userdata, const char* const* filelist, int filter) {
+            // Take ownership of callback data (automatic cleanup on exit)
+            std::unique_ptr<CallbackData> data(
+                static_cast<CallbackData*>(userdata)
+            );
+            
+            if (filelist == nullptr) {
+                // Error occurred
+                return;
+            }
+            
+            if (filelist[0] == nullptr) {
+                // User canceled
+                return;
+            }
+            
+            // User selected a file or folder - open it
+            std::string path = filelist[0];
+            data->app->OpenProject(path);
+            data->app->ShowEditor();
+        },
+        // Userdata - transfer ownership to SDL callback
+        dataPtr.release(),
+        // Window (NULL for now)
+        nullptr,
+        // Filters
+        filters,
+        // Number of filters
+        2,
+        // Default location
+        nullptr,
+        // Allow multiple files
+        false
+    );
+}
+
 void App::SaveProject() {
     if (m_currentFilePath.empty()) {
         // No file path yet - show save dialog for new/untitled projects

@@ -4,6 +4,7 @@
 #include "../Canvas.h"
 #include "../Jobs.h"
 #include "../platform/Paths.h"
+#include "../platform/System.h"
 #include "../IOJson.h"
 #include <imgui.h>
 #include <filesystem>
@@ -42,6 +43,7 @@ void Modals::RenderAll(
     if (showAutosaveRecoveryModal) RenderAutosaveRecoveryModal(app, model);
     if (showLoadingModal) RenderLoadingModal(app, model, jobs, icons);
     if (showQuitConfirmationModal) RenderQuitConfirmationModal(app, model);
+    if (showAboutModal) RenderAboutModal();
 }
 
 void Modals::RenderExportModal(Model& model, Canvas& canvas) {
@@ -2051,5 +2053,69 @@ void Modals::ShowNewProjectFolderPicker() {
     );
 }
 
+void Modals::RenderAboutModal() {
+    ImGui::OpenPopup("About Cartograph");
+    
+    ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, 
+                           ImVec2(0.5f, 0.5f));
+    
+    if (ImGui::BeginPopupModal("About Cartograph", nullptr,
+        ImGuiWindowFlags_AlwaysAutoResize)) {
+        
+        // Title
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8, 12));
+        
+        // App name and version
+        ImGui::TextColored(ImVec4(0.5f, 0.8f, 1.0f, 1.0f), 
+                          "Cartograph");
+        ImGui::SameLine();
+        ImGui::TextDisabled("v1.0.0");
+        
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        // Description
+        ImGui::TextWrapped("Metroidvania map editor for game developers.");
+        ImGui::TextWrapped(
+            "Design interconnected worlds with rooms, tiles, "
+            "walls, and custom markers."
+        );
+        
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        // Links
+        ImGui::Text("Project:");
+        ImGui::SameLine();
+        if (ImGui::Button("GitHub Repository")) {
+            Platform::OpenURL(
+                "https://github.com/Unveil-gg/Cartograph"
+            );
+        }
+        
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        // Credits
+        ImGui::TextDisabled("Created by Unveil");
+        ImGui::TextDisabled("Built with SDL3, ImGui, and OpenGL");
+        
+        ImGui::Spacing();
+        
+        ImGui::PopStyleVar();
+        
+        // Close button
+        if (ImGui::Button("Close", ImVec2(120, 0))) {
+            showAboutModal = false;
+            ImGui::CloseCurrentPopup();
+        }
+        
+        ImGui::EndPopup();
+    }
+}
 
 } // namespace Cartograph
