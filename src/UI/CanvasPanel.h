@@ -100,9 +100,10 @@ public:
     Tool lastTool = Tool::Move;  // Track last tool for cursor restore
     
     // Room management state
-    std::string selectedRoomId;   // Currently selected room
-    bool roomPaintMode = false;   // Room painting mode active
-    bool showRoomOverlays = true; // Show room visual overlays
+    std::string selectedRoomId;        // Currently selected room
+    std::string selectedRegionGroupId; // Currently selected region
+    bool roomPaintMode = false;        // Room painting mode active
+    bool showRoomOverlays = true;      // Show room visual overlays
     
     // Room assignment state (for room paint mode)
     bool isPaintingRoomCells = false;

@@ -187,6 +187,9 @@ private:
     void RenderSaveBeforeActionModal(App& app, Model& model);
     void RenderAboutModal();
     void RenderDeleteRoomModal(Model& model);
+    void RenderRenameRoomModal(Model& model);
+    void RenderRenameRegionModal(Model& model);
+    void RenderDeleteRegionModal(Model& model);
     void ApplyTemplate(ProjectTemplate tmpl);
     
     UI& m_ui;  // Reference to UI for ShowToast

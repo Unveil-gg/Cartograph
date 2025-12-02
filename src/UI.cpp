@@ -1802,191 +1802,354 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
                             sizeof(searchBuffer));
     std::string searchTerm(searchBuffer);
     
-    ImGui::Spacing();
+    // ========================================================================
+    // UNITY-STYLE FLAT HIERARCHY LIST
+    // ========================================================================
     
-    // Region Groups tree
-    if (ImGui::CollapsingHeader("Region Groups", 
-                                ImGuiTreeNodeFlags_DefaultOpen)) {
-        if (model.regionGroups.empty()) {
-            ImGui::Indent();
-            ImGui::TextDisabled("No region groups");
-            ImGui::Unindent();
-        } else {
-            for (auto& region : model.regionGroups) {
-                // Filter by search
-                if (!searchTerm.empty() && 
-                    region.name.find(searchTerm) == std::string::npos) {
-                    continue;
-                }
+    // Track drag-and-drop state
+    static std::string draggedRoomId = "";
+    static std::string dragTargetRegionId = "";
+    
+    // Begin child region for scrollable hierarchy
+    ImGui::BeginChild("HierarchyList", ImVec2(0, 0), false);
+    
+    // Context menu on empty space for creating new items
+    if (ImGui::BeginPopupContextWindow("HierarchyContextMenu")) {
+        if (ImGui::MenuItem("Create Room")) {
+            Room newRoom;
+            newRoom.id = model.GenerateRoomId();
+            newRoom.name = "Room " + std::to_string(model.rooms.size() + 1);
+            newRoom.color = model.GenerateDistinctRoomColor();
+            newRoom.cellsCacheDirty = true;
+            newRoom.connectionsDirty = true;
+            model.rooms.push_back(newRoom);
+            m_canvasPanel.selectedRoomId = newRoom.id;
+            model.MarkDirty();
+            AddConsoleMessage("Created " + newRoom.name, MessageType::Success);
+        }
+        if (ImGui::MenuItem("Create Region")) {
+            RegionGroup newRegion;
+            newRegion.id = model.GenerateRegionGroupId();
+            newRegion.name = "Region " + std::to_string(model.regionGroups.size() + 1);
+            model.regionGroups.push_back(newRegion);
+            m_canvasPanel.selectedRegionGroupId = newRegion.id;
+            model.MarkDirty();
+            AddConsoleMessage("Created " + newRegion.name, MessageType::Success);
+        }
+        ImGui::EndPopup();
+    }
+    
+    // Render all regions and unassigned rooms in a flat list
+    bool hasAnyItems = false;
+    
+    // First, render all regions
+    for (auto& region : model.regionGroups) {
+        // Filter by search
+        if (!searchTerm.empty() && 
+            region.name.find(searchTerm) == std::string::npos) {
+            continue;
+        }
+        
+        hasAnyItems = true;
+        
+        ImGui::PushID(region.id.c_str());
+        
+        // Region folder node
+        ImGuiTreeNodeFlags nodeFlags = 
+            ImGuiTreeNodeFlags_OpenOnArrow |
+            ImGuiTreeNodeFlags_OpenOnDoubleClick |
+            ImGuiTreeNodeFlags_SpanAvailWidth;
+        
+        bool isRegionSelected = (m_canvasPanel.selectedRegionGroupId == region.id);
+        if (isRegionSelected) {
+            nodeFlags |= ImGuiTreeNodeFlags_Selected;
+        }
+        
+        bool regionOpen = ImGui::TreeNodeEx(
+            ("📁 " + region.name).c_str(), nodeFlags
+        );
+        
+        // Click to select region
+        if (ImGui::IsItemClicked()) {
+            m_canvasPanel.selectedRegionGroupId = region.id;
+            m_canvasPanel.selectedRoomId = "";  // Clear room selection
+        }
+        
+        // Drag-and-drop target: drop rooms onto region
+        if (ImGui::BeginDragDropTarget()) {
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ROOM_DRAG")) {
+                std::string droppedRoomId = std::string((const char*)payload->Data, payload->DataSize);
                 
-                ImGui::PushID(region.id.c_str());
-                
-                // Region group node (collapsible)
-                ImGuiTreeNodeFlags nodeFlags = 
-                    ImGuiTreeNodeFlags_OpenOnArrow |
-                    ImGuiTreeNodeFlags_OpenOnDoubleClick |
-                    ImGuiTreeNodeFlags_SpanAvailWidth;
-                
-                bool regionOpen = ImGui::TreeNodeEx(
-                    ("🗺️ " + region.name).c_str(), nodeFlags
-                );
-                
-                // Context menu for region
-                if (ImGui::BeginPopupContextItem()) {
-                    if (ImGui::MenuItem("Rename")) {
-                        // TODO: Open rename dialog
+                // Find the room and assign it to this region
+                for (auto& room : model.rooms) {
+                    if (room.id == droppedRoomId) {
+                        std::string oldParent = room.parentRegionGroupId;
+                        room.parentRegionGroupId = region.id;
+                        model.MarkDirty();
+                        AddConsoleMessage("Moved " + room.name + " to " + region.name, 
+                                        MessageType::Success);
+                        break;
                     }
-                    if (ImGui::MenuItem("Delete")) {
-                        // TODO: Delete with confirmation
-                    }
-                    ImGui::EndPopup();
                 }
-                
-                if (regionOpen) {
-                    ImGui::Indent();
+            }
+            ImGui::EndDragDropTarget();
+        }
+        
+        // Right-click context menu for region
+        if (ImGui::BeginPopupContextItem()) {
+            if (ImGui::MenuItem("Rename")) {
+                m_modals.showRenameRegionDialog = true;
+                m_modals.editingRegionId = region.id;
+                strncpy(m_modals.renameBuffer, region.name.c_str(), 
+                       sizeof(m_modals.renameBuffer) - 1);
+                m_modals.renameBuffer[sizeof(m_modals.renameBuffer) - 1] = '\0';
+            }
+            ImGui::Separator();
+            if (ImGui::MenuItem("Delete Region")) {
+                m_modals.showDeleteRegionDialog = true;
+                m_modals.editingRegionId = region.id;
+            }
+            ImGui::EndPopup();
+        }
+        
+        if (regionOpen) {
+            // Show rooms in this region
+            int roomCount = 0;
+            for (auto& room : model.rooms) {
+                if (room.parentRegionGroupId == region.id) {
+                    // Filter by search
+                    if (!searchTerm.empty() && 
+                        room.name.find(searchTerm) == std::string::npos) {
+                        continue;
+                    }
                     
-                    // Show rooms in this region
-                    int roomCount = 0;
-                    for (const auto& room : model.rooms) {
-                        if (room.parentRegionGroupId == region.id) {
-                            roomCount++;
-                            
-                            ImGui::PushID(room.id.c_str());
-                            
-                            // Room leaf node
-                            ImGuiTreeNodeFlags roomFlags = 
-                                ImGuiTreeNodeFlags_Leaf |
-                                ImGuiTreeNodeFlags_NoTreePushOnOpen |
-                                ImGuiTreeNodeFlags_SpanAvailWidth;
-                            
-                            bool isSelected = (m_canvasPanel.selectedRoomId == room.id);
-                            if (isSelected) {
-                                roomFlags |= ImGuiTreeNodeFlags_Selected;
+                    roomCount++;
+                    
+                    ImGui::PushID(room.id.c_str());
+                    
+                    // Room leaf node
+                    ImGuiTreeNodeFlags roomFlags = 
+                        ImGuiTreeNodeFlags_Leaf |
+                        ImGuiTreeNodeFlags_NoTreePushOnOpen |
+                        ImGuiTreeNodeFlags_SpanAvailWidth;
+                    
+                    bool isSelected = (m_canvasPanel.selectedRoomId == room.id);
+                    if (isSelected) {
+                        roomFlags |= ImGuiTreeNodeFlags_Selected;
+                    }
+                    
+                    // Color indicator
+                    ImVec4 roomColor = room.color.ToImVec4();
+                    ImGui::ColorButton("##color", roomColor, 
+                                     ImGuiColorEditFlags_NoTooltip, 
+                                     ImVec2(12, 12));
+                    ImGui::SameLine();
+                    
+                    ImGui::TreeNodeEx(room.name.c_str(), roomFlags);
+                    
+                    // Click to select room
+                    if (ImGui::IsItemClicked()) {
+                        m_canvasPanel.selectedRoomId = room.id;
+                        m_canvasPanel.selectedRegionGroupId = "";  // Clear region selection
+                        
+                        // Navigate to room
+                        auto cells = model.GetRoomCells(room.id);
+                        if (!cells.empty()) {
+                            // Calculate center
+                            int minX = INT_MAX, minY = INT_MAX;
+                            int maxX = INT_MIN, maxY = INT_MIN;
+                            for (const auto& cell : cells) {
+                                minX = std::min(minX, cell.first);
+                                maxX = std::max(maxX, cell.first);
+                                minY = std::min(minY, cell.second);
+                                maxY = std::max(maxY, cell.second);
                             }
+                            int centerX = (minX + maxX) / 2;
+                            int centerY = (minY + maxY) / 2;
                             
-                            // Color indicator
-                            ImVec4 roomColor = room.color.ToImVec4();
-                            ImGui::ColorButton("##color", roomColor, 
-                                             ImGuiColorEditFlags_NoTooltip, 
-                                             ImVec2(12, 12));
-                            ImGui::SameLine();
-                            
-                            ImGui::TreeNodeEx(("🏠 " + room.name).c_str(), roomFlags);
-                            
-                            if (ImGui::IsItemClicked()) {
-                                m_canvasPanel.selectedRoomId = room.id;
-                                m_canvasPanel.activeRoomId = room.id;
-                            }
-                            
-                            // Context menu for room
-                            if (ImGui::BeginPopupContextItem()) {
-                                if (ImGui::MenuItem("Rename")) {
-                                    // TODO: Open rename dialog
-                                }
-                                if (ImGui::MenuItem("Change Color")) {
-                                    // TODO: Open color picker
-                                }
-                                if (ImGui::MenuItem("Remove from Region")) {
-                                    // TODO: Unassign from region
-                                }
-                                ImGui::Separator();
-                                if (ImGui::MenuItem("Delete")) {
-                                    // TODO: Delete with confirmation
-                                }
-                                ImGui::EndPopup();
-                            }
-                            
-                            ImGui::PopID();
+                            // Focus camera on room center
+                            canvas.FocusOnTile(centerX, centerY, 
+                                             model.grid.tileWidth, 
+                                             model.grid.tileHeight);
                         }
                     }
                     
-                    if (roomCount == 0) {
-                        ImGui::TextDisabled("No rooms in this region");
+                    // Drag source: drag room
+                    if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
+                        ImGui::SetDragDropPayload("ROOM_DRAG", room.id.c_str(), room.id.size());
+                        ImGui::Text("Move %s", room.name.c_str());
+                        ImGui::EndDragDropSource();
                     }
                     
-                    ImGui::Unindent();
-                    ImGui::TreePop();
+                    // Right-click context menu for room
+                    if (ImGui::BeginPopupContextItem()) {
+                        if (ImGui::MenuItem("Rename")) {
+                            m_modals.showRenameRoomDialog = true;
+                            m_modals.editingRoomId = room.id;
+                            strncpy(m_modals.renameBuffer, room.name.c_str(), 
+                                   sizeof(m_modals.renameBuffer) - 1);
+                            m_modals.renameBuffer[sizeof(m_modals.renameBuffer) - 1] = '\0';
+                        }
+                        if (ImGui::MenuItem("Remove from Region")) {
+                            room.parentRegionGroupId = "";
+                            model.MarkDirty();
+                            AddConsoleMessage("Removed " + room.name + " from region", 
+                                            MessageType::Success);
+                        }
+                        ImGui::Separator();
+                        if (ImGui::MenuItem("Delete Room")) {
+                            m_modals.showDeleteRoomDialog = true;
+                            m_modals.editingRoomId = room.id;
+                        }
+                        ImGui::EndPopup();
+                    }
+                    
+                    ImGui::PopID();
                 }
+            }
+            
+            if (roomCount == 0) {
+                ImGui::Indent();
+                ImGui::TextDisabled("(empty)");
+                ImGui::Unindent();
+            }
+            
+            ImGui::TreePop();
+        }
+        
+        ImGui::PopID();
+    }
+    
+    // Then, render unassigned rooms (at root level)
+    for (auto& room : model.rooms) {
+        if (!room.parentRegionGroupId.empty()) {
+            continue;  // Skip rooms in regions
+        }
+        
+        // Filter by search
+        if (!searchTerm.empty() && 
+            room.name.find(searchTerm) == std::string::npos) {
+            continue;
+        }
+        
+        hasAnyItems = true;
+        
+        ImGui::PushID(room.id.c_str());
+        
+        // Room leaf node at root level
+        ImGuiTreeNodeFlags roomFlags = 
+            ImGuiTreeNodeFlags_Leaf |
+            ImGuiTreeNodeFlags_NoTreePushOnOpen |
+            ImGuiTreeNodeFlags_SpanAvailWidth;
+        
+        bool isSelected = (m_canvasPanel.selectedRoomId == room.id);
+        if (isSelected) {
+            roomFlags |= ImGuiTreeNodeFlags_Selected;
+        }
+        
+        // Color indicator
+        ImVec4 roomColor = room.color.ToImVec4();
+        ImGui::ColorButton("##color", roomColor, 
+                         ImGuiColorEditFlags_NoTooltip, 
+                         ImVec2(12, 12));
+        ImGui::SameLine();
+        
+        ImGui::TreeNodeEx(room.name.c_str(), roomFlags);
+        
+        // Click to select room
+        if (ImGui::IsItemClicked()) {
+            m_canvasPanel.selectedRoomId = room.id;
+            m_canvasPanel.selectedRegionGroupId = "";  // Clear region selection
+            
+            // Navigate to room
+            auto cells = model.GetRoomCells(room.id);
+            if (!cells.empty()) {
+                // Calculate center
+                int minX = INT_MAX, minY = INT_MAX;
+                int maxX = INT_MIN, maxY = INT_MIN;
+                for (const auto& cell : cells) {
+                    minX = std::min(minX, cell.first);
+                    maxX = std::max(maxX, cell.first);
+                    minY = std::min(minY, cell.second);
+                    maxY = std::max(maxY, cell.second);
+                }
+                int centerX = (minX + maxX) / 2;
+                int centerY = (minY + maxY) / 2;
                 
-                ImGui::PopID();
+                // Focus camera on room center
+                canvas.FocusOnTile(centerX, centerY, 
+                                 model.grid.tileWidth, 
+                                 model.grid.tileHeight);
             }
-        }
-    }
-    
-    ImGui::Spacing();
-    
-    // Unassigned Rooms tree
-    if (ImGui::CollapsingHeader("Unassigned Rooms", 
-                                ImGuiTreeNodeFlags_DefaultOpen)) {
-        bool hasUnassigned = false;
-        
-        for (auto& room : model.rooms) {
-            if (!room.parentRegionGroupId.empty()) {
-                continue;  // Skip rooms in regions
-            }
-            
-            // Filter by search
-            if (!searchTerm.empty() && 
-                room.name.find(searchTerm) == std::string::npos) {
-                continue;
-            }
-            
-            hasUnassigned = true;
-            
-            ImGui::PushID(room.id.c_str());
-            
-            // Room leaf node
-            ImGuiTreeNodeFlags roomFlags = 
-                ImGuiTreeNodeFlags_Leaf |
-                ImGuiTreeNodeFlags_NoTreePushOnOpen |
-                ImGuiTreeNodeFlags_SpanAvailWidth;
-            
-            bool isSelected = (m_canvasPanel.selectedRoomId == room.id);
-            if (isSelected) {
-                roomFlags |= ImGuiTreeNodeFlags_Selected;
-            }
-            
-            // Color indicator
-            ImVec4 roomColor = room.color.ToImVec4();
-            ImGui::ColorButton("##color", roomColor, 
-                             ImGuiColorEditFlags_NoTooltip, 
-                             ImVec2(12, 12));
-            ImGui::SameLine();
-            
-            ImGui::TreeNodeEx(("🏠 " + room.name).c_str(), roomFlags);
-            
-            if (ImGui::IsItemClicked()) {
-                m_canvasPanel.selectedRoomId = room.id;
-                m_canvasPanel.activeRoomId = room.id;
-            }
-            
-            // Context menu for room
-            if (ImGui::BeginPopupContextItem()) {
-                if (ImGui::MenuItem("Rename")) {
-                    // TODO: Open rename dialog
-                }
-                if (ImGui::MenuItem("Change Color")) {
-                    // TODO: Open color picker
-                }
-                if (ImGui::MenuItem("Move to Region...")) {
-                    // TODO: Show region selector
-                }
-                ImGui::Separator();
-                if (ImGui::MenuItem("Delete")) {
-                    // TODO: Delete with confirmation
-                }
-                ImGui::EndPopup();
-            }
-            
-            ImGui::PopID();
         }
         
-        if (!hasUnassigned) {
-            ImGui::Indent();
-            ImGui::TextDisabled("No unassigned rooms");
-            ImGui::Unindent();
+        // Drag source: drag room
+        if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
+            ImGui::SetDragDropPayload("ROOM_DRAG", room.id.c_str(), room.id.size());
+            ImGui::Text("Move %s", room.name.c_str());
+            ImGui::EndDragDropSource();
         }
+        
+        // Drag-and-drop target: drop onto empty space to unparent
+        if (ImGui::BeginDragDropTarget()) {
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ROOM_DRAG")) {
+                std::string droppedRoomId = std::string((const char*)payload->Data, payload->DataSize);
+                
+                // Find the room and remove from region
+                for (auto& r : model.rooms) {
+                    if (r.id == droppedRoomId) {
+                        r.parentRegionGroupId = "";
+                        model.MarkDirty();
+                        AddConsoleMessage("Removed " + r.name + " from region", 
+                                        MessageType::Success);
+                        break;
+                    }
+                }
+            }
+            ImGui::EndDragDropTarget();
+        }
+        
+        // Right-click context menu for room
+        if (ImGui::BeginPopupContextItem()) {
+            if (ImGui::MenuItem("Rename")) {
+                m_modals.showRenameRoomDialog = true;
+                m_modals.editingRoomId = room.id;
+                strncpy(m_modals.renameBuffer, room.name.c_str(), 
+                       sizeof(m_modals.renameBuffer) - 1);
+                m_modals.renameBuffer[sizeof(m_modals.renameBuffer) - 1] = '\0';
+            }
+            
+            // Show "Move to Region" submenu
+            if (ImGui::BeginMenu("Move to Region")) {
+                for (auto& region : model.regionGroups) {
+                    if (ImGui::MenuItem(region.name.c_str())) {
+                        room.parentRegionGroupId = region.id;
+                        model.MarkDirty();
+                        AddConsoleMessage("Moved " + room.name + " to " + region.name, 
+                                        MessageType::Success);
+                    }
+                }
+                ImGui::EndMenu();
+            }
+            
+            ImGui::Separator();
+            if (ImGui::MenuItem("Delete Room")) {
+                m_modals.showDeleteRoomDialog = true;
+                m_modals.editingRoomId = room.id;
+            }
+            ImGui::EndPopup();
+        }
+        
+        ImGui::PopID();
     }
+    
+    // Show message if no items
+    if (!hasAnyItems) {
+        ImGui::TextDisabled("No rooms or regions");
+        ImGui::TextDisabled("Right-click to create");
+    }
+    
+    ImGui::EndChild();
     
     // Toggle room overlays
     ImGui::Spacing();

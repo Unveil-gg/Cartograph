@@ -46,6 +46,9 @@ void Modals::RenderAll(
     if (showSaveBeforeActionModal) RenderSaveBeforeActionModal(app, model);
     if (showAboutModal) RenderAboutModal();
     if (showDeleteRoomDialog) RenderDeleteRoomModal(model);
+    if (showRenameRoomDialog) RenderRenameRoomModal(model);
+    if (showRenameRegionDialog) RenderRenameRegionModal(model);
+    if (showDeleteRegionDialog) RenderDeleteRegionModal(model);
 }
 
 void Modals::RenderDeleteRoomModal(Model& model) {
@@ -117,6 +120,196 @@ void Modals::RenderDeleteRoomModal(Model& model) {
             if (ImGui::Button("Close")) {
                 showDeleteRoomDialog = false;
                 editingRoomId.clear();
+                ImGui::CloseCurrentPopup();
+            }
+        }
+        
+        ImGui::EndPopup();
+    }
+}
+
+void Modals::RenderRenameRoomModal(Model& model) {
+    ImGui::OpenPopup("Rename Room");
+    
+    ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    
+    if (ImGui::BeginPopupModal("Rename Room", nullptr,
+                              ImGuiWindowFlags_AlwaysAutoResize)) {
+        Room* room = model.FindRoom(editingRoomId);
+        if (room) {
+            ImGui::Text("Rename room:");
+            ImGui::Spacing();
+            
+            ImGui::SetNextItemWidth(300);
+            bool enterPressed = ImGui::InputText("##rename", renameBuffer, 
+                                                sizeof(renameBuffer), 
+                                                ImGuiInputTextFlags_EnterReturnsTrue);
+            
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::Spacing();
+            
+            if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+                showRenameRoomDialog = false;
+                editingRoomId.clear();
+                ImGui::CloseCurrentPopup();
+            }
+            
+            ImGui::SameLine();
+            
+            if (ImGui::Button("Rename", ImVec2(120, 0)) || enterPressed) {
+                std::string newName = renameBuffer;
+                if (!newName.empty()) {
+                    room->name = newName;
+                    model.MarkDirty();
+                    m_ui.AddConsoleMessage("Renamed room to \"" + newName + "\"",
+                                         MessageType::Success);
+                }
+                
+                showRenameRoomDialog = false;
+                editingRoomId.clear();
+                ImGui::CloseCurrentPopup();
+            }
+        } else {
+            ImGui::Text("Room not found");
+            if (ImGui::Button("Close")) {
+                showRenameRoomDialog = false;
+                editingRoomId.clear();
+                ImGui::CloseCurrentPopup();
+            }
+        }
+        
+        ImGui::EndPopup();
+    }
+}
+
+void Modals::RenderRenameRegionModal(Model& model) {
+    ImGui::OpenPopup("Rename Region");
+    
+    ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    
+    if (ImGui::BeginPopupModal("Rename Region", nullptr,
+                              ImGuiWindowFlags_AlwaysAutoResize)) {
+        RegionGroup* region = model.FindRegionGroup(editingRegionId);
+        if (region) {
+            ImGui::Text("Rename region:");
+            ImGui::Spacing();
+            
+            ImGui::SetNextItemWidth(300);
+            bool enterPressed = ImGui::InputText("##rename", renameBuffer, 
+                                                sizeof(renameBuffer), 
+                                                ImGuiInputTextFlags_EnterReturnsTrue);
+            
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::Spacing();
+            
+            if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+                showRenameRegionDialog = false;
+                editingRegionId.clear();
+                ImGui::CloseCurrentPopup();
+            }
+            
+            ImGui::SameLine();
+            
+            if (ImGui::Button("Rename", ImVec2(120, 0)) || enterPressed) {
+                std::string newName = renameBuffer;
+                if (!newName.empty()) {
+                    region->name = newName;
+                    model.MarkDirty();
+                    m_ui.AddConsoleMessage("Renamed region to \"" + newName + "\"",
+                                         MessageType::Success);
+                }
+                
+                showRenameRegionDialog = false;
+                editingRegionId.clear();
+                ImGui::CloseCurrentPopup();
+            }
+        } else {
+            ImGui::Text("Region not found");
+            if (ImGui::Button("Close")) {
+                showRenameRegionDialog = false;
+                editingRegionId.clear();
+                ImGui::CloseCurrentPopup();
+            }
+        }
+        
+        ImGui::EndPopup();
+    }
+}
+
+void Modals::RenderDeleteRegionModal(Model& model) {
+    ImGui::OpenPopup("Delete Region?");
+    
+    ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    
+    if (ImGui::BeginPopupModal("Delete Region?", nullptr,
+                              ImGuiWindowFlags_AlwaysAutoResize)) {
+        RegionGroup* region = model.FindRegionGroup(editingRegionId);
+        if (region) {
+            ImGui::Text("Delete region \"%s\"?", region->name.c_str());
+            ImGui::Separator();
+            ImGui::TextWrapped(
+                "Rooms in this region will become unassigned."
+            );
+            ImGui::Spacing();
+            
+            if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+                showDeleteRegionDialog = false;
+                editingRegionId.clear();
+                ImGui::CloseCurrentPopup();
+            }
+            
+            ImGui::SameLine();
+            
+            ImGui::PushStyleColor(ImGuiCol_Button, 
+                ImVec4(0.8f, 0.2f, 0.2f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, 
+                ImVec4(0.9f, 0.3f, 0.3f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, 
+                ImVec4(0.7f, 0.1f, 0.1f, 1.0f));
+            
+            if (ImGui::Button("Delete", ImVec2(120, 0))) {
+                // Unassign all rooms from this region
+                for (auto& room : model.rooms) {
+                    if (room.parentRegionGroupId == editingRegionId) {
+                        room.parentRegionGroupId = "";
+                    }
+                }
+                
+                // Remove region from model
+                auto it = std::find_if(
+                    model.regionGroups.begin(),
+                    model.regionGroups.end(),
+                    [&](const RegionGroup& r) { return r.id == editingRegionId; }
+                );
+                if (it != model.regionGroups.end()) {
+                    model.regionGroups.erase(it);
+                }
+                
+                // Clear selection if we deleted the selected region
+                if (m_ui.GetCanvasPanel().selectedRegionGroupId == editingRegionId) {
+                    m_ui.GetCanvasPanel().selectedRegionGroupId.clear();
+                }
+                
+                model.MarkDirty();
+                m_ui.AddConsoleMessage("Deleted region \"" + region->name + "\"",
+                                     MessageType::Success);
+                
+                showDeleteRegionDialog = false;
+                editingRegionId.clear();
+                ImGui::CloseCurrentPopup();
+            }
+            
+            ImGui::PopStyleColor(3);
+        } else {
+            ImGui::Text("Region not found");
+            if (ImGui::Button("Close")) {
+                showDeleteRegionDialog = false;
+                editingRegionId.clear();
                 ImGui::CloseCurrentPopup();
             }
         }
