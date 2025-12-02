@@ -29,6 +29,7 @@ set(CARTOGRAPH_SOURCES
     src/App.cpp
     src/UI.cpp
     src/UI/CanvasPanel.cpp
+    src/UI/Modals.cpp
     src/Canvas.cpp
     src/Model.cpp
     src/History.cpp
@@ -57,6 +58,7 @@ set(CARTOGRAPH_HEADERS
     src/App.h
     src/UI.h
     src/UI/CanvasPanel.h
+    src/UI/Modals.h
     src/Canvas.h
     src/Model.h
     src/History.h

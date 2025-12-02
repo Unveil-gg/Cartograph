@@ -4,6 +4,7 @@
 #include "ExportPng.h"
 #include "History.h"
 #include "UI/CanvasPanel.h"
+#include "UI/Modals.h"
 #include <string>
 #include <vector>
 #include <atomic>
@@ -57,29 +58,6 @@ struct Toast {
     enum class Type {
         Info, Success, Warning, Error
     } type;
-};
-
-/**
- * New project configuration.
- */
-struct NewProjectConfig {
-    char projectName[256] = "New Map";
-    GridPreset gridPreset = GridPreset::Square;  // Cell type (Square or Rectangle)
-    int mapWidth = 256;   // in cells
-    int mapHeight = 256;  // in cells
-    std::string saveDirectory = "";  // Directory where project will be saved
-    std::string fullSavePath = "";   // Full path: {saveDirectory}/{projectName}/
-};
-
-/**
- * Project template presets.
- */
-enum class ProjectTemplate {
-    Custom,      // User-defined settings
-    Small,       // 128x128, 16px cells
-    Medium,      // 256x256, 16px cells
-    Large,       // 512x512, 16px cells
-    Metroidvania // 256x256, 8px cells (detailed)
 };
 
 /**
@@ -142,8 +120,9 @@ public:
      * @param jobs Job queue for async operations
      * @param icons Icon manager
      */
-    void RenderWelcomeScreen(App& app, Model& model, JobQueue& jobs,
-                            IconManager& icons);
+    void RenderWelcomeScreen(App& app, Model& model, Canvas& canvas,
+                            History& history, JobQueue& jobs,
+                            IconManager& icons, KeymapManager& keymap);
     
     /**
      * Show a message in the console.
@@ -214,12 +193,10 @@ public:
      */
     void UnloadThumbnailTextures();
     
-    // UI state
-    bool showExportModal = false;
-    bool shouldShowExportPngDialog = false;
-    ExportOptions exportOptions;
-    bool showSettingsModal = false;
-    int settingsModalSelectedTab = 1;  // 0=Project, 1=Grid&Canvas, 2=Keybindings
+    /**
+     * Load thumbnail texture for a project (called by Modals).
+     */
+    void LoadThumbnailTexture(RecentProject& project);
     
     // Icon import state
     bool isImportingIcon = false;
@@ -227,43 +204,9 @@ public:
     std::string droppedFilePath;
     bool hasDroppedFile = false;
     
-    // Icon rename state
-    bool showRenameIconModal = false;
-    std::string renameIconOldName;
-    char renameIconNewName[64] = "";
-    
-    // Icon delete state
-    bool showDeleteIconModal = false;
-    std::string deleteIconName;
-    int deleteIconMarkerCount = 0;
-    std::vector<std::string> deleteIconAffectedMarkers;
-    
-    // Keybinding rebind state
-    bool showRebindModal = false;
-    std::string rebindAction = "";
-    std::string rebindActionDisplayName = "";
-    std::string capturedBinding = "";
-    bool isCapturing = false;
-    
-    // Welcome screen state
-    bool showNewProjectModal = false;
-    NewProjectConfig newProjectConfig;
-    ProjectTemplate selectedTemplate = ProjectTemplate::Medium;
+    // Welcome screen state (non-modal components)
     std::vector<RecentProject> recentProjects;
     unsigned int placeholderTexture = 0;  // Placeholder texture for missing thumbnails
-    bool showProjectBrowserModal = false;  // "View more" projects modal
-    bool showWhatsNew = false;
-    bool showAutosaveRecoveryModal = false;
-    
-    // Project loading state
-    bool showLoadingModal = false;
-    std::string loadingFilePath;
-    std::string loadingFileName;
-    std::atomic<bool> loadingCancelled{false};
-    double loadingStartTime = 0.0;
-    
-    // Quit confirmation state
-    bool showQuitConfirmationModal = false;
     
     // Panel visibility
     bool showPropertiesPanel = false;  // Toggleable via View menu
@@ -271,18 +214,8 @@ public:
     // Canvas panel (contains all canvas-related state and rendering)
     CanvasPanel m_canvasPanel;
     
-    // Color picker modal state
-    bool showColorPickerModal = false;
-    int colorPickerEditingTileId = -1;  // -1 = new color, >0 = editing
-    char colorPickerName[128] = "";
-    float colorPickerColor[4] = {1.0f, 1.0f, 1.0f, 1.0f};  // RGBA
-    float colorPickerOriginalColor[4] = {1.0f, 1.0f, 1.0f, 1.0f};
-    bool colorPickerDeleteRequested = false;
-    
-    // Room dialog state (for Properties panel)
-    bool showNewRoomDialog = false;
-    char newRoomName[64] = "New Room";
-    float newRoomColor[3] = {1.0f, 0.5f, 0.5f};
+    // Modals manager (contains all modal dialog state and rendering)
+    Modals m_modals;
     
 private:
     void RenderMenuBar(
@@ -299,29 +232,10 @@ private:
     void RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs);
     void RenderStatusBar(Model& model, Canvas& canvas);
     void RenderToasts(float deltaTime);
-    void RenderExportModal(Model& model, Canvas& canvas);
-    void RenderSettingsModal(Model& model, KeymapManager& keymap);
-    void RenderRenameIconModal(Model& model, IconManager& icons);
-    void RenderDeleteIconModal(Model& model, IconManager& icons, 
-                              History& history);
-    void RenderRebindModal(Model& model, KeymapManager& keymap);
-    void RenderColorPickerModal(Model& model, History& history);
     
-    // Welcome screen components
-    void RenderNewProjectModal(App& app, Model& model);
+    // Welcome screen components (non-modal)
     void RenderRecentProjectsList(App& app);
-    void RenderProjectBrowserModal(App& app);
-    void RenderProjectTemplates();
-    void RenderWhatsNewPanel();
-    void RenderAutosaveRecoveryModal(App& app, Model& model);
-    void RenderLoadingModal(App& app, Model& model, JobQueue& jobs, 
-                           IconManager& icons);
-    void RenderQuitConfirmationModal(App& app, Model& model);
-    void ApplyTemplate(ProjectTemplate tmpl);
-    void LoadThumbnailTexture(RecentProject& project);
     unsigned int GeneratePlaceholderTexture();
-    void ShowNewProjectFolderPicker();
-    void UpdateNewProjectPath();
     
     /**
      * Build the fixed docking layout (called once at startup).

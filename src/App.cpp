@@ -122,7 +122,7 @@ bool App::Init(const std::string& title, int width, int height) {
     // Check for autosave recovery
     CheckAutosaveRecovery();
     if (m_hasAutosaveRecovery) {
-        m_ui.showAutosaveRecoveryModal = true;
+        m_ui.m_modals.showAutosaveRecoveryModal = true;
     }
     
     return true;
@@ -174,7 +174,7 @@ void App::RequestQuit() {
     // Check for unsaved changes
     if (m_model.dirty) {
         // Show confirmation modal instead of quitting immediately
-        m_ui.showQuitConfirmationModal = true;
+        m_ui.m_modals.showQuitConfirmationModal = true;
     } else {
         // No unsaved changes, quit immediately
         m_running = false;
@@ -291,7 +291,7 @@ void App::Render() {
     
     // Render UI based on state
     if (m_appState == AppState::Welcome) {
-        m_ui.RenderWelcomeScreen(*this, m_model, m_jobs, m_icons);
+        m_ui.RenderWelcomeScreen(*this, m_model, m_canvas, m_history, m_jobs, m_icons, m_keymap);
     } else {
         m_ui.Render(*this, *m_renderer, m_model, m_canvas, m_history, 
                     m_icons, m_jobs, m_keymap, 0.016f);
@@ -585,7 +585,7 @@ void App::ExportPng(const std::string& path) {
         *m_renderer, 
         &m_icons,
         path, 
-        m_ui.exportOptions
+        m_ui.m_modals.exportOptions
     );
     
     if (success) {
