@@ -110,6 +110,26 @@ public:
     bool showAboutModal = false;
     bool showSaveBeforeActionModal = false;
     
+    // Modal popup opened tracking flags (to call OpenPopup only once)
+    bool exportModalOpened = false;
+    bool settingsModalOpened = false;
+    bool renameIconModalOpened = false;
+    bool deleteIconModalOpened = false;
+    bool rebindModalOpened = false;
+    bool colorPickerModalOpened = false;
+    bool newProjectModalOpened = false;
+    bool projectBrowserModalOpened = false;
+    bool autosaveRecoveryModalOpened = false;
+    bool loadingModalOpened = false;
+    bool quitConfirmationModalOpened = false;
+    bool newRoomDialogOpened = false;
+    bool renameRoomDialogOpened = false;
+    bool deleteRoomDialogOpened = false;
+    bool renameRegionDialogOpened = false;
+    bool deleteRegionDialogOpened = false;
+    bool aboutModalOpened = false;
+    bool saveBeforeActionModalOpened = false;
+    
     // Export modal state
     ExportOptions exportOptions;
     

@@ -52,7 +52,11 @@ void Modals::RenderAll(
 }
 
 void Modals::RenderDeleteRoomModal(Model& model) {
-    ImGui::OpenPopup("Delete Room?");
+    // Only call OpenPopup once when modal is first shown
+    if (!deleteRoomDialogOpened) {
+        ImGui::OpenPopup("Delete Room?");
+        deleteRoomDialogOpened = true;
+    }
     
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
@@ -70,6 +74,7 @@ void Modals::RenderDeleteRoomModal(Model& model) {
             
             if (ImGui::Button("Cancel", ImVec2(120, 0))) {
                 showDeleteRoomDialog = false;
+                deleteRoomDialogOpened = false;
                 editingRoomId.clear();
                 ImGui::CloseCurrentPopup();
             }
@@ -110,6 +115,7 @@ void Modals::RenderDeleteRoomModal(Model& model) {
                                      MessageType::Success);
                 
                 showDeleteRoomDialog = false;
+                deleteRoomDialogOpened = false;
                 editingRoomId.clear();
                 ImGui::CloseCurrentPopup();
             }
@@ -119,6 +125,7 @@ void Modals::RenderDeleteRoomModal(Model& model) {
             ImGui::Text("Room not found");
             if (ImGui::Button("Close")) {
                 showDeleteRoomDialog = false;
+                deleteRoomDialogOpened = false;
                 editingRoomId.clear();
                 ImGui::CloseCurrentPopup();
             }
@@ -129,7 +136,11 @@ void Modals::RenderDeleteRoomModal(Model& model) {
 }
 
 void Modals::RenderRenameRoomModal(Model& model) {
-    ImGui::OpenPopup("Rename Room");
+    // Only call OpenPopup once when modal is first shown
+    if (!renameRoomDialogOpened) {
+        ImGui::OpenPopup("Rename Room");
+        renameRoomDialogOpened = true;
+    }
     
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
@@ -152,6 +163,7 @@ void Modals::RenderRenameRoomModal(Model& model) {
             
             if (ImGui::Button("Cancel", ImVec2(120, 0))) {
                 showRenameRoomDialog = false;
+                renameRoomDialogOpened = false;
                 editingRoomId.clear();
                 ImGui::CloseCurrentPopup();
             }
@@ -168,6 +180,7 @@ void Modals::RenderRenameRoomModal(Model& model) {
                 }
                 
                 showRenameRoomDialog = false;
+                renameRoomDialogOpened = false;
                 editingRoomId.clear();
                 ImGui::CloseCurrentPopup();
             }
@@ -175,6 +188,7 @@ void Modals::RenderRenameRoomModal(Model& model) {
             ImGui::Text("Room not found");
             if (ImGui::Button("Close")) {
                 showRenameRoomDialog = false;
+                renameRoomDialogOpened = false;
                 editingRoomId.clear();
                 ImGui::CloseCurrentPopup();
             }
@@ -185,7 +199,11 @@ void Modals::RenderRenameRoomModal(Model& model) {
 }
 
 void Modals::RenderRenameRegionModal(Model& model) {
-    ImGui::OpenPopup("Rename Region");
+    // Only call OpenPopup once when modal is first shown
+    if (!renameRegionDialogOpened) {
+        ImGui::OpenPopup("Rename Region");
+        renameRegionDialogOpened = true;
+    }
     
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
@@ -208,6 +226,7 @@ void Modals::RenderRenameRegionModal(Model& model) {
             
             if (ImGui::Button("Cancel", ImVec2(120, 0))) {
                 showRenameRegionDialog = false;
+                renameRegionDialogOpened = false;
                 editingRegionId.clear();
                 ImGui::CloseCurrentPopup();
             }
@@ -224,6 +243,7 @@ void Modals::RenderRenameRegionModal(Model& model) {
                 }
                 
                 showRenameRegionDialog = false;
+                renameRegionDialogOpened = false;
                 editingRegionId.clear();
                 ImGui::CloseCurrentPopup();
             }
@@ -231,6 +251,7 @@ void Modals::RenderRenameRegionModal(Model& model) {
             ImGui::Text("Region not found");
             if (ImGui::Button("Close")) {
                 showRenameRegionDialog = false;
+                renameRegionDialogOpened = false;
                 editingRegionId.clear();
                 ImGui::CloseCurrentPopup();
             }
@@ -241,7 +262,11 @@ void Modals::RenderRenameRegionModal(Model& model) {
 }
 
 void Modals::RenderDeleteRegionModal(Model& model) {
-    ImGui::OpenPopup("Delete Region?");
+    // Only call OpenPopup once when modal is first shown
+    if (!deleteRegionDialogOpened) {
+        ImGui::OpenPopup("Delete Region?");
+        deleteRegionDialogOpened = true;
+    }
     
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
@@ -259,6 +284,7 @@ void Modals::RenderDeleteRegionModal(Model& model) {
             
             if (ImGui::Button("Cancel", ImVec2(120, 0))) {
                 showDeleteRegionDialog = false;
+                deleteRegionDialogOpened = false;
                 editingRegionId.clear();
                 ImGui::CloseCurrentPopup();
             }
@@ -300,6 +326,7 @@ void Modals::RenderDeleteRegionModal(Model& model) {
                                      MessageType::Success);
                 
                 showDeleteRegionDialog = false;
+                deleteRegionDialogOpened = false;
                 editingRegionId.clear();
                 ImGui::CloseCurrentPopup();
             }
@@ -309,6 +336,7 @@ void Modals::RenderDeleteRegionModal(Model& model) {
             ImGui::Text("Region not found");
             if (ImGui::Button("Close")) {
                 showDeleteRegionDialog = false;
+                deleteRegionDialogOpened = false;
                 editingRegionId.clear();
                 ImGui::CloseCurrentPopup();
             }
@@ -319,7 +347,11 @@ void Modals::RenderDeleteRegionModal(Model& model) {
 }
 
 void Modals::RenderExportModal(Model& model, Canvas& canvas) {
-    ImGui::OpenPopup("Export PNG");
+    // Only call OpenPopup once when modal is first shown
+    if (!exportModalOpened) {
+        ImGui::OpenPopup("Export PNG");
+        exportModalOpened = true;
+    }
     
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, 
@@ -434,6 +466,7 @@ void Modals::RenderExportModal(Model& model, Canvas& canvas) {
         // Export button - triggers file dialog
         if (ImGui::Button("Export...", ImVec2(120, 0))) {
             showExportModal = false;
+            exportModalOpened = false;
             ImGui::CloseCurrentPopup();
             // Trigger the export dialog (will be called after modal closes)
             shouldShowExportPngDialog = true;
@@ -443,16 +476,26 @@ void Modals::RenderExportModal(Model& model, Canvas& canvas) {
         
         if (ImGui::Button("Cancel", ImVec2(120, 0))) {
             showExportModal = false;
+            exportModalOpened = false;
             ImGui::CloseCurrentPopup();
         }
         
         ImGui::EndPopup();
     }
+    
+    // Reset opened flag if modal was closed
+    if (!showExportModal) {
+        exportModalOpened = false;
+    }
 }
 
 
 void Modals::RenderSettingsModal(Model& model, KeymapManager& keymap) {
-    ImGui::OpenPopup("Settings");
+    // Only call OpenPopup once when modal is first shown
+    if (!settingsModalOpened) {
+        ImGui::OpenPopup("Settings");
+        settingsModalOpened = true;
+    }
     
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, 
@@ -818,6 +861,7 @@ void Modals::RenderSettingsModal(Model& model, KeymapManager& keymap) {
         if (ImGui::Button("Apply", ImVec2(120, 0))) {
             model.MarkDirty();
             showSettingsModal = false;
+            settingsModalOpened = false;
             ImGui::CloseCurrentPopup();
             m_ui.ShowToast("Settings applied", Toast::Type::Success);
         }
@@ -826,6 +870,7 @@ void Modals::RenderSettingsModal(Model& model, KeymapManager& keymap) {
         
         if (ImGui::Button("Close", ImVec2(120, 0))) {
             showSettingsModal = false;
+            settingsModalOpened = false;
             ImGui::CloseCurrentPopup();
         }
         
@@ -836,7 +881,11 @@ void Modals::RenderSettingsModal(Model& model, KeymapManager& keymap) {
 
 void Modals::RenderRenameIconModal(Model& model, IconManager& icons, 
                                    std::string& selectedIconName) {
-    ImGui::OpenPopup("Rename Icon");
+    // Only call OpenPopup once when modal is first shown
+    if (!renameIconModalOpened) {
+        ImGui::OpenPopup("Rename Icon");
+        renameIconModalOpened = true;
+    }
     
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, 
@@ -875,6 +924,7 @@ void Modals::RenderRenameIconModal(Model& model, IconManager& icons,
                 }
                 
                 showRenameIconModal = false;
+                renameIconModalOpened = false;
                 ImGui::CloseCurrentPopup();
                 
                 std::string msg = "Icon renamed";
@@ -895,6 +945,7 @@ void Modals::RenderRenameIconModal(Model& model, IconManager& icons,
         
         if (ImGui::Button("Cancel", ImVec2(120, 0))) {
             showRenameIconModal = false;
+            renameIconModalOpened = false;
             ImGui::CloseCurrentPopup();
         }
         
@@ -906,7 +957,11 @@ void Modals::RenderRenameIconModal(Model& model, IconManager& icons,
 void Modals::RenderDeleteIconModal(Model& model, IconManager& icons, 
                                    History& history, std::string& selectedIconName,
                                    Marker*& selectedMarker) {
-    ImGui::OpenPopup("Delete Icon");
+    // Only call OpenPopup once when modal is first shown
+    if (!deleteIconModalOpened) {
+        ImGui::OpenPopup("Delete Icon");
+        deleteIconModalOpened = true;
+    }
     
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, 
@@ -1050,6 +1105,7 @@ void Modals::RenderDeleteIconModal(Model& model, IconManager& icons,
                 }
                 
                 showDeleteIconModal = false;
+                deleteIconModalOpened = false;
                 ImGui::CloseCurrentPopup();
                 
                 // Show success message
@@ -1074,6 +1130,7 @@ void Modals::RenderDeleteIconModal(Model& model, IconManager& icons,
         if (ImGui::Button("Cancel", ImVec2(120, 0)) || 
             ImGui::IsKeyPressed(ImGuiKey_Escape)) {
             showDeleteIconModal = false;
+            deleteIconModalOpened = false;
             ImGui::CloseCurrentPopup();
         }
         
@@ -1083,7 +1140,11 @@ void Modals::RenderDeleteIconModal(Model& model, IconManager& icons,
 
 
 void Modals::RenderRebindModal(Model& model, KeymapManager& keymap) {
-    ImGui::OpenPopup("Rebind Key");
+    // Only call OpenPopup once when modal is first shown
+    if (!rebindModalOpened) {
+        ImGui::OpenPopup("Rebind Key");
+        rebindModalOpened = true;
+    }
     
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, 
@@ -1275,6 +1336,7 @@ void Modals::RenderRebindModal(Model& model, KeymapManager& keymap) {
             model.keymap[rebindAction] = capturedBinding;
             keymap.SetBinding(rebindAction, capturedBinding);
             showRebindModal = false;
+            rebindModalOpened = false;
             ImGui::CloseCurrentPopup();
             
             if (hasConflict) {
@@ -1292,6 +1354,7 @@ void Modals::RenderRebindModal(Model& model, KeymapManager& keymap) {
         
         if (ImGui::Button("Cancel", ImVec2(120, 0))) {
             showRebindModal = false;
+            rebindModalOpened = false;
             ImGui::CloseCurrentPopup();
         }
         
@@ -1303,10 +1366,15 @@ void Modals::RenderRebindModal(Model& model, KeymapManager& keymap) {
 void Modals::RenderColorPickerModal(Model& model, History& history,
                                     int& selectedTileId) {
     if (!showColorPickerModal) {
+        colorPickerModalOpened = false;
         return;
     }
     
-    ImGui::OpenPopup("Color Picker");
+    // Only call OpenPopup once when modal is first shown
+    if (!colorPickerModalOpened) {
+        ImGui::OpenPopup("Color Picker");
+        colorPickerModalOpened = true;
+    }
     
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, 
@@ -1473,6 +1541,7 @@ void Modals::RenderColorPickerModal(Model& model, History& history,
             }
             
             showColorPickerModal = false;
+            colorPickerModalOpened = false;
             ImGui::CloseCurrentPopup();
         }
         
@@ -1484,6 +1553,7 @@ void Modals::RenderColorPickerModal(Model& model, History& history,
         
         if (ImGui::Button("Cancel", ImVec2(120, 0)) || shouldCancel) {
             showColorPickerModal = false;
+            colorPickerModalOpened = false;
             ImGui::CloseCurrentPopup();
         }
         
@@ -1563,6 +1633,7 @@ void Modals::RenderColorPickerModal(Model& model, History& history,
             m_ui.ShowToast("Color deleted", Toast::Type::Info);
             
             showColorPickerModal = false;
+            colorPickerModalOpened = false;
             ImGui::CloseCurrentPopup();
         }
         
@@ -1578,12 +1649,17 @@ void Modals::RenderColorPickerModal(Model& model, History& history,
     // Close modal if user clicked X
     if (!modalOpen) {
         showColorPickerModal = false;
+        colorPickerModalOpened = false;
     }
 }
 
 
 void Modals::RenderNewProjectModal(App& app, Model& model) {
-    ImGui::OpenPopup("New Project");
+    // Only call OpenPopup once when modal is first shown
+    if (!newProjectModalOpened) {
+        ImGui::OpenPopup("New Project");
+        newProjectModalOpened = true;
+    }
     
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, 
@@ -1742,6 +1818,7 @@ void Modals::RenderNewProjectModal(App& app, Model& model) {
                 model.InitDefaultTheme("Dark");
                 
                 showNewProjectModal = false;
+                newProjectModalOpened = false;
                 ImGui::CloseCurrentPopup();
                 
                 // Create project with specified path
@@ -1756,6 +1833,7 @@ void Modals::RenderNewProjectModal(App& app, Model& model) {
         
         if (ImGui::Button("Cancel", ImVec2(120, 0))) {
             showNewProjectModal = false;
+            newProjectModalOpened = false;
             ImGui::CloseCurrentPopup();
         }
         
@@ -1766,7 +1844,11 @@ void Modals::RenderNewProjectModal(App& app, Model& model) {
 
 void Modals::RenderProjectBrowserModal(App& app, 
                                        std::vector<RecentProject>& recentProjects) {
-    ImGui::OpenPopup("Recent Projects");
+    // Only call OpenPopup once when modal is first shown
+    if (!projectBrowserModalOpened) {
+        ImGui::OpenPopup("Recent Projects");
+        projectBrowserModalOpened = true;
+    }
     
     ImGui::SetNextWindowSize(ImVec2(900, 600), ImGuiCond_FirstUseEver);
     
@@ -1945,10 +2027,16 @@ void Modals::RenderProjectBrowserModal(App& app,
         
         if (ImGui::Button("Close", ImVec2(closeButtonWidth, 0))) {
             showProjectBrowserModal = false;
+            projectBrowserModalOpened = false;
             ImGui::CloseCurrentPopup();
         }
         
         ImGui::EndPopup();
+    }
+    
+    // Reset flag if modal was closed (via X button)
+    if (!showProjectBrowserModal) {
+        projectBrowserModalOpened = false;
     }
 }
 
@@ -1996,8 +2084,13 @@ void Modals::RenderWhatsNewPanel() {
 
 
 void Modals::RenderAutosaveRecoveryModal(App& app, Model& model) {
+    // Only call OpenPopup once when modal is first shown
+    if (!autosaveRecoveryModalOpened) {
+        ImGui::OpenPopup("Autosave Recovery");
+        autosaveRecoveryModalOpened = true;
+    }
+    
     ImGui::SetNextWindowSize(ImVec2(480, 200), ImGuiCond_Always);
-    ImGui::OpenPopup("Autosave Recovery");
     
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
@@ -2037,6 +2130,7 @@ void Modals::RenderAutosaveRecoveryModal(App& app, Model& model) {
                 m_ui.ShowToast("Failed to load autosave", Toast::Type::Error);
             }
             showAutosaveRecoveryModal = false;
+            autosaveRecoveryModalOpened = false;
             ImGui::CloseCurrentPopup();
         }
         
@@ -2052,6 +2146,7 @@ void Modals::RenderAutosaveRecoveryModal(App& app, Model& model) {
                 // Ignore errors
             }
             showAutosaveRecoveryModal = false;
+            autosaveRecoveryModalOpened = false;
             ImGui::CloseCurrentPopup();
         }
         
@@ -2062,10 +2157,18 @@ void Modals::RenderAutosaveRecoveryModal(App& app, Model& model) {
 
 void Modals::RenderLoadingModal(App& app, Model& model, JobQueue& jobs, 
                             IconManager& icons) {
-    if (!showLoadingModal) return;
+    if (!showLoadingModal) {
+        loadingModalOpened = false;
+        return;
+    }
+    
+    // Only call OpenPopup once when modal is first shown
+    if (!loadingModalOpened) {
+        ImGui::OpenPopup("Loading Project");
+        loadingModalOpened = true;
+    }
     
     ImGui::SetNextWindowSize(ImVec2(400, 160), ImGuiCond_Always);
-    ImGui::OpenPopup("Loading Project");
     
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
@@ -2118,6 +2221,7 @@ void Modals::RenderLoadingModal(App& app, Model& model, JobQueue& jobs,
         
         if (ImGui::Button("Cancel", ImVec2(buttonWidth, 0))) {
             loadingCancelled = true;
+            loadingModalOpened = false;
         }
         
         ImGui::EndPopup();
@@ -2126,8 +2230,13 @@ void Modals::RenderLoadingModal(App& app, Model& model, JobQueue& jobs,
 
 
 void Modals::RenderQuitConfirmationModal(App& app, Model& model) {
+    // Only call OpenPopup once when modal is first shown
+    if (!quitConfirmationModalOpened) {
+        ImGui::OpenPopup("Unsaved Changes");
+        quitConfirmationModalOpened = true;
+    }
+    
     ImGui::SetNextWindowSize(ImVec2(450, 180), ImGuiCond_Always);
-    ImGui::OpenPopup("Unsaved Changes");
     
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
@@ -2158,6 +2267,7 @@ void Modals::RenderQuitConfirmationModal(App& app, Model& model) {
         // Cancel button (leftmost, secondary action)
         if (ImGui::Button("Cancel", ImVec2(buttonWidth, 0))) {
             showQuitConfirmationModal = false;
+            quitConfirmationModalOpened = false;
             ImGui::CloseCurrentPopup();
         }
         
@@ -2167,6 +2277,7 @@ void Modals::RenderQuitConfirmationModal(App& app, Model& model) {
         if (ImGui::Button("Don't Save", ImVec2(buttonWidth, 0))) {
             // Quit without saving
             showQuitConfirmationModal = false;
+            quitConfirmationModalOpened = false;
             ImGui::CloseCurrentPopup();
             app.ForceQuit();
         }
@@ -2188,6 +2299,7 @@ void Modals::RenderQuitConfirmationModal(App& app, Model& model) {
             // Check if save was successful (dirty flag should be cleared)
             if (!model.dirty) {
                 showQuitConfirmationModal = false;
+                quitConfirmationModalOpened = false;
                 ImGui::CloseCurrentPopup();
                 app.ForceQuit();
             } else {
@@ -2339,8 +2451,13 @@ void Modals::RenderSaveBeforeActionModal(App& app, Model& model) {
             break;
     }
     
+    // Only call OpenPopup once when modal is first shown
+    if (!saveBeforeActionModalOpened) {
+        ImGui::OpenPopup("Unsaved Changes");
+        saveBeforeActionModalOpened = true;
+    }
+    
     ImGui::SetNextWindowSize(ImVec2(480, 200), ImGuiCond_Always);
-    ImGui::OpenPopup("Unsaved Changes");
     
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
@@ -2380,6 +2497,7 @@ void Modals::RenderSaveBeforeActionModal(App& app, Model& model) {
         // Cancel button (leftmost, secondary action)
         if (ImGui::Button("Cancel", ImVec2(buttonWidth, 0))) {
             showSaveBeforeActionModal = false;
+            saveBeforeActionModalOpened = false;
             pendingAction = PendingAction::None;
             ImGui::CloseCurrentPopup();
         }
@@ -2389,6 +2507,7 @@ void Modals::RenderSaveBeforeActionModal(App& app, Model& model) {
         // Don't Save button
         if (ImGui::Button("Don't Save", ImVec2(buttonWidth, 0))) {
             showSaveBeforeActionModal = false;
+            saveBeforeActionModalOpened = false;
             ImGui::CloseCurrentPopup();
             
             // Execute the pending action without saving
@@ -2413,6 +2532,7 @@ void Modals::RenderSaveBeforeActionModal(App& app, Model& model) {
         
         if (ImGui::Button("Save", ImVec2(buttonWidth, 0))) {
             showSaveBeforeActionModal = false;
+            saveBeforeActionModalOpened = false;
             ImGui::CloseCurrentPopup();
             
             // Save then execute the pending action
@@ -2437,7 +2557,11 @@ void Modals::RenderSaveBeforeActionModal(App& app, Model& model) {
 }
 
 void Modals::RenderAboutModal() {
-    ImGui::OpenPopup("About Cartograph");
+    // Only call OpenPopup once when modal is first shown
+    if (!aboutModalOpened) {
+        ImGui::OpenPopup("About Cartograph");
+        aboutModalOpened = true;
+    }
     
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, 
@@ -2494,6 +2618,7 @@ void Modals::RenderAboutModal() {
         // Close button
         if (ImGui::Button("Close", ImVec2(120, 0))) {
             showAboutModal = false;
+            aboutModalOpened = false;
             ImGui::CloseCurrentPopup();
         }
         
