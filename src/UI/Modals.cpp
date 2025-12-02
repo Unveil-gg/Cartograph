@@ -45,6 +45,84 @@ void Modals::RenderAll(
     if (showQuitConfirmationModal) RenderQuitConfirmationModal(app, model);
     if (showSaveBeforeActionModal) RenderSaveBeforeActionModal(app, model);
     if (showAboutModal) RenderAboutModal();
+    if (showDeleteRoomDialog) RenderDeleteRoomModal(model);
+}
+
+void Modals::RenderDeleteRoomModal(Model& model) {
+    ImGui::OpenPopup("Delete Room?");
+    
+    ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    
+    if (ImGui::BeginPopupModal("Delete Room?", nullptr,
+                              ImGuiWindowFlags_AlwaysAutoResize)) {
+        Room* room = model.FindRoom(editingRoomId);
+        if (room) {
+            ImGui::Text("Delete room \"%s\"?", room->name.c_str());
+            ImGui::Separator();
+            ImGui::TextWrapped(
+                "This will remove the room and clear all cell assignments."
+            );
+            ImGui::Spacing();
+            
+            if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+                showDeleteRoomDialog = false;
+                editingRoomId.clear();
+                ImGui::CloseCurrentPopup();
+            }
+            
+            ImGui::SameLine();
+            
+            ImGui::PushStyleColor(ImGuiCol_Button, 
+                ImVec4(0.8f, 0.2f, 0.2f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, 
+                ImVec4(0.9f, 0.3f, 0.3f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, 
+                ImVec4(0.7f, 0.1f, 0.1f, 1.0f));
+            
+            if (ImGui::Button("Delete", ImVec2(120, 0))) {
+                // Clear all cell assignments for this room
+                model.ClearAllCellsForRoom(editingRoomId);
+                
+                // Remove room from model
+                auto it = std::find_if(
+                    model.rooms.begin(),
+                    model.rooms.end(),
+                    [&](const Room& r) { return r.id == editingRoomId; }
+                );
+                if (it != model.rooms.end()) {
+                    model.rooms.erase(it);
+                }
+                
+                // Clear selection if we deleted the selected room
+                if (m_ui.GetCanvasPanel().selectedRoomId == editingRoomId) {
+                    m_ui.GetCanvasPanel().selectedRoomId.clear();
+                }
+                if (m_ui.GetCanvasPanel().activeRoomId == editingRoomId) {
+                    m_ui.GetCanvasPanel().activeRoomId.clear();
+                }
+                
+                model.MarkDirty();
+                m_ui.AddConsoleMessage("Deleted room \"" + room->name + "\"",
+                                     MessageType::Success);
+                
+                showDeleteRoomDialog = false;
+                editingRoomId.clear();
+                ImGui::CloseCurrentPopup();
+            }
+            
+            ImGui::PopStyleColor(3);
+        } else {
+            ImGui::Text("Room not found");
+            if (ImGui::Button("Close")) {
+                showDeleteRoomDialog = false;
+                editingRoomId.clear();
+                ImGui::CloseCurrentPopup();
+            }
+        }
+        
+        ImGui::EndPopup();
+    }
 }
 
 void Modals::RenderExportModal(Model& model, Canvas& canvas) {

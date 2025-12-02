@@ -192,10 +192,9 @@ void UI::Render(
     m_canvasPanel.Render(renderer, model, canvas, history, icons, keymap);
     RenderStatusBar(model, canvas);
     RenderToolsPanel(model, history, icons, jobs);
-    RenderHierarchyPanel(model, history, canvas);
     
     if (showPropertiesPanel) {
-        RenderPropertiesPanel(model, icons, jobs);
+        RenderPropertiesPanel(model, icons, jobs, history, canvas);
     }
     
     // Render toasts
@@ -1685,15 +1684,20 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
     ImGui::End();
 }
 
-void UI::RenderHierarchyPanel(Model& model, History& history, Canvas& canvas) {
+void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
+                               History& history, Canvas& canvas) {
     ImGuiWindowFlags flags = 
         ImGuiWindowFlags_NoMove | 
         ImGuiWindowFlags_NoCollapse;
     
-    ImGui::Begin("Cartograph/Hierarchy", nullptr, flags);
+    ImGui::Begin("Cartograph/Inspector", nullptr, flags);
     
-    ImGui::Text("Hierarchy");
+    ImGui::Text("Inspector");
     ImGui::Separator();
+    
+    // ========================================================================
+    // HIERARCHY SECTION
+    // ========================================================================
     
     // Toolbar buttons
     if (ImGui::Button("+ Room")) {
@@ -1953,20 +1957,13 @@ void UI::RenderHierarchyPanel(Model& model, History& history, Canvas& canvas) {
     
     ImGui::Checkbox("Show Room Overlays", &m_canvasPanel.showRoomOverlays);
     
-    ImGui::End();
-}
-
-void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs) {
-    ImGuiWindowFlags flags = 
-        ImGuiWindowFlags_NoMove | 
-        ImGuiWindowFlags_NoCollapse;
-    
-    ImGui::Begin("Cartograph/Properties", nullptr, flags);
-    
-    ImGui::Text("Properties");
-    ImGui::Separator();
-    
     ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+    
+    // ========================================================================
+    // PROPERTIES SECTION (for selected room/region)
+    // ========================================================================
     
     // Selected room details
     if (!m_canvasPanel.selectedRoomId.empty()) {
@@ -1982,21 +1979,61 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs)
                     model.MarkDirty();
                 }
                 
-                // Room color
-                float colorArray[4] = {
-                    room->color.r, room->color.g, 
-                    room->color.b, room->color.a
-                };
-                if (ImGui::ColorEdit4("Color", colorArray)) {
-                    room->color = Color(colorArray[0], colorArray[1], 
-                                       colorArray[2], colorArray[3]);
+                // Room color (hex input like palette)
+                static char roomColorHex[16] = "";
+                if (roomColorHex[0] == '\0') {
+                    // Initialize hex from current color
+                    strncpy(roomColorHex, room->color.ToHex(false).c_str(), 
+                           sizeof(roomColorHex) - 1);
+                }
+                
+                ImGui::Text("Color:");
+                ImGui::SameLine();
+                
+                // Color preview button
+                ImVec4 colorPreview = room->color.ToImVec4();
+                if (ImGui::ColorButton("##roomColorPreview", colorPreview,
+                                      ImGuiColorEditFlags_NoTooltip,
+                                      ImVec2(24, 24))) {
+                    // Click opens full color picker
+                    ImGui::OpenPopup("##roomColorPicker");
+                }
+                
+                ImGui::SameLine();
+                
+                // Hex input field
+                ImGui::SetNextItemWidth(100);
+                if (ImGui::InputText("##roomColorHex", roomColorHex, 
+                                    sizeof(roomColorHex))) {
+                    // Parse hex and update color
+                    Color newColor = Color::FromHex(roomColorHex);
+                    room->color = newColor;
                     model.MarkDirty();
                 }
                 
-                // Room notes (renamed to Description for consistency)
+                // Full color picker popup
+                if (ImGui::BeginPopup("##roomColorPicker")) {
+                    float colorArray[4] = {
+                        room->color.r, room->color.g,
+                        room->color.b, room->color.a
+                    };
+                    if (ImGui::ColorPicker4("##picker", colorArray)) {
+                        room->color = Color(colorArray[0], colorArray[1],
+                                          colorArray[2], colorArray[3]);
+                        // Update hex display
+                        strncpy(roomColorHex, room->color.ToHex(false).c_str(),
+                               sizeof(roomColorHex) - 1);
+                        model.MarkDirty();
+                    }
+                    ImGui::EndPopup();
+                }
+                
+                // Room description
+                ImGui::Spacing();
+                ImGui::Text("Description:");
                 char notesBuf[1024];
                 strncpy(notesBuf, room->notes.c_str(), sizeof(notesBuf) - 1);
-                if (ImGui::InputTextMultiline("Description", notesBuf, 
+                if (ImGui::InputTextMultiline("##description", notesBuf, 
                                              sizeof(notesBuf), 
                                              ImVec2(-1, 80))) {
                     room->notes = notesBuf;
@@ -2040,18 +2077,21 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs)
                     model.MarkDirty();
                 }
                 
-                ImGui::NewLine();
+                // If tags exist, add newline; otherwise keep tight
+                if (!room->tags.empty()) {
+                    ImGui::NewLine();
+                }
                 
-                // Add new tag
+                // Add new tag (inline layout)
                 static char newTagBuf[64] = "";
-                ImGui::SetNextItemWidth(-80);
+                ImGui::SetNextItemWidth(-70);
                 bool enterPressed = ImGui::InputTextWithHint(
                     "##newtag", "Add tag...", newTagBuf, sizeof(newTagBuf),
                     ImGuiInputTextFlags_EnterReturnsTrue
                 );
                 
                 ImGui::SameLine();
-                bool addClicked = ImGui::Button("Add Tag");
+                bool addClicked = ImGui::Button("Add");
                 
                 if ((enterPressed || addClicked) && strlen(newTagBuf) > 0) {
                     std::string newTag(newTagBuf);
@@ -2108,24 +2148,35 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs)
                     for (const auto& connectedId : room->connectedRoomIds) {
                         Room* connectedRoom = model.FindRoom(connectedId);
                         if (connectedRoom) {
+                            ImGui::PushID(connectedId.c_str());
+                            
+                            // Make entire row clickable with hover effect
+                            ImGui::PushStyleVar(ImGuiStyleVar_SelectableTextAlign,
+                                              ImVec2(0.0f, 0.5f));
+                            
                             // Show color indicator
                             ImVec4 connColor = connectedRoom->color.ToImVec4();
                             ImGui::ColorButton("##connColor", connColor,
-                                             ImGuiColorEditFlags_NoTooltip,
+                                             ImGuiColorEditFlags_NoTooltip |
+                                             ImGuiColorEditFlags_NoPicker,
                                              ImVec2(12, 12));
                             ImGui::SameLine();
                             
-                            // Room name
-                            ImGui::Text("%s", connectedRoom->name.c_str());
-                            ImGui::SameLine();
-                            
-                            // Jump button
-                            ImGui::PushID(connectedId.c_str());
-                            if (ImGui::SmallButton("Jump")) {
+                            // Clickable room name
+                            if (ImGui::Selectable(connectedRoom->name.c_str(),
+                                                 false,
+                                                 ImGuiSelectableFlags_None)) {
                                 m_canvasPanel.selectedRoomId = connectedId;
                                 m_canvasPanel.activeRoomId = connectedId;
                                 // TODO: Center camera on room
                             }
+                            
+                            // Show hand cursor on hover
+                            if (ImGui::IsItemHovered()) {
+                                ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+                            }
+                            
+                            ImGui::PopStyleVar();
                             ImGui::PopID();
                         }
                     }
@@ -2148,90 +2199,6 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs)
                 }
                 
                 ImGui::PopStyleColor(3);
-                
-                ImGui::Separator();
-                
-                // Room paint mode toggle
-                if (m_canvasPanel.roomPaintMode) {
-                    if (ImGui::Button("Exit Room Paint Mode")) {
-                        m_canvasPanel.roomPaintMode = false;
-                    }
-                    ImGui::TextWrapped(
-                        "Paint cells to assign them to this room. "
-                        "Right-click to remove cells."
-                    );
-                } else {
-                    if (ImGui::Button("Paint Room Cells")) {
-                        m_canvasPanel.roomPaintMode = true;
-                    }
-                }
-                
-                ImGui::Separator();
-                
-                // Room actions
-                if (ImGui::Button("Demote Room")) {
-                    ImGui::OpenPopup("Demote Room?");
-                }
-                
-                // Demote confirmation popup
-                if (ImGui::BeginPopupModal("Demote Room?", nullptr, 
-                                          ImGuiWindowFlags_AlwaysAutoResize)) {
-                    ImGui::Text("What would you like to do?");
-                    ImGui::Separator();
-                    
-                    if (ImGui::Button("Remove room metadata only", 
-                                     ImVec2(-1, 0))) {
-                        // Remove room but keep cells/tiles
-                        model.ClearAllCellsForRoom(room->id);
-                        auto it = std::find_if(
-                            model.rooms.begin(), 
-                            model.rooms.end(),
-                            [&](const Room& r) { return r.id == m_canvasPanel.selectedRoomId; }
-                        );
-                        if (it != model.rooms.end()) {
-                            model.rooms.erase(it);
-                        }
-                        m_canvasPanel.selectedRoomId.clear();
-                        m_canvasPanel.roomPaintMode = false;
-                        model.MarkDirty();
-                        ImGui::CloseCurrentPopup();
-                    }
-                    
-                    if (ImGui::Button("Remove room AND clear all cells", 
-                                     ImVec2(-1, 0))) {
-                        // Clear all cells assigned to this room
-                        for (auto it = model.cellRoomAssignments.begin(); 
-                             it != model.cellRoomAssignments.end(); ) {
-                            if (it->second == room->id) {
-                                // Also clear the tile at this position
-                                model.SetTileAt("", it->first.first, 
-                                              it->first.second, 0);
-                                it = model.cellRoomAssignments.erase(it);
-                            } else {
-                                ++it;
-                            }
-                        }
-                        // Remove room
-                        auto it = std::find_if(
-                            model.rooms.begin(), 
-                            model.rooms.end(),
-                            [&](const Room& r) { return r.id == m_canvasPanel.selectedRoomId; }
-                        );
-                        if (it != model.rooms.end()) {
-                            model.rooms.erase(it);
-                        }
-                        m_canvasPanel.selectedRoomId.clear();
-                        m_canvasPanel.roomPaintMode = false;
-                        model.MarkDirty();
-                        ImGui::CloseCurrentPopup();
-                    }
-                    
-                    if (ImGui::Button("Cancel", ImVec2(-1, 0))) {
-                        ImGui::CloseCurrentPopup();
-                    }
-                    
-                    ImGui::EndPopup();
-                }
             }
         }
     }

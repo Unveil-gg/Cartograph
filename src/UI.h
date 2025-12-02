@@ -195,6 +195,9 @@ public:
     // Canvas panel (contains all canvas-related state and rendering)
     CanvasPanel m_canvasPanel;
     
+    // Accessor for Modals
+    CanvasPanel& GetCanvasPanel() { return m_canvasPanel; }
+    
     // Modals manager (contains all modal dialog state and rendering)
     Modals m_modals;
     
@@ -218,8 +221,8 @@ private:
     void RenderPalettePanel(Model& model);
     void RenderToolsPanel(Model& model, History& history, IconManager& icons, 
                          JobQueue& jobs);
-    void RenderHierarchyPanel(Model& model, History& history, Canvas& canvas);
-    void RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs);
+    void RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
+                              History& history, Canvas& canvas);
     void RenderStatusBar(Model& model, Canvas& canvas);
     
     // Welcome screen components (non-modal)

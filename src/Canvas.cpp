@@ -235,8 +235,8 @@ void Canvas::RenderRooms(IRenderer& renderer, const Model& model,
         fillColor.a *= 0.3f;
         renderer.DrawRect(sx, sy, sw, sh, fillColor);
         
-        // Draw outline
-        renderer.DrawRectOutline(sx, sy, sw, sh, room.color, 2.0f);
+        // Draw outline (thin so walls/doors are visible)
+        renderer.DrawRectOutline(sx, sy, sw, sh, room.color, 1.0f);
         
         // Draw room name only if not in export mode
         if (zoom > 0.5f && (!context || !context->skipImGui)) {
