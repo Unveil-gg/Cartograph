@@ -88,6 +88,19 @@ std::string IOJson::SaveToString(const Model& model) {
         });
     }
     
+    // Region Groups (user-defined groupings)
+    j["regionGroups"] = json::array();
+    for (const auto& group : model.regionGroups) {
+        json jGroup = {
+            {"id", group.id},
+            {"name", group.name},
+            {"description", group.description},
+            {"tags", group.tags},
+            {"rooms", group.roomIds}
+        };
+        j["regionGroups"].push_back(jGroup);
+    }
+    
     // Rooms (metadata only, linked to regions)
     j["rooms"] = json::array();
     for (const auto& room : model.rooms) {
@@ -99,13 +112,32 @@ std::string IOJson::SaveToString(const Model& model) {
             {"notes", room.notes}
         };
         
+        // Save new fields
+        if (!room.parentRegionGroupId.empty()) {
+            jRoom["parentRegionGroupId"] = room.parentRegionGroupId;
+        }
+        
+        if (!room.tags.empty()) {
+            jRoom["tags"] = room.tags;
+        }
+        
         // Save image attachments if present
         if (!room.imageAttachments.empty()) {
             jRoom["images"] = room.imageAttachments;
         }
         
+        // Save connected rooms if present (for reference, recomputed on load)
+        if (!room.connectedRoomIds.empty()) {
+            jRoom["connectedRooms"] = room.connectedRoomIds;
+        }
+        
         j["rooms"].push_back(jRoom);
     }
+    
+    // Room settings
+    j["settings"] = {
+        {"autoGenerateRoomWalls", model.autoGenerateRoomWalls}
+    };
     
     // Tiles
     j["tiles"] = json::array();
@@ -277,6 +309,27 @@ bool IOJson::LoadFromString(const std::string& jsonStr, Model& outModel) {
             }
         }
         
+        // Region Groups (user-defined groupings)
+        if (j.contains("regionGroups")) {
+            outModel.regionGroups.clear();
+            for (const auto& group : j["regionGroups"]) {
+                RegionGroup rg;
+                rg.id = group.value("id", "");
+                rg.name = group.value("name", "");
+                rg.description = group.value("description", "");
+                
+                if (group.contains("tags") && group["tags"].is_array()) {
+                    rg.tags = group["tags"].get<std::vector<std::string>>();
+                }
+                
+                if (group.contains("rooms") && group["rooms"].is_array()) {
+                    rg.roomIds = group["rooms"].get<std::vector<std::string>>();
+                }
+                
+                outModel.regionGroups.push_back(rg);
+            }
+        }
+        
         // Rooms (metadata only, regions inferred from walls)
         if (j.contains("rooms")) {
             outModel.rooms.clear();
@@ -288,14 +341,41 @@ bool IOJson::LoadFromString(const std::string& jsonStr, Model& outModel) {
                 r.color = Color::FromHex(room.value("color", "#000000"));
                 r.notes = room.value("notes", "");
                 
+                // Load new fields
+                r.parentRegionGroupId = room.value("parentRegionGroupId", "");
+                
+                if (room.contains("tags") && room["tags"].is_array()) {
+                    r.tags = room["tags"].get<std::vector<std::string>>();
+                }
+                
                 // Load image attachments if present
                 if (room.contains("images") && room["images"].is_array()) {
                     r.imageAttachments = 
                         room["images"].get<std::vector<std::string>>();
                 }
                 
+                // Connected rooms will be recomputed, but load for reference
+                if (room.contains("connectedRooms") && 
+                    room["connectedRooms"].is_array()) {
+                    r.connectedRoomIds = 
+                        room["connectedRooms"].get<std::vector<std::string>>();
+                    r.connectionsDirty = false;
+                } else {
+                    r.connectionsDirty = true;
+                }
+                
+                // Mark cell cache as needing update
+                r.cellsCacheDirty = true;
+                
                 outModel.rooms.push_back(r);
             }
+        }
+        
+        // Settings
+        if (j.contains("settings")) {
+            const auto& settings = j["settings"];
+            outModel.autoGenerateRoomWalls = 
+                settings.value("autoGenerateRoomWalls", true);
         }
         
         // Tiles

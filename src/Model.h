@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <unordered_set>
 #include <cstdint>
 
 // Forward declarations
@@ -71,6 +72,17 @@ struct TileType {
 using Palette = std::vector<TileType>;
 
 // ============================================================================
+// Hash functions
+// ============================================================================
+
+// Hash function for std::pair<int, int> (for cell coordinates)
+struct PairHash {
+    std::size_t operator()(const std::pair<int, int>& p) const {
+        return std::hash<int>()(p.first) ^ (std::hash<int>()(p.second) << 1);
+    }
+};
+
+// ============================================================================
 // Regions (Inferred from walls)
 // ============================================================================
 
@@ -98,16 +110,40 @@ struct Region {
 };
 
 // ============================================================================
+// Region Groups (User-defined groupings of rooms)
+// ============================================================================
+
+struct RegionGroup {
+    std::string id;                        // UUID
+    std::string name;
+    std::string description;
+    std::vector<std::string> tags;
+    std::vector<std::string> roomIds;      // Child rooms in this group
+};
+
+// ============================================================================
 // Rooms (Named regions with metadata)
 // ============================================================================
 
 struct Room {
     std::string id;
     std::string name;
-    int regionId;                     // Links to inferred region (-1 if none)
+    int regionId;                          // Links to inferred region 
+                                           // (-1 if none)
+    std::string parentRegionGroupId;       // User-defined region group 
+                                           // (empty if unassigned)
     Color color;
     std::string notes;
+    std::vector<std::string> tags;         // User tags for categorization
     std::vector<std::string> imageAttachments;  // Design doc images
+    
+    // Cache for performance (computed from cellRoomAssignments)
+    std::unordered_set<std::pair<int, int>, PairHash> cells;
+    bool cellsCacheDirty = true;           // Needs recomputation?
+    
+    // Auto-detected connections via doors
+    std::vector<std::string> connectedRoomIds;
+    bool connectionsDirty = true;          // Needs recomputation?
 };
 
 // ============================================================================
@@ -176,13 +212,6 @@ struct EdgeIdHash {
                (std::hash<int>()(e.y1) << 1) ^
                (std::hash<int>()(e.x2) << 2) ^
                (std::hash<int>()(e.y2) << 3);
-    }
-};
-
-// Hash function for std::pair<int, int> (for cell coordinates)
-struct PairHash {
-    std::size_t operator()(const std::pair<int, int>& p) const {
-        return std::hash<int>()(p.first) ^ (std::hash<int>()(p.second) << 1);
     }
 };
 
@@ -304,6 +333,7 @@ public:
     GridConfig grid;
     Palette palette;
     std::vector<Room> rooms;          // Named rooms (metadata)
+    std::vector<RegionGroup> regionGroups;  // User-defined region groups
     TileData tiles;
     std::unordered_map<EdgeId, EdgeState, EdgeIdHash> edges;  // Cell edges
     std::vector<Door> doors;          // Legacy door connections
@@ -315,6 +345,9 @@ public:
     // Cell-to-room assignments (manual room painting)
     std::unordered_map<std::pair<int, int>, std::string, 
         PairHash> cellRoomAssignments;
+    
+    // Settings
+    bool autoGenerateRoomWalls = true;  // Auto-generate walls around rooms
     
     // Computed/cached data
     std::vector<Region> inferredRegions;  // Auto-computed from walls
@@ -396,6 +429,46 @@ public:
     
     // Content bounds calculation for export
     ContentBounds CalculateContentBounds() const;
+    
+    // Room management
+    RegionGroup* FindRegionGroup(const std::string& id);
+    const RegionGroup* FindRegionGroup(const std::string& id) const;
+    std::string GenerateRoomId();           // Generate unique room UUID
+    std::string GenerateRegionGroupId();    // Generate unique region UUID
+    
+    // Room cell cache management
+    void InvalidateRoomCellCache(const std::string& roomId);
+    void InvalidateAllRoomCellCaches();
+    void UpdateRoomCellCache(Room& room);
+    const std::unordered_set<std::pair<int, int>, PairHash>& 
+        GetRoomCells(const std::string& roomId);
+    
+    // Room detection (from enclosed areas)
+    struct DetectedRoom {
+        std::unordered_set<std::pair<int, int>, PairHash> cells;
+        Rect boundingBox;
+        bool isEnclosed;
+    };
+    DetectedRoom DetectEnclosedRoom(int x, int y);  // Detect room at cell
+    std::vector<DetectedRoom> DetectAllEnclosedRooms();  // Detect all
+    Room CreateRoomFromCells(
+        const std::unordered_set<std::pair<int, int>, PairHash>& cells,
+        const std::string& name = ""
+    );
+    
+    // Room wall generation
+    void GenerateRoomPerimeterWalls(const std::string& roomId);
+    void GenerateRoomPerimeterWalls(
+        const std::unordered_set<std::pair<int, int>, PairHash>& cells
+    );
+    
+    // Room connection detection (via doors)
+    void UpdateRoomConnections();           // Update all room connections
+    void UpdateRoomConnections(const std::string& roomId);  // Update one
+    void InvalidateRoomConnections();       // Mark all as needing recompute
+    
+    // Color generation for rooms
+    Color GenerateDistinctRoomColor() const;  // Generate distinct color
     
     // Initialize defaults
     void InitDefaults();
