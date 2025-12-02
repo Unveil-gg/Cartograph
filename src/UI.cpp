@@ -1810,8 +1810,15 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
     static std::string draggedRoomId = "";
     static std::string dragTargetRegionId = "";
     
+    // Calculate dynamic height: reserve space for properties section
+    // -50 for overlays toggle, -350 for properties section (dynamic based on selection)
+    float hierarchyHeight = -400.0f;
+    if (!m_canvasPanel.selectedRoomId.empty() || !m_canvasPanel.selectedRegionGroupId.empty()) {
+        hierarchyHeight = -450.0f;  // More space when properties visible
+    }
+    
     // Begin child region for scrollable hierarchy
-    ImGui::BeginChild("HierarchyList", ImVec2(0, 0), false);
+    ImGui::BeginChild("HierarchyList", ImVec2(0, hierarchyHeight), true);
     
     // Context menu on empty space for creating new items
     if (ImGui::BeginPopupContextWindow("HierarchyContextMenu")) {
@@ -2149,29 +2156,30 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
         ImGui::TextDisabled("Right-click to create");
     }
     
-    ImGui::EndChild();
+    ImGui::EndChild();  // End HierarchyList
     
     // Toggle room overlays
     ImGui::Spacing();
-    ImGui::Separator();
-    ImGui::Spacing();
-    
     ImGui::Checkbox("Show Room Overlays", &m_canvasPanel.showRoomOverlays);
-    
-    ImGui::Spacing();
-    ImGui::Separator();
     ImGui::Spacing();
     
     // ========================================================================
     // PROPERTIES SECTION (for selected room/region)
     // ========================================================================
     
+    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.4f, 0.4f, 0.4f, 1.0f));
+    ImGui::BeginChild("PropertiesDetail", ImVec2(0, 0), true);
+    ImGui::PopStyleColor();
+    
     // Selected room details
     if (!m_canvasPanel.selectedRoomId.empty()) {
         Room* room = model.FindRoom(m_canvasPanel.selectedRoomId);
         if (room) {
-            if (ImGui::CollapsingHeader("Selected Room", 
-                                      ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::TextColored(ImVec4(0.7f, 0.9f, 1.0f, 1.0f), "ROOM PROPERTIES");
+            ImGui::Separator();
+            ImGui::Spacing();
+            
+            {
                 // Room name
                 char nameBuf[256];
                 strncpy(nameBuf, room->name.c_str(), sizeof(nameBuf) - 1);
@@ -2402,7 +2410,13 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
                 ImGui::PopStyleColor(3);
             }
         }
+    } else if (m_canvasPanel.selectedRegionGroupId.empty()) {
+        // No selection
+        ImGui::TextDisabled("No room or region selected");
+        ImGui::TextDisabled("Select an item from the hierarchy above");
     }
+    
+    ImGui::EndChild();  // End PropertiesDetail
     
     // New room dialog
     if (m_modals.showNewRoomDialog) {
