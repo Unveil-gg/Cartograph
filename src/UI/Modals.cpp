@@ -43,6 +43,7 @@ void Modals::RenderAll(
     if (showAutosaveRecoveryModal) RenderAutosaveRecoveryModal(app, model);
     if (showLoadingModal) RenderLoadingModal(app, model, jobs, icons);
     if (showQuitConfirmationModal) RenderQuitConfirmationModal(app, model);
+    if (showSaveBeforeActionModal) RenderSaveBeforeActionModal(app, model);
     if (showAboutModal) RenderAboutModal();
 }
 
@@ -2051,6 +2052,117 @@ void Modals::ShowNewProjectFolderPicker() {
         // Allow multiple folders
         false
     );
+}
+
+void Modals::RenderSaveBeforeActionModal(App& app, Model& model) {
+    const char* actionName = "";
+    switch (pendingAction) {
+        case PendingAction::NewProject:
+            actionName = "creating a new project";
+            break;
+        case PendingAction::OpenProject:
+            actionName = "opening a project";
+            break;
+        default:
+            actionName = "continuing";
+            break;
+    }
+    
+    ImGui::SetNextWindowSize(ImVec2(480, 200), ImGuiCond_Always);
+    ImGui::OpenPopup("Unsaved Changes");
+    
+    ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    
+    if (ImGui::BeginPopupModal("Unsaved Changes", nullptr,
+                               ImGuiWindowFlags_AlwaysAutoResize | 
+                               ImGuiWindowFlags_NoMove)) {
+        ImGui::TextColored(ImVec4(1.0f, 0.7f, 0.3f, 1.0f), 
+                          "Warning: Unsaved Changes");
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        ImGui::TextWrapped(
+            "You have unsaved changes. Do you want to save your work "
+            "before %s?", actionName);
+        ImGui::Spacing();
+        
+        // Show current project name if available
+        if (!app.GetCurrentFilePath().empty()) {
+            // Extract filename from path
+            std::string filename = app.GetCurrentFilePath();
+            size_t lastSlash = filename.find_last_of("/\\");
+            if (lastSlash != std::string::npos) {
+                filename = filename.substr(lastSlash + 1);
+            }
+            ImGui::TextDisabled("Current project: %s", filename.c_str());
+        } else {
+            ImGui::TextDisabled("Current project: Untitled");
+        }
+        
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        float buttonWidth = 120.0f;
+        
+        // Cancel button (leftmost, secondary action)
+        if (ImGui::Button("Cancel", ImVec2(buttonWidth, 0))) {
+            showSaveBeforeActionModal = false;
+            pendingAction = PendingAction::None;
+            ImGui::CloseCurrentPopup();
+        }
+        
+        ImGui::SameLine(0, 10);
+        
+        // Don't Save button
+        if (ImGui::Button("Don't Save", ImVec2(buttonWidth, 0))) {
+            showSaveBeforeActionModal = false;
+            ImGui::CloseCurrentPopup();
+            
+            // Execute the pending action without saving
+            if (pendingAction == PendingAction::NewProject) {
+                app.ShowNewProjectDialog();
+            } else if (pendingAction == PendingAction::OpenProject) {
+                app.ShowOpenProjectDialog();
+            }
+            
+            pendingAction = PendingAction::None;
+        }
+        
+        ImGui::SameLine(0, 10);
+        
+        // Save button (rightmost, primary action)
+        ImGui::PushStyleColor(ImGuiCol_Button, 
+                             ImVec4(0.2f, 0.6f, 0.9f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, 
+                             ImVec4(0.3f, 0.7f, 1.0f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, 
+                             ImVec4(0.15f, 0.5f, 0.8f, 1.0f));
+        
+        if (ImGui::Button("Save", ImVec2(buttonWidth, 0))) {
+            showSaveBeforeActionModal = false;
+            ImGui::CloseCurrentPopup();
+            
+            // Save then execute the pending action
+            app.SaveProject();
+            
+            // Only proceed if save succeeded (model should be clean now)
+            if (!model.dirty) {
+                if (pendingAction == PendingAction::NewProject) {
+                    app.ShowNewProjectDialog();
+                } else if (pendingAction == PendingAction::OpenProject) {
+                    app.ShowOpenProjectDialog();
+                }
+            }
+            
+            pendingAction = PendingAction::None;
+        }
+        
+        ImGui::PopStyleColor(3);
+        
+        ImGui::EndPopup();
+    }
 }
 
 void Modals::RenderAboutModal() {

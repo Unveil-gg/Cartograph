@@ -240,12 +240,24 @@ void UI::AddConsoleMessage(const std::string& message, MessageType type) {
 
 void UI::InitializeMenuCallbacks(App& app) {
     // File menu callbacks
-    m_nativeMenu->SetCallback("file.new", [&app]() {
-        app.ShowNewProjectDialog();
+    m_nativeMenu->SetCallback("file.new", [this, &app]() {
+        // Check for unsaved changes before creating new project
+        if (app.GetModel().dirty) {
+            m_modals.pendingAction = Modals::PendingAction::NewProject;
+            m_modals.showSaveBeforeActionModal = true;
+        } else {
+            app.ShowNewProjectDialog();
+        }
     });
     
-    m_nativeMenu->SetCallback("file.open", [&app]() {
-        app.ShowOpenProjectDialog();
+    m_nativeMenu->SetCallback("file.open", [this, &app]() {
+        // Check for unsaved changes before opening project
+        if (app.GetModel().dirty) {
+            m_modals.pendingAction = Modals::PendingAction::OpenProject;
+            m_modals.showSaveBeforeActionModal = true;
+        } else {
+            app.ShowOpenProjectDialog();
+        }
     });
     
     m_nativeMenu->SetCallback("file.save", [&app]() {

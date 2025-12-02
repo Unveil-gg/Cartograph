@@ -99,6 +99,13 @@ public:
     const Model& GetModel() const { return m_model; }
     
     /**
+     * Get current file path (empty if untitled).
+     */
+    const std::string& GetCurrentFilePath() const { 
+        return m_currentFilePath; 
+    }
+    
+    /**
      * Check if a file is currently being dragged over the window.
      */
     bool IsDragging() const { return m_isDragging; }

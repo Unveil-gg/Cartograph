@@ -104,6 +104,7 @@ public:
     bool showQuitConfirmationModal = false;
     bool showNewRoomDialog = false;
     bool showAboutModal = false;
+    bool showSaveBeforeActionModal = false;
     
     // Export modal state
     ExportOptions exportOptions;
@@ -147,6 +148,14 @@ public:
     char newRoomName[64] = "New Room";
     float newRoomColor[3] = {1.0f, 0.5f, 0.5f};
     
+    // Save before action modal state
+    enum class PendingAction {
+        None,
+        NewProject,
+        OpenProject
+    };
+    PendingAction pendingAction = PendingAction::None;
+    
     // Public helpers (called from UI)
     void UpdateNewProjectPath();
     void ShowNewProjectFolderPicker();
@@ -168,6 +177,7 @@ private:
     void RenderLoadingModal(App& app, Model& model, JobQueue& jobs, 
                            IconManager& icons);
     void RenderQuitConfirmationModal(App& app, Model& model);
+    void RenderSaveBeforeActionModal(App& app, Model& model);
     void RenderAboutModal();
     void ApplyTemplate(ProjectTemplate tmpl);
     
