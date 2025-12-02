@@ -2410,8 +2410,201 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
                 ImGui::PopStyleColor(3);
             }
         }
-    } else if (m_canvasPanel.selectedRegionGroupId.empty()) {
-        // No selection
+    }
+    
+    // Selected region details
+    if (!m_canvasPanel.selectedRegionGroupId.empty()) {
+        RegionGroup* region = model.FindRegionGroup(m_canvasPanel.selectedRegionGroupId);
+        if (region) {
+            ImGui::TextColored(ImVec4(0.9f, 0.8f, 0.5f, 1.0f), "REGION PROPERTIES");
+            ImGui::Separator();
+            ImGui::Spacing();
+            
+            {
+                // Region name
+                char nameBuf[256];
+                strncpy(nameBuf, region->name.c_str(), sizeof(nameBuf) - 1);
+                nameBuf[sizeof(nameBuf) - 1] = '\0';
+                if (ImGui::InputText("Name", nameBuf, sizeof(nameBuf))) {
+                    region->name = nameBuf;
+                    model.MarkDirty();
+                }
+                
+                // Region description
+                ImGui::Spacing();
+                ImGui::Text("Description:");
+                char descBuf[1024];
+                strncpy(descBuf, region->description.c_str(), sizeof(descBuf) - 1);
+                descBuf[sizeof(descBuf) - 1] = '\0';
+                if (ImGui::InputTextMultiline("##regionDescription", descBuf, 
+                                             sizeof(descBuf), 
+                                             ImVec2(-1, 80))) {
+                    region->description = descBuf;
+                    model.MarkDirty();
+                }
+                
+                // Tags
+                ImGui::Spacing();
+                ImGui::Text("Tags:");
+                
+                // Display existing tags as chips
+                bool tagRemoved = false;
+                std::string tagToRemove;
+                for (const auto& tag : region->tags) {
+                    ImGui::PushID(tag.c_str());
+                    
+                    // Tag chip with X button
+                    ImVec4 chipColor(0.3f, 0.5f, 0.8f, 1.0f);
+                    ImGui::PushStyleColor(ImGuiCol_Button, chipColor);
+                    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, 
+                        ImVec4(0.4f, 0.6f, 0.9f, 1.0f));
+                    ImGui::PushStyleColor(ImGuiCol_ButtonActive, 
+                        ImVec4(0.2f, 0.4f, 0.7f, 1.0f));
+                    
+                    std::string chipLabel = tag + " X";
+                    if (ImGui::SmallButton(chipLabel.c_str())) {
+                        tagToRemove = tag;
+                        tagRemoved = true;
+                    }
+                    
+                    ImGui::PopStyleColor(3);
+                    ImGui::SameLine();
+                    ImGui::PopID();
+                }
+                
+                if (tagRemoved) {
+                    region->tags.erase(
+                        std::remove(region->tags.begin(), region->tags.end(), tagToRemove),
+                        region->tags.end()
+                    );
+                    model.MarkDirty();
+                }
+                
+                // If tags exist, add newline; otherwise keep tight
+                if (!region->tags.empty()) {
+                    ImGui::NewLine();
+                }
+                
+                // Add new tag (inline layout)
+                static char newRegionTagBuf[64] = "";
+                ImGui::SetNextItemWidth(-70);
+                bool enterPressed = ImGui::InputTextWithHint(
+                    "##newregiontag", "Add tag...", newRegionTagBuf, sizeof(newRegionTagBuf),
+                    ImGuiInputTextFlags_EnterReturnsTrue
+                );
+                
+                ImGui::SameLine();
+                bool addClicked = ImGui::Button("Add");
+                
+                if ((enterPressed || addClicked) && strlen(newRegionTagBuf) > 0) {
+                    std::string newTag(newRegionTagBuf);
+                    // Check if tag already exists
+                    if (std::find(region->tags.begin(), region->tags.end(), newTag) == 
+                        region->tags.end()) {
+                        region->tags.push_back(newTag);
+                        model.MarkDirty();
+                    }
+                    newRegionTagBuf[0] = '\0';  // Clear input
+                }
+                
+                // Rooms in this region
+                ImGui::Spacing();
+                ImGui::Separator();
+                ImGui::Spacing();
+                
+                ImGui::Text("Rooms in Region:");
+                
+                // Count and list rooms
+                std::vector<Room*> roomsInRegion;
+                for (auto& room : model.rooms) {
+                    if (room.parentRegionGroupId == region->id) {
+                        roomsInRegion.push_back(&room);
+                    }
+                }
+                
+                if (roomsInRegion.empty()) {
+                    ImGui::Indent();
+                    ImGui::TextDisabled("No rooms in this region");
+                    ImGui::Unindent();
+                } else {
+                    ImGui::Indent();
+                    ImGui::Text("Count: %zu", roomsInRegion.size());
+                    ImGui::Spacing();
+                    
+                    for (Room* room : roomsInRegion) {
+                        ImGui::PushID(room->id.c_str());
+                        
+                        // Make entire row clickable with hover effect
+                        ImGui::PushStyleVar(ImGuiStyleVar_SelectableTextAlign,
+                                          ImVec2(0.0f, 0.5f));
+                        
+                        // Show color indicator
+                        ImVec4 roomColor = room->color.ToImVec4();
+                        ImGui::ColorButton("##roomColor", roomColor,
+                                         ImGuiColorEditFlags_NoTooltip |
+                                         ImGuiColorEditFlags_NoPicker,
+                                         ImVec2(12, 12));
+                        ImGui::SameLine();
+                        
+                        // Clickable room name (navigate to room)
+                        if (ImGui::Selectable(room->name.c_str(),
+                                             false,
+                                             ImGuiSelectableFlags_None)) {
+                            m_canvasPanel.selectedRoomId = room->id;
+                            m_canvasPanel.selectedRegionGroupId = "";  // Switch to room
+                            
+                            // Navigate camera to room
+                            auto cells = model.GetRoomCells(room->id);
+                            if (!cells.empty()) {
+                                int minX = INT_MAX, minY = INT_MAX;
+                                int maxX = INT_MIN, maxY = INT_MIN;
+                                for (const auto& cell : cells) {
+                                    minX = std::min(minX, cell.first);
+                                    maxX = std::max(maxX, cell.first);
+                                    minY = std::min(minY, cell.second);
+                                    maxY = std::max(maxY, cell.second);
+                                }
+                                int centerX = (minX + maxX) / 2;
+                                int centerY = (minY + maxY) / 2;
+                                canvas.FocusOnTile(centerX, centerY, 
+                                                 model.grid.tileWidth, 
+                                                 model.grid.tileHeight);
+                            }
+                        }
+                        
+                        // Show hand cursor on hover
+                        if (ImGui::IsItemHovered()) {
+                            ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+                        }
+                        
+                        ImGui::PopStyleVar();
+                        ImGui::PopID();
+                    }
+                    ImGui::Unindent();
+                }
+                
+                // Delete region button
+                ImGui::Spacing();
+                ImGui::Separator();
+                ImGui::Spacing();
+                
+                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.2f, 0.2f, 1.0f));
+                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.9f, 0.3f, 0.3f, 1.0f));
+                ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.7f, 0.1f, 0.1f, 1.0f));
+                
+                if (ImGui::Button("Delete Region", ImVec2(-1, 0))) {
+                    // Confirm deletion
+                    m_modals.editingRegionId = region->id;
+                    m_modals.showDeleteRegionDialog = true;
+                }
+                
+                ImGui::PopStyleColor(3);
+            }
+        }
+    }
+    
+    // Show message if nothing selected
+    if (m_canvasPanel.selectedRoomId.empty() && m_canvasPanel.selectedRegionGroupId.empty()) {
         ImGui::TextDisabled("No room or region selected");
         ImGui::TextDisabled("Select an item from the hierarchy above");
     }
