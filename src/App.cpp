@@ -102,6 +102,9 @@ bool App::Init(const std::string& title, int width, int height) {
     // Setup UI (dockspace will be set up when entering editor)
     m_ui.SetupDockspace();
     
+    // Initialize native menu (must be after SDL_Init)
+    m_ui.InitializeNativeMenu();
+    
     // Start background job queue
     m_jobs.Start();
     

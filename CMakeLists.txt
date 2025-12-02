@@ -47,12 +47,15 @@ set(CARTOGRAPH_SOURCES
     src/platform/Paths.cpp
     src/platform/Time.cpp
     src/platform/System.cpp
+    src/platform/NativeMenu.cpp
+    src/platform/NativeMenu_imgui.cpp
 )
 
 # Platform-specific sources
 if(APPLE)
     list(APPEND CARTOGRAPH_SOURCES
         src/platform/Fs_macos.mm
+        src/platform/NativeMenu_macos.mm
     )
 endif()
 
@@ -79,6 +82,9 @@ set(CARTOGRAPH_HEADERS
     src/platform/Paths.h
     src/platform/Time.h
     src/platform/System.h
+    src/platform/NativeMenu.h
+    src/platform/NativeMenu_imgui.h
+    src/platform/NativeMenu_macos.h
 )
 
 # Executable

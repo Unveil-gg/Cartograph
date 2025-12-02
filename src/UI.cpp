@@ -12,6 +12,8 @@
 #include "platform/Fs.h"
 #include "platform/Time.h"
 #include "platform/System.h"
+#include "platform/NativeMenu.h"
+#include "platform/NativeMenu_imgui.h"
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <SDL3/SDL_dialog.h>
@@ -51,10 +53,19 @@ UI::UI() : m_modals(*this), m_welcomeScreen(*this) {
     // Connect canvas panel to UI state for shared members
     m_canvasPanel.showPropertiesPanel = &showPropertiesPanel;
     m_canvasPanel.layoutInitialized = &m_layoutInitialized;
+    
+    // Create platform-specific native menu (but don't initialize yet)
+    m_nativeMenu = CreateNativeMenu();
 }
 
 UI::~UI() {
     m_welcomeScreen.UnloadThumbnailTextures();
+}
+
+void UI::InitializeNativeMenu() {
+    if (m_nativeMenu) {
+        m_nativeMenu->Initialize();
+    }
 }
 
 void UI::SetupDockspace() {
@@ -72,8 +83,34 @@ void UI::Render(
     KeymapManager& keymap,
     float deltaTime
 ) {
-    // Render menu bar outside dockspace (ensures it's on top)
-    RenderMenuBar(app, model, canvas, history, icons, jobs);
+    // Initialize menu callbacks once
+    static bool menuCallbacksInitialized = false;
+    if (!menuCallbacksInitialized) {
+        InitializeMenuCallbacks(app);
+        menuCallbacksInitialized = true;
+    }
+    
+    // Set callbacks that need icons/jobs reference
+    m_nativeMenu->SetCallback("assets.import_icon", 
+        [this, &icons, &jobs]() {
+            ImportIcon(icons, jobs);
+        }
+    );
+    
+    // Update and render menu (native on macOS, ImGui on Windows/Linux)
+    m_nativeMenu->Update(app, model, canvas, history, icons, jobs);
+    
+    // For ImGui menus, we need to pass the showPropertiesPanel pointer
+    // This is a bit of a hack but necessary for the ImGui implementation
+    if (!m_nativeMenu->IsNative()) {
+        NativeMenuImGui* imguiMenu = 
+            dynamic_cast<NativeMenuImGui*>(m_nativeMenu.get());
+        if (imguiMenu) {
+            imguiMenu->SetShowPropertiesPanel(&showPropertiesPanel);
+        }
+    }
+    
+    m_nativeMenu->Render();
     
     // Global keyboard shortcuts (work even when menus are closed)
     if (!ImGui::GetIO().WantCaptureKeyboard) {
@@ -199,6 +236,70 @@ void UI::AddConsoleMessage(const std::string& message, MessageType type) {
     if (m_consoleMessages.size() > MAX_CONSOLE_MESSAGES) {
         m_consoleMessages.erase(m_consoleMessages.begin());
     }
+}
+
+void UI::InitializeMenuCallbacks(App& app) {
+    // File menu callbacks
+    m_nativeMenu->SetCallback("file.new", [&app]() {
+        app.ShowNewProjectDialog();
+    });
+    
+    m_nativeMenu->SetCallback("file.open", [&app]() {
+        app.ShowOpenProjectDialog();
+    });
+    
+    m_nativeMenu->SetCallback("file.save", [&app]() {
+        app.SaveProject();
+    });
+    
+    m_nativeMenu->SetCallback("file.save_as", [this, &app]() {
+        ShowSaveProjectDialog(app);
+    });
+    
+    m_nativeMenu->SetCallback("file.export_package", [this, &app]() {
+        ShowExportPackageDialog(app);
+    });
+    
+    m_nativeMenu->SetCallback("file.export_png", [this]() {
+        m_modals.showExportModal = true;
+    });
+    
+    m_nativeMenu->SetCallback("file.quit", [&app]() {
+        app.RequestQuit();
+    });
+    
+    // Edit menu callbacks
+    // Note: undo/redo/zoom callbacks are set dynamically in Update()
+    // because they need access to model/history/canvas
+    
+    m_nativeMenu->SetCallback("edit.settings", [this]() {
+        m_modals.showSettingsModal = true;
+    });
+    
+    // View menu callbacks
+    m_nativeMenu->SetCallback("view.properties", [this]() {
+        showPropertiesPanel = !showPropertiesPanel;
+        m_layoutInitialized = false;
+    });
+    
+    // Assets menu callback - set dynamically in Render since it needs 
+    // icons/jobs refs
+    
+    // Help menu callbacks
+    m_nativeMenu->SetCallback("help.about", [this]() {
+        m_modals.showAboutModal = true;
+    });
+    
+    m_nativeMenu->SetCallback("help.license", []() {
+        std::string licensePath = Platform::GetAssetsDir() + "../LICENSE";
+        Platform::OpenURL("file://" + licensePath);
+    });
+    
+    m_nativeMenu->SetCallback("help.report_bug", []() {
+        Platform::OpenURL(
+            "https://github.com/Unveil-gg/Cartograph/issues/new"
+        );
+    });
 }
 
 void UI::RenderMenuBar(

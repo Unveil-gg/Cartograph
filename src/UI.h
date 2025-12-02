@@ -27,6 +27,7 @@ class IconManager;
 class App;
 class JobQueue;
 class KeymapManager;
+class INativeMenu;
 
 /**
  * Console message type.
@@ -74,6 +75,12 @@ public:
      * Setup ImGui docking layout (call once at startup).
      */
     void SetupDockspace();
+    
+    /**
+     * Initialize the native menu system.
+     * Must be called after SDL initialization.
+     */
+    void InitializeNativeMenu();
     
     /**
      * Render all UI panels (editor mode).
@@ -176,6 +183,9 @@ public:
     // Welcome screen (project selection and management)
     WelcomeScreen m_welcomeScreen;
     
+    // Native menu system (platform-specific)
+    std::unique_ptr<INativeMenu> m_nativeMenu;
+    
 private:
     void RenderMenuBar(
         App& app,
@@ -185,6 +195,8 @@ private:
         IconManager& icons,
         JobQueue& jobs
     );
+    
+    void InitializeMenuCallbacks(App& app);
     void RenderPalettePanel(Model& model);
     void RenderToolsPanel(Model& model, History& history, IconManager& icons, 
                          JobQueue& jobs);
