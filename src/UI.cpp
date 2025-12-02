@@ -1961,53 +1961,10 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs)
         ImGuiWindowFlags_NoMove | 
         ImGuiWindowFlags_NoCollapse;
     
-    ImGui::Begin("Cartograph/Inspector", nullptr, flags);
+    ImGui::Begin("Cartograph/Properties", nullptr, flags);
     
-    ImGui::Text("Inspector");
+    ImGui::Text("Properties");
     ImGui::Separator();
-    
-    // Rooms management
-    if (ImGui::CollapsingHeader("Rooms", ImGuiTreeNodeFlags_DefaultOpen)) {
-        // Room overlay toggle
-        if (ImGui::Checkbox("Show Overlays", &m_canvasPanel.showRoomOverlays)) {
-            // Visual change only, no model change
-        }
-        
-        // New room button
-        if (ImGui::Button("Create Room")) {
-            m_modals.showNewRoomDialog = true;
-        }
-        
-        ImGui::Separator();
-        
-        // List existing rooms
-        if (model.rooms.empty()) {
-            ImGui::TextDisabled("No rooms created yet");
-        } else {
-            for (auto& room : model.rooms) {
-                bool isSelected = (m_canvasPanel.selectedRoomId == room.id);
-                ImGuiTreeNodeFlags nodeFlags = 
-                    ImGuiTreeNodeFlags_Leaf |
-                    ImGuiTreeNodeFlags_NoTreePushOnOpen |
-                    (isSelected ? ImGuiTreeNodeFlags_Selected : 0);
-                
-                // Color indicator
-                ImVec4 roomColor(room.color.r, room.color.g, 
-                                room.color.b, room.color.a);
-                ImGui::ColorButton("##colorIndicator", roomColor, 
-                                  ImGuiColorEditFlags_NoTooltip, 
-                                  ImVec2(16, 16));
-                ImGui::SameLine();
-                
-                // Room name (selectable)
-                ImGui::TreeNodeEx(room.name.c_str(), nodeFlags);
-                if (ImGui::IsItemClicked()) {
-                    m_canvasPanel.selectedRoomId = room.id;
-                    m_canvasPanel.roomPaintMode = false;  // Reset paint mode on select
-                }
-            }
-        }
-    }
     
     ImGui::Spacing();
     
@@ -2036,15 +1993,161 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs)
                     model.MarkDirty();
                 }
                 
-                // Room notes
+                // Room notes (renamed to Description for consistency)
                 char notesBuf[1024];
                 strncpy(notesBuf, room->notes.c_str(), sizeof(notesBuf) - 1);
-                if (ImGui::InputTextMultiline("Notes", notesBuf, 
+                if (ImGui::InputTextMultiline("Description", notesBuf, 
                                              sizeof(notesBuf), 
                                              ImVec2(-1, 80))) {
                     room->notes = notesBuf;
                     model.MarkDirty();
                 }
+                
+                // Tags
+                ImGui::Spacing();
+                ImGui::Text("Tags:");
+                
+                // Display existing tags as chips
+                bool tagRemoved = false;
+                std::string tagToRemove;
+                for (const auto& tag : room->tags) {
+                    ImGui::PushID(tag.c_str());
+                    
+                    // Tag chip with X button
+                    ImVec4 chipColor(0.3f, 0.5f, 0.8f, 1.0f);
+                    ImGui::PushStyleColor(ImGuiCol_Button, chipColor);
+                    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, 
+                        ImVec4(0.4f, 0.6f, 0.9f, 1.0f));
+                    ImGui::PushStyleColor(ImGuiCol_ButtonActive, 
+                        ImVec4(0.2f, 0.4f, 0.7f, 1.0f));
+                    
+                    std::string chipLabel = tag + " X";
+                    if (ImGui::SmallButton(chipLabel.c_str())) {
+                        tagToRemove = tag;
+                        tagRemoved = true;
+                    }
+                    
+                    ImGui::PopStyleColor(3);
+                    ImGui::SameLine();
+                    ImGui::PopID();
+                }
+                
+                if (tagRemoved) {
+                    room->tags.erase(
+                        std::remove(room->tags.begin(), room->tags.end(), tagToRemove),
+                        room->tags.end()
+                    );
+                    model.MarkDirty();
+                }
+                
+                ImGui::NewLine();
+                
+                // Add new tag
+                static char newTagBuf[64] = "";
+                ImGui::SetNextItemWidth(-80);
+                bool enterPressed = ImGui::InputTextWithHint(
+                    "##newtag", "Add tag...", newTagBuf, sizeof(newTagBuf),
+                    ImGuiInputTextFlags_EnterReturnsTrue
+                );
+                
+                ImGui::SameLine();
+                bool addClicked = ImGui::Button("Add Tag");
+                
+                if ((enterPressed || addClicked) && strlen(newTagBuf) > 0) {
+                    std::string newTag(newTagBuf);
+                    // Check if tag already exists
+                    if (std::find(room->tags.begin(), room->tags.end(), newTag) == 
+                        room->tags.end()) {
+                        room->tags.push_back(newTag);
+                        model.MarkDirty();
+                    }
+                    newTagBuf[0] = '\0';  // Clear input
+                }
+                
+                // Cell count (read-only)
+                ImGui::Spacing();
+                ImGui::Separator();
+                ImGui::Spacing();
+                
+                const auto& cells = model.GetRoomCells(room->id);
+                ImGui::Text("Cell Count: %zu", cells.size());
+                
+                // Calculate bounding box
+                if (!cells.empty()) {
+                    int minX = INT_MAX, minY = INT_MAX;
+                    int maxX = INT_MIN, maxY = INT_MIN;
+                    for (const auto& cell : cells) {
+                        minX = std::min(minX, cell.first);
+                        minY = std::min(minY, cell.second);
+                        maxX = std::max(maxX, cell.first);
+                        maxY = std::max(maxY, cell.second);
+                    }
+                    int width = maxX - minX + 1;
+                    int height = maxY - minY + 1;
+                    ImGui::Text("Dimensions: %d x %d", width, height);
+                }
+                
+                // Connected rooms (via doors)
+                ImGui::Spacing();
+                ImGui::Separator();
+                ImGui::Spacing();
+                
+                ImGui::Text("Connected Rooms:");
+                
+                // Update connections if dirty
+                if (room->connectionsDirty) {
+                    model.UpdateRoomConnections(room->id);
+                }
+                
+                if (room->connectedRoomIds.empty()) {
+                    ImGui::Indent();
+                    ImGui::TextDisabled("No connections");
+                    ImGui::Unindent();
+                } else {
+                    ImGui::Indent();
+                    for (const auto& connectedId : room->connectedRoomIds) {
+                        Room* connectedRoom = model.FindRoom(connectedId);
+                        if (connectedRoom) {
+                            // Show color indicator
+                            ImVec4 connColor = connectedRoom->color.ToImVec4();
+                            ImGui::ColorButton("##connColor", connColor,
+                                             ImGuiColorEditFlags_NoTooltip,
+                                             ImVec2(12, 12));
+                            ImGui::SameLine();
+                            
+                            // Room name
+                            ImGui::Text("%s", connectedRoom->name.c_str());
+                            ImGui::SameLine();
+                            
+                            // Jump button
+                            ImGui::PushID(connectedId.c_str());
+                            if (ImGui::SmallButton("Jump")) {
+                                m_canvasPanel.selectedRoomId = connectedId;
+                                m_canvasPanel.activeRoomId = connectedId;
+                                // TODO: Center camera on room
+                            }
+                            ImGui::PopID();
+                        }
+                    }
+                    ImGui::Unindent();
+                }
+                
+                // Delete room button
+                ImGui::Spacing();
+                ImGui::Separator();
+                ImGui::Spacing();
+                
+                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.2f, 0.2f, 1.0f));
+                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.9f, 0.3f, 0.3f, 1.0f));
+                ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.7f, 0.1f, 0.1f, 1.0f));
+                
+                if (ImGui::Button("Delete Room", ImVec2(-1, 0))) {
+                    // Confirm deletion
+                    m_modals.editingRoomId = room->id;
+                    m_modals.showDeleteRoomDialog = true;
+                }
+                
+                ImGui::PopStyleColor(3);
                 
                 ImGui::Separator();
                 

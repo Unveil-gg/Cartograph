@@ -825,12 +825,19 @@ void Model::InitDefaultKeymap() {
     keymap["toolErase"] = "E";
     keymap["toolFill"] = "F";
     keymap["toolEyedropper"] = "I";
+    keymap["toolRoomPaint"] = "Shift+R";
+    keymap["toolRoomErase"] = "Shift+E";
+    keymap["toolRoomFill"] = "Shift+F";
     
     // View
     keymap["pan"] = "Space+Drag";
     keymap["zoomIn"] = "=";
     keymap["zoomOut"] = "-";
     keymap["toggleGrid"] = "G";
+    keymap["toggleRoomOverlays"] = "O";
+    
+    // Room actions
+    keymap["detectRooms"] = "Shift+D";
     
     // Platform-specific shortcuts (File/Edit)
 #ifdef __APPLE__
