@@ -117,7 +117,7 @@ bool App::Init(const std::string& title, int width, int height) {
     Platform::EnsureDirectoryExists(userDataDir);
     
     // Load recent projects for welcome screen
-    m_ui.LoadRecentProjects();
+    m_ui.m_welcomeScreen.LoadRecentProjects();
     
     // Check for autosave recovery
     CheckAutosaveRecovery();
@@ -190,14 +190,14 @@ void App::ShowWelcomeScreen() {
     m_appState = AppState::Welcome;
     
     // Load recent projects list
-    m_ui.LoadRecentProjects();
+    m_ui.m_welcomeScreen.LoadRecentProjects();
 }
 
 void App::ShowEditor() {
     m_appState = AppState::Editor;
     
     // Clean up welcome screen resources
-    m_ui.UnloadThumbnailTextures();
+    m_ui.m_welcomeScreen.UnloadThumbnailTextures();
     
     // Ensure model is initialized if not already
     if (m_model.palette.empty()) {
@@ -291,7 +291,7 @@ void App::Render() {
     
     // Render UI based on state
     if (m_appState == AppState::Welcome) {
-        m_ui.RenderWelcomeScreen(*this, m_model, m_canvas, m_history, m_jobs, m_icons, m_keymap);
+        m_ui.m_welcomeScreen.Render(*this, m_model, m_canvas, m_history, m_jobs, m_icons, m_keymap);
     } else {
         m_ui.Render(*this, *m_renderer, m_model, m_canvas, m_history, 
                     m_icons, m_jobs, m_keymap, 0.016f);
@@ -405,7 +405,7 @@ void App::NewProject(const std::string& savePath) {
         if (success) {
             m_model.ClearDirty();
             UpdateWindowTitle();
-            m_ui.AddRecentProject(savePath);
+            m_ui.m_welcomeScreen.AddRecentProject(savePath);
         } else {
             m_currentFilePath.clear();
         }
@@ -438,7 +438,7 @@ void App::OpenProject(const std::string& path) {
         m_currentFilePath = path;
         m_history.Clear();
         UpdateWindowTitle();
-        m_ui.AddRecentProject(path);
+        m_ui.m_welcomeScreen.AddRecentProject(path);
         
         // Load keymap bindings into keymap manager
         m_keymap.LoadBindings(m_model.keymap);
@@ -499,7 +499,7 @@ void App::SaveProjectAs(const std::string& path) {
         m_model.ClearDirty();
         CleanupAutosave();  // Remove autosave after successful manual save
         UpdateWindowTitle();
-        m_ui.AddRecentProject(path);
+        m_ui.m_welcomeScreen.AddRecentProject(path);
         
         // Extract project name from path for console message
         std::string projectName = std::filesystem::path(path)
@@ -535,7 +535,7 @@ void App::SaveProjectFolder(const std::string& folderPath) {
         m_model.ClearDirty();
         CleanupAutosave();
         UpdateWindowTitle();
-        m_ui.AddRecentProject(folderPath);
+        m_ui.m_welcomeScreen.AddRecentProject(folderPath);
         
         // Extract project name from path
         std::string projectName = std::filesystem::path(folderPath)

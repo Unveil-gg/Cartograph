@@ -1556,7 +1556,7 @@ void Modals::RenderProjectBrowserModal(App& app,
         
         // Load all thumbnails
         for (auto& project : recentProjects) {
-            m_ui.LoadThumbnailTexture(project);
+            m_ui.m_welcomeScreen.LoadThumbnailTexture(project);
         }
         
         // Render projects in a grid (with search filtering)

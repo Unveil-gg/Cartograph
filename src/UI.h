@@ -5,6 +5,7 @@
 #include "History.h"
 #include "UI/CanvasPanel.h"
 #include "UI/Modals.h"
+#include "UI/WelcomeScreen.h"
 #include <string>
 #include <vector>
 #include <atomic>
@@ -61,21 +62,6 @@ struct Toast {
 };
 
 /**
- * Recent project entry.
- */
-struct RecentProject {
-    std::string path;
-    std::string name;
-    std::string lastModified;
-    std::string thumbnailPath;      // Path to thumbnail image file
-    unsigned int thumbnailTextureId; // OpenGL texture ID (0 if not loaded)
-    bool thumbnailLoaded;            // Whether texture has been loaded
-    
-    RecentProject() 
-        : thumbnailTextureId(0), thumbnailLoaded(false) {}
-};
-
-/**
  * UI manager.
  * Handles all ImGui panels and windows.
  */
@@ -112,17 +98,6 @@ public:
         KeymapManager& keymap,
         float deltaTime
     );
-    
-    /**
-     * Render welcome screen.
-     * @param app Application instance
-     * @param model Current model
-     * @param jobs Job queue for async operations
-     * @param icons Icon manager
-     */
-    void RenderWelcomeScreen(App& app, Model& model, Canvas& canvas,
-                            History& history, JobQueue& jobs,
-                            IconManager& icons, KeymapManager& keymap);
     
     /**
      * Show a message in the console.
@@ -178,35 +153,16 @@ public:
                           JobQueue& jobs, IconManager& icons);
     
     /**
-     * Load recent projects from persistent storage.
+     * Render toast messages (called by WelcomeScreen).
+     * @param deltaTime Frame delta time
      */
-    void LoadRecentProjects();
-    
-    /**
-     * Add a project to the recent projects list.
-     * @param path Project file or folder path
-     */
-    void AddRecentProject(const std::string& path);
-    
-    /**
-     * Unload all thumbnail textures (cleanup when leaving welcome screen).
-     */
-    void UnloadThumbnailTextures();
-    
-    /**
-     * Load thumbnail texture for a project (called by Modals).
-     */
-    void LoadThumbnailTexture(RecentProject& project);
+    void RenderToasts(float deltaTime);
     
     // Icon import state
     bool isImportingIcon = false;
     std::string importingIconName;
     std::string droppedFilePath;
     bool hasDroppedFile = false;
-    
-    // Welcome screen state (non-modal components)
-    std::vector<RecentProject> recentProjects;
-    unsigned int placeholderTexture = 0;  // Placeholder texture for missing thumbnails
     
     // Panel visibility
     bool showPropertiesPanel = false;  // Toggleable via View menu
@@ -216,6 +172,9 @@ public:
     
     // Modals manager (contains all modal dialog state and rendering)
     Modals m_modals;
+    
+    // Welcome screen (project selection and management)
+    WelcomeScreen m_welcomeScreen;
     
 private:
     void RenderMenuBar(
@@ -231,7 +190,6 @@ private:
                          JobQueue& jobs);
     void RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs);
     void RenderStatusBar(Model& model, Canvas& canvas);
-    void RenderToasts(float deltaTime);
     
     // Welcome screen components (non-modal)
     void RenderRecentProjectsList(App& app);
