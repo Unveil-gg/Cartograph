@@ -10,6 +10,13 @@
 #include <filesystem>
 #include <algorithm>
 #include <SDL3/SDL.h>
+#include <stb/stb_image.h>
+
+#ifdef __APPLE__
+#include <OpenGL/gl.h>
+#else
+#include <GL/gl.h>
+#endif
 
 namespace Cartograph {
 
@@ -18,6 +25,15 @@ Modals::Modals(UI& ui) : m_ui(ui) {
 }
 
 Modals::~Modals() {
+    // Cleanup logo textures
+    if (cartographLogoTexture != 0) {
+        glDeleteTextures(1, &cartographLogoTexture);
+        cartographLogoTexture = 0;
+    }
+    if (unveilLogoTexture != 0) {
+        glDeleteTextures(1, &unveilLogoTexture);
+        unveilLogoTexture = 0;
+    }
 }
 
 void Modals::RenderAll(
@@ -2563,6 +2579,60 @@ void Modals::RenderAboutModal() {
         aboutModalOpened = true;
     }
     
+    // Load logo textures if not already loaded
+    if (!logosLoaded) {
+        std::string assetsDir = Platform::GetAssetsDir();
+        std::string cartographLogoPath = assetsDir + "project/cartograph-logo.png";
+        std::string unveilLogoPath = assetsDir + "project/unveil-logo.png";
+        
+        // Load Cartograph logo
+        int width, height, channels;
+        unsigned char* data = stbi_load(
+            cartographLogoPath.c_str(),
+            &width, &height, &channels, 4
+        );
+        if (data) {
+            GLuint texId;
+            glGenTextures(1, &texId);
+            glBindTexture(GL_TEXTURE_2D, texId);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 
+                        0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+            glBindTexture(GL_TEXTURE_2D, 0);
+            stbi_image_free(data);
+            cartographLogoTexture = texId;
+            cartographLogoWidth = width;
+            cartographLogoHeight = height;
+        }
+        
+        // Load Unveil logo
+        data = stbi_load(
+            unveilLogoPath.c_str(),
+            &width, &height, &channels, 4
+        );
+        if (data) {
+            GLuint texId;
+            glGenTextures(1, &texId);
+            glBindTexture(GL_TEXTURE_2D, texId);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 
+                        0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+            glBindTexture(GL_TEXTURE_2D, 0);
+            stbi_image_free(data);
+            unveilLogoTexture = texId;
+            unveilLogoWidth = width;
+            unveilLogoHeight = height;
+        }
+        
+        logosLoaded = true;
+    }
+    
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, 
                            ImVec2(0.5f, 0.5f));
@@ -2570,53 +2640,121 @@ void Modals::RenderAboutModal() {
     if (ImGui::BeginPopupModal("About Cartograph", nullptr,
         ImGuiWindowFlags_AlwaysAutoResize)) {
         
-        // Title
-        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8, 12));
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(12, 8));
         
-        // App name and version
-        ImGui::TextColored(ImVec4(0.5f, 0.8f, 1.0f, 1.0f), 
-                          "Cartograph");
-        ImGui::SameLine();
-        ImGui::TextDisabled("v1.0.0");
+        // Set a reasonable fixed width for the modal
+        ImGui::SetNextWindowContentSize(ImVec2(500.0f, 0.0f));
+        
+        // Cartograph logo at top (smaller and centered)
+        if (cartographLogoTexture != 0 && cartographLogoWidth > 0 && 
+            cartographLogoHeight > 0) {
+            // Smaller max size for compact layout
+            float maxSize = 120.0f;
+            float aspectRatio = (float)cartographLogoWidth / 
+                               (float)cartographLogoHeight;
+            float logoWidth, logoHeight;
+            
+            if (aspectRatio >= 1.0f) {
+                logoWidth = maxSize;
+                logoHeight = maxSize / aspectRatio;
+            } else {
+                logoHeight = maxSize;
+                logoWidth = maxSize * aspectRatio;
+            }
+            
+            float availWidth = ImGui::GetContentRegionAvail().x;
+            float cursorX = (availWidth - logoWidth) * 0.5f;
+            if (cursorX > 0) ImGui::SetCursorPosX(ImGui::GetCursorPosX() + cursorX);
+            ImGui::Image((ImTextureID)(intptr_t)cartographLogoTexture, 
+                        ImVec2(logoWidth, logoHeight));
+        }
+        
+        // Version (centered)
+        const char* versionText = "v1.0.0";
+        float textWidth = ImGui::CalcTextSize(versionText).x;
+        float availWidth = ImGui::GetContentRegionAvail().x;
+        float cursorX = (availWidth - textWidth) * 0.5f;
+        if (cursorX > 0) ImGui::SetCursorPosX(ImGui::GetCursorPosX() + cursorX);
+        ImGui::TextDisabled("%s", versionText);
+        
+        ImGui::Spacing();
+        
+        // Description (compact, single line centered)
+        const char* descText = "Metroidvania map editor for game developers";
+        textWidth = ImGui::CalcTextSize(descText).x;
+        availWidth = ImGui::GetContentRegionAvail().x;
+        cursorX = (availWidth - textWidth) * 0.5f;
+        if (cursorX > 0) ImGui::SetCursorPosX(ImGui::GetCursorPosX() + cursorX);
+        ImGui::Text("%s", descText);
         
         ImGui::Spacing();
         ImGui::Separator();
         ImGui::Spacing();
         
-        // Description
-        ImGui::TextWrapped("Metroidvania map editor for game developers.");
-        ImGui::TextWrapped(
-            "Design interconnected worlds with rooms, tiles, "
-            "walls, and custom markers."
-        );
+        // Unveil logo (centered, clickable)
+        if (unveilLogoTexture != 0 && unveilLogoWidth > 0 && 
+            unveilLogoHeight > 0) {
+            float maxSize = 80.0f;
+            float aspectRatio = (float)unveilLogoWidth / 
+                               (float)unveilLogoHeight;
+            float logoWidth, logoHeight;
+            
+            if (aspectRatio >= 1.0f) {
+                logoWidth = maxSize;
+                logoHeight = maxSize / aspectRatio;
+            } else {
+                logoHeight = maxSize;
+                logoWidth = maxSize * aspectRatio;
+            }
+            
+            float availWidth = ImGui::GetContentRegionAvail().x;
+            float cursorX = (availWidth - logoWidth) * 0.5f;
+            if (cursorX > 0) ImGui::SetCursorPosX(ImGui::GetCursorPosX() + cursorX);
+            
+            ImGui::Image((ImTextureID)(intptr_t)unveilLogoTexture, 
+                        ImVec2(logoWidth, logoHeight));
+            
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+            }
+            if (ImGui::IsItemClicked()) {
+                Platform::OpenURL("https://unveilengine.com");
+            }
+        }
+        
+        // "Made by Unveil" text (centered, directly under logo)
+        const char* madeByText = "Made by Unveil";
+        textWidth = ImGui::CalcTextSize(madeByText).x;
+        availWidth = ImGui::GetContentRegionAvail().x;
+        cursorX = (availWidth - textWidth) * 0.5f;
+        if (cursorX > 0) ImGui::SetCursorPosX(ImGui::GetCursorPosX() + cursorX);
+        ImGui::TextDisabled("%s", madeByText);
         
         ImGui::Spacing();
         ImGui::Separator();
         ImGui::Spacing();
         
-        // Links
-        ImGui::Text("Project:");
-        ImGui::SameLine();
-        if (ImGui::Button("GitHub Repository")) {
+        // GitHub button (centered at bottom)
+        float buttonWidth = 150.0f;
+        availWidth = ImGui::GetContentRegionAvail().x;
+        cursorX = (availWidth - buttonWidth) * 0.5f;
+        if (cursorX > 0) ImGui::SetCursorPosX(ImGui::GetCursorPosX() + cursorX);
+        if (ImGui::Button("GitHub Repository", ImVec2(buttonWidth, 0))) {
             Platform::OpenURL(
                 "https://github.com/Unveil-gg/Cartograph"
             );
         }
         
         ImGui::Spacing();
-        ImGui::Separator();
-        ImGui::Spacing();
-        
-        // Credits
-        ImGui::TextDisabled("Created by Unveil");
-        ImGui::TextDisabled("Built with SDL3, ImGui, and OpenGL");
-        
-        ImGui::Spacing();
         
         ImGui::PopStyleVar();
         
-        // Close button
-        if (ImGui::Button("Close", ImVec2(120, 0))) {
+        // Close button (centered)
+        float closeButtonWidth = 100.0f;
+        availWidth = ImGui::GetContentRegionAvail().x;
+        cursorX = (availWidth - closeButtonWidth) * 0.5f;
+        if (cursorX > 0) ImGui::SetCursorPosX(ImGui::GetCursorPosX() + cursorX);
+        if (ImGui::Button("Close", ImVec2(closeButtonWidth, 0))) {
             showAboutModal = false;
             aboutModalOpened = false;
             ImGui::CloseCurrentPopup();

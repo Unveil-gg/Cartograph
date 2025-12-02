@@ -183,6 +183,15 @@ public:
     };
     PendingAction pendingAction = PendingAction::None;
     
+    // About modal logo textures
+    unsigned int cartographLogoTexture = 0;
+    unsigned int unveilLogoTexture = 0;
+    int cartographLogoWidth = 0;
+    int cartographLogoHeight = 0;
+    int unveilLogoWidth = 0;
+    int unveilLogoHeight = 0;
+    bool logosLoaded = false;
+    
     // Public helpers (called from UI)
     void UpdateNewProjectPath();
     void ShowNewProjectFolderPicker();
