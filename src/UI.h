@@ -83,6 +83,24 @@ public:
     void InitializeNativeMenu();
     
     /**
+     * Update menu state every frame (called in both Welcome and Editor).
+     * @param app Application instance
+     * @param model Current model
+     * @param canvas Canvas
+     * @param history History
+     * @param icons Icon manager
+     * @param jobs Job queue for background tasks
+     */
+    void UpdateMenu(
+        App& app,
+        Model& model,
+        Canvas& canvas,
+        History& history,
+        IconManager& icons,
+        JobQueue& jobs
+    );
+    
+    /**
      * Render all UI panels (editor mode).
      * @param app Application instance
      * @param renderer Renderer for drawing canvas

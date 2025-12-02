@@ -94,59 +94,65 @@ void NativeMenuImGui::SetCallback(
 
 void NativeMenuImGui::RenderMenuBar() {
     if (ImGui::BeginMainMenuBar()) {
+        // Check if we're in Editor state (vs Welcome screen)
+        bool isEditor = m_app && (m_app->GetState() == AppState::Editor);
+        
         // File Menu
         if (ImGui::BeginMenu("File")) {
-            // New project
+            // New project (always available)
             std::string newShortcut = Platform::FormatShortcut("N");
             if (ImGui::MenuItem("New Project...", newShortcut.c_str())) {
                 auto it = m_callbacks.find("file.new");
                 if (it != m_callbacks.end()) it->second();
             }
             
-            // Open project
+            // Open project (always available)
             std::string openShortcut = Platform::FormatShortcut("O");
             if (ImGui::MenuItem("Open Project...", openShortcut.c_str())) {
                 auto it = m_callbacks.find("file.open");
                 if (it != m_callbacks.end()) it->second();
             }
             
-            ImGui::Separator();
-            
-            // Save
-            std::string saveShortcut = Platform::FormatShortcut("S");
-            if (ImGui::MenuItem("Save", saveShortcut.c_str())) {
-                auto it = m_callbacks.find("file.save");
-                if (it != m_callbacks.end()) it->second();
+            // Editor-only items
+            if (isEditor) {
+                ImGui::Separator();
+                
+                // Save
+                std::string saveShortcut = Platform::FormatShortcut("S");
+                if (ImGui::MenuItem("Save", saveShortcut.c_str())) {
+                    auto it = m_callbacks.find("file.save");
+                    if (it != m_callbacks.end()) it->second();
+                }
+                
+                // Save As
+                std::string saveAsShortcut = 
+                    Platform::FormatShortcut("Shift+S");
+                if (ImGui::MenuItem("Save As...", saveAsShortcut.c_str())) {
+                    auto it = m_callbacks.find("file.save_as");
+                    if (it != m_callbacks.end()) it->second();
+                }
+                
+                ImGui::Separator();
+                
+                // Export Package
+                std::string exportPkgShortcut = 
+                    Platform::FormatShortcut("Shift+E");
+                if (ImGui::MenuItem("Export Package (.cart)...", 
+                                   exportPkgShortcut.c_str())) {
+                    auto it = m_callbacks.find("file.export_package");
+                    if (it != m_callbacks.end()) it->second();
+                }
+                
+                // Export PNG
+                std::string exportPngShortcut = Platform::FormatShortcut("E");
+                if (ImGui::MenuItem("Export PNG...", 
+                                   exportPngShortcut.c_str())) {
+                    auto it = m_callbacks.find("file.export_png");
+                    if (it != m_callbacks.end()) it->second();
+                }
+                
+                ImGui::Separator();
             }
-            
-            // Save As
-            std::string saveAsShortcut = 
-                Platform::FormatShortcut("Shift+S");
-            if (ImGui::MenuItem("Save As...", saveAsShortcut.c_str())) {
-                auto it = m_callbacks.find("file.save_as");
-                if (it != m_callbacks.end()) it->second();
-            }
-            
-            ImGui::Separator();
-            
-            // Export Package
-            std::string exportPkgShortcut = 
-                Platform::FormatShortcut("Shift+E");
-            if (ImGui::MenuItem("Export Package (.cart)...", 
-                               exportPkgShortcut.c_str())) {
-                auto it = m_callbacks.find("file.export_package");
-                if (it != m_callbacks.end()) it->second();
-            }
-            
-            // Export PNG
-            std::string exportPngShortcut = Platform::FormatShortcut("E");
-            if (ImGui::MenuItem("Export PNG...", 
-                               exportPngShortcut.c_str())) {
-                auto it = m_callbacks.find("file.export_png");
-                if (it != m_callbacks.end()) it->second();
-            }
-            
-            ImGui::Separator();
             
             // Exit (Windows/Linux uses "Exit" instead of "Quit")
 #ifdef _WIN32
@@ -163,8 +169,8 @@ void NativeMenuImGui::RenderMenuBar() {
             ImGui::EndMenu();
         }
         
-        // Edit Menu
-        if (ImGui::BeginMenu("Edit")) {
+        // Edit Menu (only show in Editor)
+        if (isEditor && ImGui::BeginMenu("Edit")) {
             bool canUndo = m_history->CanUndo();
             bool canRedo = m_history->CanRedo();
             
@@ -193,8 +199,8 @@ void NativeMenuImGui::RenderMenuBar() {
             ImGui::EndMenu();
         }
         
-        // View Menu
-        if (ImGui::BeginMenu("View")) {
+        // View Menu (only show in Editor)
+        if (isEditor && ImGui::BeginMenu("View")) {
             std::string propPanelShortcut = Platform::FormatShortcut("P");
             bool showProps = m_showPropertiesPanel ? 
                             *m_showPropertiesPanel : false;
@@ -228,8 +234,8 @@ void NativeMenuImGui::RenderMenuBar() {
             ImGui::EndMenu();
         }
         
-        // Assets Menu
-        if (ImGui::BeginMenu("Assets")) {
+        // Assets Menu (only show in Editor)
+        if (isEditor && ImGui::BeginMenu("Assets")) {
             if (ImGui::MenuItem("Import Icon...")) {
                 auto it = m_callbacks.find("assets.import_icon");
                 if (it != m_callbacks.end()) it->second();

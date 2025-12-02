@@ -72,16 +72,13 @@ void UI::SetupDockspace() {
     // Docking setup happens in first frame of Render()
 }
 
-void UI::Render(
+void UI::UpdateMenu(
     App& app,
-    IRenderer& renderer,
     Model& model,
     Canvas& canvas,
     History& history,
     IconManager& icons,
-    JobQueue& jobs,
-    KeymapManager& keymap,
-    float deltaTime
+    JobQueue& jobs
 ) {
     // Initialize menu callbacks once
     static bool menuCallbacksInitialized = false;
@@ -97,7 +94,7 @@ void UI::Render(
         }
     );
     
-    // Update and render menu (native on macOS, ImGui on Windows/Linux)
+    // Update menu state (native on macOS, ImGui on Windows/Linux)
     m_nativeMenu->Update(app, model, canvas, history, icons, jobs);
     
     // For ImGui menus, we need to pass the showPropertiesPanel pointer
@@ -110,7 +107,23 @@ void UI::Render(
         }
     }
     
+    // Render menu (for ImGui implementations)
     m_nativeMenu->Render();
+}
+
+void UI::Render(
+    App& app,
+    IRenderer& renderer,
+    Model& model,
+    Canvas& canvas,
+    History& history,
+    IconManager& icons,
+    JobQueue& jobs,
+    KeymapManager& keymap,
+    float deltaTime
+) {
+    // Note: Menu update/render moved to UpdateMenu() 
+    // (called from App::Render before state check)
     
     // Global keyboard shortcuts (work even when menus are closed)
     if (!ImGui::GetIO().WantCaptureKeyboard) {

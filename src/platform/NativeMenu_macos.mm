@@ -34,8 +34,15 @@ namespace Cartograph {
 namespace Cartograph {
 
 NativeMenuMacOS::NativeMenuMacOS()
-    : m_undoItem(nullptr)
+    : m_saveItem(nullptr)
+    , m_saveAsItem(nullptr)
+    , m_exportPackageItem(nullptr)
+    , m_exportPngItem(nullptr)
+    , m_settingsItem(nullptr)
+    , m_undoItem(nullptr)
     , m_redoItem(nullptr)
+    , m_viewMenu(nullptr)
+    , m_assetsMenu(nullptr)
     , m_propertiesPanelItem(nullptr)
     , m_showGridItem(nullptr)
     , m_delegate(nullptr)
@@ -49,6 +56,17 @@ NativeMenuMacOS::NativeMenuMacOS()
 }
 
 NativeMenuMacOS::~NativeMenuMacOS() {
+    // Release all stored menu item references
+    if (m_saveItem) [m_saveItem release];
+    if (m_saveAsItem) [m_saveAsItem release];
+    if (m_exportPackageItem) [m_exportPackageItem release];
+    if (m_exportPngItem) [m_exportPngItem release];
+    if (m_settingsItem) [m_settingsItem release];
+    if (m_undoItem) [m_undoItem release];
+    if (m_redoItem) [m_redoItem release];
+    if (m_viewMenu) [m_viewMenu release];
+    if (m_assetsMenu) [m_assetsMenu release];
+    
     if (m_delegate) {
         [m_delegate release];
         m_delegate = nullptr;
@@ -80,13 +98,42 @@ void NativeMenuMacOS::Update(
     m_icons = &icons;
     m_jobs = &jobs;
     
-    // Update menu item states
-    if (m_undoItem) {
-        [m_undoItem setEnabled:history.CanUndo() ? YES : NO];
+    // Check if we're in Editor state (vs Welcome screen)
+    bool isEditor = (app.GetState() == AppState::Editor);
+    
+    // Update Application menu - Settings only in Editor
+    if (m_settingsItem) {
+        [m_settingsItem setEnabled:isEditor ? YES : NO];
     }
     
+    // Update File menu - Save/Export only in Editor
+    if (m_saveItem) {
+        [m_saveItem setEnabled:isEditor ? YES : NO];
+    }
+    if (m_saveAsItem) {
+        [m_saveAsItem setEnabled:isEditor ? YES : NO];
+    }
+    if (m_exportPackageItem) {
+        [m_exportPackageItem setEnabled:isEditor ? YES : NO];
+    }
+    if (m_exportPngItem) {
+        [m_exportPngItem setEnabled:isEditor ? YES : NO];
+    }
+    
+    // Update Edit menu - Undo/Redo only in Editor with history
+    if (m_undoItem) {
+        [m_undoItem setEnabled:(isEditor && history.CanUndo()) ? YES : NO];
+    }
     if (m_redoItem) {
-        [m_redoItem setEnabled:history.CanRedo() ? YES : NO];
+        [m_redoItem setEnabled:(isEditor && history.CanRedo()) ? YES : NO];
+    }
+    
+    // View and Assets menus - entire menus only in Editor
+    if (m_viewMenu) {
+        [m_viewMenu setEnabled:isEditor ? YES : NO];
+    }
+    if (m_assetsMenu) {
+        [m_assetsMenu setEnabled:isEditor ? YES : NO];
     }
     
     // Update action callbacks that need model/history/canvas access
@@ -147,16 +194,20 @@ void NativeMenuMacOS::BuildMenuBar() {
     NSMenuItem* appMenuItem = [[NSMenuItem alloc] init];
     NSMenu* appMenu = [[NSMenu alloc] initWithTitle:@"Cartograph"];
     
+    // Disable auto-enable so we can manually control menu item states
+    [appMenu setAutoenablesItems:NO];
+    
     // About
     NSMenuItem* aboutItem = CreateMenuItem(appMenu, "About Cartograph", 
                                            "help.about", "", 0);
     
     [appMenu addItem:[NSMenuItem separatorItem]];
     
-    // Settings (Preferences on macOS)
-    NSMenuItem* prefsItem = CreateMenuItem(appMenu, "Settings...", 
-                                           "edit.settings", ",",
-                                           NSEventModifierFlagCommand);
+    // Settings (Preferences on macOS) - stored for state management
+    m_settingsItem = CreateMenuItem(appMenu, "Settings...", 
+                                    "edit.settings", ",",
+                                    NSEventModifierFlagCommand);
+    [m_settingsItem retain];
     
     [appMenu addItem:[NSMenuItem separatorItem]];
     
@@ -232,6 +283,9 @@ void NativeMenuMacOS::BuildFileMenu(NSMenu* menuBar) {
     NSMenuItem* fileMenuItem = [[NSMenuItem alloc] init];
     NSMenu* fileMenu = [[NSMenu alloc] initWithTitle:@"File"];
     
+    // Disable auto-enable so we can manually control menu item states
+    [fileMenu setAutoenablesItems:NO];
+    
     CreateMenuItem(fileMenu, "New Project...", "file.new", "n", 
                    NSEventModifierFlagCommand);
     CreateMenuItem(fileMenu, "Open Project...", "file.open", "o", 
@@ -239,18 +293,29 @@ void NativeMenuMacOS::BuildFileMenu(NSMenu* menuBar) {
     
     CreateSeparator(fileMenu);
     
-    CreateMenuItem(fileMenu, "Save", "file.save", "s", 
-                   NSEventModifierFlagCommand);
-    CreateMenuItem(fileMenu, "Save As...", "file.save_as", "s",
-                   NSEventModifierFlagCommand | NSEventModifierFlagShift);
+    // Editor-only items (stored for state management, retain for reference)
+    m_saveItem = CreateMenuItem(fileMenu, "Save", "file.save", "s", 
+                                NSEventModifierFlagCommand);
+    [m_saveItem retain];
+    
+    m_saveAsItem = CreateMenuItem(fileMenu, "Save As...", "file.save_as", "s",
+                                  NSEventModifierFlagCommand | 
+                                  NSEventModifierFlagShift);
+    [m_saveAsItem retain];
     
     CreateSeparator(fileMenu);
     
-    CreateMenuItem(fileMenu, "Export Package (.cart)...", 
-                   "file.export_package", "e",
-                   NSEventModifierFlagCommand | NSEventModifierFlagShift);
-    CreateMenuItem(fileMenu, "Export PNG...", "file.export_png", "e",
-                   NSEventModifierFlagCommand);
+    m_exportPackageItem = CreateMenuItem(fileMenu, 
+                                         "Export Package (.cart)...", 
+                                         "file.export_package", "e",
+                                         NSEventModifierFlagCommand | 
+                                         NSEventModifierFlagShift);
+    [m_exportPackageItem retain];
+    
+    m_exportPngItem = CreateMenuItem(fileMenu, "Export PNG...", 
+                                     "file.export_png", "e",
+                                     NSEventModifierFlagCommand);
+    [m_exportPngItem retain];
     
     [fileMenuItem setSubmenu:fileMenu];
     [menuBar addItem:fileMenuItem];
@@ -263,10 +328,16 @@ void NativeMenuMacOS::BuildEditMenu(NSMenu* menuBar) {
     NSMenuItem* editMenuItem = [[NSMenuItem alloc] init];
     NSMenu* editMenu = [[NSMenu alloc] initWithTitle:@"Edit"];
     
+    // Disable auto-enable so we can manually control menu item states
+    [editMenu setAutoenablesItems:NO];
+    
     m_undoItem = CreateMenuItem(editMenu, "Undo", "edit.undo", "z",
                                 NSEventModifierFlagCommand);
+    [m_undoItem retain];
+    
     m_redoItem = CreateMenuItem(editMenu, "Redo", "edit.redo", "y",
                                 NSEventModifierFlagCommand);
+    [m_redoItem retain];
     
     // Note: Settings moved to application menu (standard macOS pattern)
     
@@ -277,9 +348,13 @@ void NativeMenuMacOS::BuildEditMenu(NSMenu* menuBar) {
 }
 
 void NativeMenuMacOS::BuildViewMenu(NSMenu* menuBar) {
-    // View menu
-    NSMenuItem* viewMenuItem = [[NSMenuItem alloc] init];
+    // View menu (entire menu is Editor-only)
+    m_viewMenu = [[NSMenuItem alloc] init];
+    [m_viewMenu retain];
     NSMenu* viewMenu = [[NSMenu alloc] initWithTitle:@"View"];
+    
+    // Disable auto-enable so we can manually control menu item states
+    [viewMenu setAutoenablesItems:NO];
     
     m_propertiesPanelItem = CreateMenuItem(
         viewMenu, "Properties Panel", "view.properties", "p",
@@ -298,23 +373,25 @@ void NativeMenuMacOS::BuildViewMenu(NSMenu* menuBar) {
     CreateMenuItem(viewMenu, "Zoom Out", "view.zoom_out", "-", 0);
     CreateMenuItem(viewMenu, "Reset Zoom", "view.zoom_reset", "0", 0);
     
-    [viewMenuItem setSubmenu:viewMenu];
-    [menuBar addItem:viewMenuItem];
+    [m_viewMenu setSubmenu:viewMenu];
+    [menuBar addItem:m_viewMenu];
     [viewMenu release];
-    [viewMenuItem release];
 }
 
 void NativeMenuMacOS::BuildAssetsMenu(NSMenu* menuBar) {
-    // Assets menu
-    NSMenuItem* assetsMenuItem = [[NSMenuItem alloc] init];
+    // Assets menu (entire menu is Editor-only)
+    m_assetsMenu = [[NSMenuItem alloc] init];
+    [m_assetsMenu retain];
     NSMenu* assetsMenu = [[NSMenu alloc] initWithTitle:@"Assets"];
+    
+    // Disable auto-enable so we can manually control menu item states
+    [assetsMenu setAutoenablesItems:NO];
     
     CreateMenuItem(assetsMenu, "Import Icon...", "assets.import_icon", "", 0);
     
-    [assetsMenuItem setSubmenu:assetsMenu];
-    [menuBar addItem:assetsMenuItem];
+    [m_assetsMenu setSubmenu:assetsMenu];
+    [menuBar addItem:m_assetsMenu];
     [assetsMenu release];
-    [assetsMenuItem release];
 }
 
 void NativeMenuMacOS::BuildWindowMenu(NSMenu* menuBar) {
@@ -362,6 +439,9 @@ void NativeMenuMacOS::BuildHelpMenu(NSMenu* menuBar) {
     NSMenuItem* helpMenuItem = [[NSMenuItem alloc] init];
     NSMenu* helpMenu = [[NSMenu alloc] initWithTitle:@"Help"];
     
+    // Disable auto-enable so we can manually control menu item states
+    [helpMenu setAutoenablesItems:NO];
+    
     CreateMenuItem(helpMenu, "View License", "help.license", "", 0);
     CreateMenuItem(helpMenu, "Report Bug...", "help.report_bug", "", 0);
     
@@ -396,7 +476,11 @@ NSMenuItem* NativeMenuMacOS::CreateMenuItem(
     
     [menu addItem:item];
     
-    return item;  // Don't release - we may need to keep reference
+    // Menu now owns this item, so we can release our alloc
+    // If caller wants to keep a reference, they need to retain it
+    [item autorelease];
+    
+    return item;
 }
 
 NSMenuItem* NativeMenuMacOS::CreateSeparator(NSMenu* menu) {

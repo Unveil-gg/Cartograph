@@ -292,6 +292,9 @@ void App::Render() {
         m_droppedFilePath.clear();
     }
     
+    // Update menu state every frame (works in both Welcome and Editor states)
+    m_ui.UpdateMenu(*this, m_model, m_canvas, m_history, m_icons, m_jobs);
+    
     // Render UI based on state
     if (m_appState == AppState::Welcome) {
         m_ui.m_welcomeScreen.Render(*this, m_model, m_canvas, m_history, m_jobs, m_icons, m_keymap);

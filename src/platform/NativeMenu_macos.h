@@ -66,9 +66,16 @@ private:
     
     NSMenuItem* CreateSeparator(NSMenu* menu);
     
-    // Stored references for updating menu state
+    // Stored references for updating menu state (Editor-only items)
+    NSMenuItem* m_saveItem;
+    NSMenuItem* m_saveAsItem;
+    NSMenuItem* m_exportPackageItem;
+    NSMenuItem* m_exportPngItem;
+    NSMenuItem* m_settingsItem;
     NSMenuItem* m_undoItem;
     NSMenuItem* m_redoItem;
+    NSMenuItem* m_viewMenu;
+    NSMenuItem* m_assetsMenu;
     NSMenuItem* m_propertiesPanelItem;
     NSMenuItem* m_showGridItem;
     
