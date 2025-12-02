@@ -414,7 +414,7 @@ void Canvas::RenderMarkers(IRenderer& renderer, const Model& model,
     const int tileWidth = model.grid.tileWidth;
     const int tileHeight = model.grid.tileHeight;
     
-    ImDrawList* dl = ImGui::GetForegroundDrawList();
+    ImDrawList* dl = ImGui::GetWindowDrawList();
     
     for (const auto& marker : model.markers) {
         // Convert fractional tile coords to world coords
@@ -534,7 +534,7 @@ void Canvas::RenderRoomOverlays(IRenderer& renderer, const Model& model) {
     const int tileWidth = model.grid.tileWidth;
     const int tileHeight = model.grid.tileHeight;
     
-    ImDrawList* dl = ImGui::GetForegroundDrawList();
+    ImDrawList* dl = ImGui::GetWindowDrawList();
     
     // Draw overlays for each room
     for (const auto& room : model.rooms) {
