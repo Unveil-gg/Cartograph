@@ -855,35 +855,60 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
     }
     else if (m_canvasPanel.currentTool == CanvasPanel::Tool::RoomErase) {
         ImGui::Spacing();
-        ImGui::Text("Room Eraser:");
+        ImGui::Text("Room Eraser Options");
         ImGui::Separator();
         
-        // Eraser size (like regular Erase tool)
-        ImGui::Text("Brush Size:");
-        
-        int sizes[] = {1, 2, 3, 4, 5};
-        for (int size : sizes) {
-            ImGui::PushID(size);
-            
-            bool selected = (m_canvasPanel.eraserBrushSize == size);
-            if (selected) {
-                ImGui::PushStyleColor(ImGuiCol_Button,
-                    ImVec4(0.3f, 0.6f, 0.9f, 1.0f));
-            }
-            
-            std::string label = std::to_string(size) + "x" + std::to_string(size);
-            if (ImGui::Button(label.c_str(), ImVec2(45, 0))) {
-                m_canvasPanel.eraserBrushSize = size;
-            }
-            
-            if (selected) {
-                ImGui::PopStyleColor();
-            }
-            
-            if (size < 5) ImGui::SameLine();
-            
-            ImGui::PopID();
+        // Label with tooltip (matching regular Erase tool)
+        ImGui::Text("Eraser Size");
+        ImGui::SameLine();
+        ImGui::TextDisabled("(?)");
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Size of room eraser brush\n"
+                            "1 = single cell (precise)\n"
+                            "5 = 5x5 area (fast erase)");
         }
+        
+        // Slider below label (matching regular Erase tool)
+        ImGui::SetNextItemWidth(-1);  // Full width
+        ImGui::SliderInt("##roomEraserSize", &m_canvasPanel.eraserBrushSize, 1, 5);
+        
+        // Visual preview of eraser size (matching regular Erase tool)
+        ImGui::Spacing();
+        ImGui::Text("Preview:");
+        ImDrawList* drawList = ImGui::GetWindowDrawList();
+        ImVec2 cursorPos = ImGui::GetCursorScreenPos();
+        float previewSize = 80.0f;
+        float cellSize = previewSize / 5.0f;  // 5x5 grid
+        
+        // Draw grid background
+        for (int y = 0; y < 5; y++) {
+            for (int x = 0; x < 5; x++) {
+                ImVec2 p0(cursorPos.x + x * cellSize, 
+                         cursorPos.y + y * cellSize);
+                ImVec2 p1(p0.x + cellSize, p0.y + cellSize);
+                
+                // Calculate if this cell is within brush
+                int centerOffset = 2;  // Center of 5x5 grid
+                int halfBrush = m_canvasPanel.eraserBrushSize / 2;
+                bool inBrush = (x >= centerOffset - halfBrush && 
+                               x <= centerOffset + halfBrush &&
+                               y >= centerOffset - halfBrush && 
+                               y <= centerOffset + halfBrush);
+                
+                // Draw cell (maroon tint for room eraser)
+                ImU32 fillColor = inBrush ? 
+                    ImGui::GetColorU32(ImVec4(0.8f, 0.2f, 0.2f, 0.4f)) :
+                    ImGui::GetColorU32(ImVec4(0.3f, 0.3f, 0.3f, 0.3f));
+                drawList->AddRectFilled(p0, p1, fillColor);
+                
+                // Draw grid lines
+                ImU32 lineColor = ImGui::GetColorU32(
+                    ImVec4(0.5f, 0.5f, 0.5f, 0.5f));
+                drawList->AddRect(p0, p1, lineColor);
+            }
+        }
+        
+        ImGui::Dummy(ImVec2(previewSize, previewSize));
     }
     
     ImGui::Spacing();
