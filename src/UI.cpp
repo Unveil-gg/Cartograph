@@ -784,13 +784,32 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
         
         if (clicked) {
             m_canvasPanel.currentTool = static_cast<CanvasPanel::Tool>(toolIdx);
-            
-            // Auto-create room if none active
-            if (m_canvasPanel.activeRoomId.empty() && !model.rooms.empty()) {
-                // Use first room as default
-                m_canvasPanel.activeRoomId = model.rooms[0].id;
-            } else if (m_canvasPanel.activeRoomId.empty()) {
-                // Create a new room
+        }
+        
+        // Fixed 4-column grid layout
+        if ((i + 1) % TOOLS_PER_ROW != 0 && i < 2) {
+            ImGui::SameLine(0, iconSpacing);
+        }
+        
+        ImGui::PopID();
+    }
+    
+    // Show tool options for room tools (match regular tool UX)
+    if (m_canvasPanel.currentTool == CanvasPanel::Tool::RoomPaint ||
+        m_canvasPanel.currentTool == CanvasPanel::Tool::RoomFill) {
+        ImGui::Spacing();
+        ImGui::Text("Target Room:");
+        ImGui::Separator();
+        
+        // Room dropdown selector
+        Room* targetRoom = model.FindRoom(m_canvasPanel.activeRoomId);
+        const char* previewName = targetRoom ? targetRoom->name.c_str() : 
+                                             "Select Room...";
+        
+        ImGui::SetNextItemWidth(-1);
+        if (ImGui::BeginCombo("##targetRoom", previewName)) {
+            // Option to create new room
+            if (ImGui::Selectable("+ Create New Room")) {
                 Room newRoom;
                 newRoom.id = model.GenerateRoomId();
                 newRoom.name = "Room " + std::to_string(model.rooms.size() + 1);
@@ -802,49 +821,68 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
                 m_canvasPanel.activeRoomId = newRoom.id;
                 model.MarkDirty();
             }
-        }
-        
-        // Fixed 4-column grid layout
-        if ((i + 1) % TOOLS_PER_ROW != 0 && i < 2) {
-            ImGui::SameLine(0, iconSpacing);
-        }
-        
-        ImGui::PopID();
-    }
-    
-    // Show active room for room tools
-    if (m_canvasPanel.currentTool == CanvasPanel::Tool::RoomPaint ||
-        m_canvasPanel.currentTool == CanvasPanel::Tool::RoomErase ||
-        m_canvasPanel.currentTool == CanvasPanel::Tool::RoomFill) {
-        ImGui::Spacing();
-        ImGui::Text("Active Room:");
-        ImGui::Separator();
-        
-        Room* activeRoom = model.FindRoom(m_canvasPanel.activeRoomId);
-        if (activeRoom) {
-            // Show color indicator
-            ImVec4 roomColor = activeRoom->color.ToImVec4();
-            ImGui::ColorButton("##activeRoomColor", roomColor, 
-                              ImGuiColorEditFlags_NoTooltip, 
-                              ImVec2(24, 24));
-            ImGui::SameLine();
-            ImGui::Text("%s", activeRoom->name.c_str());
             
-            // Button to select different room
-            if (ImGui::Button("Change Room")) {
-                // This would open a room selector (for now, cycle through rooms)
-                if (!model.rooms.empty()) {
-                    auto it = std::find_if(model.rooms.begin(), model.rooms.end(),
-                        [&](const Room& r) { return r.id == m_canvasPanel.activeRoomId; });
-                    if (it != model.rooms.end()) {
-                        ++it;
-                        if (it == model.rooms.end()) it = model.rooms.begin();
-                        m_canvasPanel.activeRoomId = it->id;
-                    }
+            if (!model.rooms.empty()) {
+                ImGui::Separator();
+            }
+            
+            // List all rooms
+            for (const auto& room : model.rooms) {
+                bool isSelected = (m_canvasPanel.activeRoomId == room.id);
+                
+                // Color indicator
+                ImVec4 roomColor = room.color.ToImVec4();
+                ImGui::ColorButton("##roomColor", roomColor,
+                                 ImGuiColorEditFlags_NoTooltip |
+                                 ImGuiColorEditFlags_NoPicker,
+                                 ImVec2(16, 16));
+                ImGui::SameLine();
+                
+                if (ImGui::Selectable(room.name.c_str(), isSelected)) {
+                    m_canvasPanel.activeRoomId = room.id;
                 }
             }
-        } else {
-            ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.5f, 1.0f), "No active room");
+            
+            ImGui::EndCombo();
+        }
+        
+        // Show warning if no room selected
+        if (m_canvasPanel.activeRoomId.empty()) {
+            ImGui::Spacing();
+            ImGui::TextColored(ImVec4(1.0f, 0.7f, 0.3f, 1.0f),
+                             "Select a target room to begin");
+        }
+    }
+    else if (m_canvasPanel.currentTool == CanvasPanel::Tool::RoomErase) {
+        ImGui::Spacing();
+        ImGui::Text("Room Eraser:");
+        ImGui::Separator();
+        
+        // Eraser size (like regular Erase tool)
+        ImGui::Text("Brush Size:");
+        
+        int sizes[] = {1, 2, 3, 4, 5};
+        for (int size : sizes) {
+            ImGui::PushID(size);
+            
+            bool selected = (m_canvasPanel.eraserBrushSize == size);
+            if (selected) {
+                ImGui::PushStyleColor(ImGuiCol_Button,
+                    ImVec4(0.3f, 0.6f, 0.9f, 1.0f));
+            }
+            
+            std::string label = std::to_string(size) + "x" + std::to_string(size);
+            if (ImGui::Button(label.c_str(), ImVec2(45, 0))) {
+                m_canvasPanel.eraserBrushSize = size;
+            }
+            
+            if (selected) {
+                ImGui::PopStyleColor();
+            }
+            
+            if (size < 5) ImGui::SameLine();
+            
+            ImGui::PopID();
         }
     }
     

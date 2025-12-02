@@ -1281,28 +1281,37 @@ void CanvasPanel::Render(
                         }
                     }
                     
-                    // Erase all cells along the line
+                    // Erase all cells along the line with brush size
+                    int brushRadius = (eraserBrushSize - 1) / 2;
                     for (const auto& cell : cellsToErase) {
-                        int cellX = cell.first;
-                        int cellY = cell.second;
+                        int centerX = cell.first;
+                        int centerY = cell.second;
                         
-                        std::string oldRoomId = model.GetCellRoom(
-                            cellX, cellY
-                        );
-                        
-                        // Only erase if cell has a room
-                        if (!oldRoomId.empty()) {
-                            ModifyRoomAssignmentsCommand::CellAssignment 
-                                assignment;
-                            assignment.x = cellX;
-                            assignment.y = cellY;
-                            assignment.oldRoomId = oldRoomId;
-                            assignment.newRoomId = "";  // Empty = unassign
-                            
-                            currentRoomAssignments.push_back(assignment);
-                            
-                            // Apply immediately for visual feedback
-                            model.ClearCellRoom(cellX, cellY);
+                        // Erase in brush area
+                        for (int dy = -brushRadius; dy <= brushRadius; ++dy) {
+                            for (int dx = -brushRadius; dx <= brushRadius; ++dx) {
+                                int cellX = centerX + dx;
+                                int cellY = centerY + dy;
+                                
+                                std::string oldRoomId = model.GetCellRoom(
+                                    cellX, cellY
+                                );
+                                
+                                // Only erase if cell has a room
+                                if (!oldRoomId.empty()) {
+                                    ModifyRoomAssignmentsCommand::CellAssignment 
+                                        assignment;
+                                    assignment.x = cellX;
+                                    assignment.y = cellY;
+                                    assignment.oldRoomId = oldRoomId;
+                                    assignment.newRoomId = "";  // Empty = unassign
+                                    
+                                    currentRoomAssignments.push_back(assignment);
+                                    
+                                    // Apply immediately for visual feedback
+                                    model.ClearCellRoom(cellX, cellY);
+                                }
+                            }
                         }
                     }
                     
