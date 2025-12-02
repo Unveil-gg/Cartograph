@@ -218,6 +218,7 @@ private:
     void RenderPalettePanel(Model& model);
     void RenderToolsPanel(Model& model, History& history, IconManager& icons, 
                          JobQueue& jobs);
+    void RenderHierarchyPanel(Model& model, History& history, Canvas& canvas);
     void RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs);
     void RenderStatusBar(Model& model, Canvas& canvas);
     

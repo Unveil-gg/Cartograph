@@ -103,6 +103,10 @@ public:
     bool showLoadingModal = false;
     bool showQuitConfirmationModal = false;
     bool showNewRoomDialog = false;
+    bool showRenameRoomDialog = false;
+    bool showDeleteRoomDialog = false;
+    bool showRenameRegionDialog = false;
+    bool showDeleteRegionDialog = false;
     bool showAboutModal = false;
     bool showSaveBeforeActionModal = false;
     
@@ -147,6 +151,9 @@ public:
     // Room dialog state
     char newRoomName[64] = "New Room";
     float newRoomColor[3] = {1.0f, 0.5f, 0.5f};
+    std::string editingRoomId;      // Room being renamed/deleted
+    std::string editingRegionId;    // Region being renamed/deleted
+    char renameBuffer[128] = "";
     
     // Save before action modal state
     enum class PendingAction {
