@@ -32,7 +32,10 @@ public:
         Fill, 
         Erase, 
         Marker, 
-        Eyedropper
+        Eyedropper,
+        RoomPaint,     // Paint cells to assign to active room
+        RoomErase,     // Remove cells from rooms
+        RoomFill       // Flood-fill cells into active room
     };
     
     /**
@@ -107,6 +110,9 @@ public:
     int lastRoomPaintY = -1;
     std::vector<ModifyRoomAssignmentsCommand::CellAssignment> 
         currentRoomAssignments;
+    
+    // Active room for room tools (RoomPaint, RoomErase, RoomFill)
+    std::string activeRoomId;  // Room being painted/edited with room tools
     
     // Eraser tool state
     int eraserBrushSize = 1;  // 1-5, eraser brush size in tiles

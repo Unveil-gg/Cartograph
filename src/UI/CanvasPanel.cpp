@@ -1133,6 +1133,305 @@ void CanvasPanel::Render(
                 }
             }
         }
+        else if (currentTool == Tool::RoomPaint) {
+            // Room Paint tool: Click/drag to assign cells to active room
+            ImVec2 mousePos = ImGui::GetMousePos();
+            
+            // Convert mouse position to tile coordinates
+            int tx, ty;
+            canvas.ScreenToTile(
+                mousePos.x, mousePos.y,
+                model.grid.tileWidth, model.grid.tileHeight,
+                &tx, &ty
+            );
+            
+            // Left click: assign cell to active room
+            if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+                // Start painting if first click
+                if (!isPaintingRoomCells) {
+                    isPaintingRoomCells = true;
+                    lastRoomPaintX = tx;
+                    lastRoomPaintY = ty;
+                }
+                
+                // Paint if we moved to a new cell
+                if (tx != lastRoomPaintX || ty != lastRoomPaintY) {
+                    // Get all cells along the line
+                    std::vector<std::pair<int, int>> cellsToAssign;
+                    
+                    // Simple line rasterization (Bresenham-like)
+                    int dx = abs(tx - lastRoomPaintX);
+                    int dy = abs(ty - lastRoomPaintY);
+                    int sx = (lastRoomPaintX < tx) ? 1 : -1;
+                    int sy = (lastRoomPaintY < ty) ? 1 : -1;
+                    int err = dx - dy;
+                    
+                    int cx = lastRoomPaintX;
+                    int cy = lastRoomPaintY;
+                    
+                    while (true) {
+                        cellsToAssign.push_back({cx, cy});
+                        if (cx == tx && cy == ty) break;
+                        int e2 = 2 * err;
+                        if (e2 > -dy) {
+                            err -= dy;
+                            cx += sx;
+                        }
+                        if (e2 < dx) {
+                            err += dx;
+                            cy += sy;
+                        }
+                    }
+                    
+                    // Assign all cells along the line
+                    for (const auto& cell : cellsToAssign) {
+                        int cellX = cell.first;
+                        int cellY = cell.second;
+                        
+                        std::string oldRoomId = model.GetCellRoom(
+                            cellX, cellY
+                        );
+                        
+                        // Only assign if different
+                        if (oldRoomId != activeRoomId) {
+                            ModifyRoomAssignmentsCommand::CellAssignment 
+                                assignment;
+                            assignment.x = cellX;
+                            assignment.y = cellY;
+                            assignment.oldRoomId = oldRoomId;
+                            assignment.newRoomId = activeRoomId;
+                            
+                            currentRoomAssignments.push_back(assignment);
+                            
+                            // Apply immediately for visual feedback
+                            model.SetCellRoom(cellX, cellY, activeRoomId);
+                        }
+                    }
+                    
+                    lastRoomPaintX = tx;
+                    lastRoomPaintY = ty;
+                }
+            }
+            else if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+                // Finish painting
+                if (isPaintingRoomCells && !currentRoomAssignments.empty()) {
+                    auto cmd = std::make_unique<ModifyRoomAssignmentsCommand>(
+                        currentRoomAssignments
+                    );
+                    history.AddCommand(std::move(cmd), model, false);
+                    currentRoomAssignments.clear();
+                    
+                    // Generate perimeter walls if enabled
+                    if (model.autoGenerateRoomWalls && !activeRoomId.empty()) {
+                        model.GenerateRoomPerimeterWalls(activeRoomId);
+                    }
+                }
+                isPaintingRoomCells = false;
+                lastRoomPaintX = -1;
+                lastRoomPaintY = -1;
+            }
+        }
+        else if (currentTool == Tool::RoomErase) {
+            // Room Erase tool: Click/drag to remove cells from rooms
+            ImVec2 mousePos = ImGui::GetMousePos();
+            
+            // Convert mouse position to tile coordinates
+            int tx, ty;
+            canvas.ScreenToTile(
+                mousePos.x, mousePos.y,
+                model.grid.tileWidth, model.grid.tileHeight,
+                &tx, &ty
+            );
+            
+            // Left click: remove cell from any room
+            if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+                // Start erasing if first click
+                if (!isPaintingRoomCells) {
+                    isPaintingRoomCells = true;
+                    lastRoomPaintX = tx;
+                    lastRoomPaintY = ty;
+                }
+                
+                // Erase if we moved to a new cell
+                if (tx != lastRoomPaintX || ty != lastRoomPaintY) {
+                    // Get all cells along the line
+                    std::vector<std::pair<int, int>> cellsToErase;
+                    
+                    // Simple line rasterization
+                    int dx = abs(tx - lastRoomPaintX);
+                    int dy = abs(ty - lastRoomPaintY);
+                    int sx = (lastRoomPaintX < tx) ? 1 : -1;
+                    int sy = (lastRoomPaintY < ty) ? 1 : -1;
+                    int err = dx - dy;
+                    
+                    int cx = lastRoomPaintX;
+                    int cy = lastRoomPaintY;
+                    
+                    while (true) {
+                        cellsToErase.push_back({cx, cy});
+                        if (cx == tx && cy == ty) break;
+                        int e2 = 2 * err;
+                        if (e2 > -dy) {
+                            err -= dy;
+                            cx += sx;
+                        }
+                        if (e2 < dx) {
+                            err += dx;
+                            cy += sy;
+                        }
+                    }
+                    
+                    // Erase all cells along the line
+                    for (const auto& cell : cellsToErase) {
+                        int cellX = cell.first;
+                        int cellY = cell.second;
+                        
+                        std::string oldRoomId = model.GetCellRoom(
+                            cellX, cellY
+                        );
+                        
+                        // Only erase if cell has a room
+                        if (!oldRoomId.empty()) {
+                            ModifyRoomAssignmentsCommand::CellAssignment 
+                                assignment;
+                            assignment.x = cellX;
+                            assignment.y = cellY;
+                            assignment.oldRoomId = oldRoomId;
+                            assignment.newRoomId = "";  // Empty = unassign
+                            
+                            currentRoomAssignments.push_back(assignment);
+                            
+                            // Apply immediately for visual feedback
+                            model.ClearCellRoom(cellX, cellY);
+                        }
+                    }
+                    
+                    lastRoomPaintX = tx;
+                    lastRoomPaintY = ty;
+                }
+            }
+            else if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+                // Finish erasing
+                if (isPaintingRoomCells && !currentRoomAssignments.empty()) {
+                    auto cmd = std::make_unique<ModifyRoomAssignmentsCommand>(
+                        currentRoomAssignments
+                    );
+                    history.AddCommand(std::move(cmd), model, false);
+                    currentRoomAssignments.clear();
+                }
+                isPaintingRoomCells = false;
+                lastRoomPaintX = -1;
+                lastRoomPaintY = -1;
+            }
+        }
+        else if (currentTool == Tool::RoomFill) {
+            // Room Fill tool: Click to flood-fill area into active room
+            if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+                ImVec2 mousePos = ImGui::GetMousePos();
+                
+                // Convert mouse position to tile coordinates
+                int tx, ty;
+                canvas.ScreenToTile(
+                    mousePos.x, mousePos.y,
+                    model.grid.tileWidth, model.grid.tileHeight,
+                    &tx, &ty
+                );
+                
+                // Check bounds
+                if (tx >= 0 && tx < model.grid.cols && 
+                    ty >= 0 && ty < model.grid.rows) {
+                    
+                    std::string startRoomId = model.GetCellRoom(tx, ty);
+                    
+                    // Only fill if starting from empty cell or cell in a different room
+                    if (startRoomId != activeRoomId) {
+                        // Perform flood fill using BFS
+                        std::vector<ModifyRoomAssignmentsCommand::CellAssignment> 
+                            fillAssignments;
+                        std::vector<std::pair<int, int>> toVisit;
+                        std::set<std::pair<int, int>> visited;
+                        
+                        toVisit.push_back({tx, ty});
+                        
+                        const size_t MAX_FILL_SIZE = 10000;  // Safety limit
+                        
+                        while (!toVisit.empty() && visited.size() < MAX_FILL_SIZE) {
+                            auto [x, y] = toVisit.back();
+                            toVisit.pop_back();
+                            
+                            // Skip if already visited
+                            if (visited.count({x, y})) {
+                                continue;
+                            }
+                            visited.insert({x, y});
+                            
+                            // Check grid bounds
+                            if (x < 0 || x >= model.grid.cols ||
+                                y < 0 || y >= model.grid.rows) {
+                                continue;
+                            }
+                            
+                            // Get current room
+                            std::string currentRoom = model.GetCellRoom(x, y);
+                            
+                            // Skip if not matching start condition
+                            if (currentRoom != startRoomId) {
+                                continue;
+                            }
+                            
+                            // Add this cell to fill
+                            ModifyRoomAssignmentsCommand::CellAssignment assignment;
+                            assignment.x = x;
+                            assignment.y = y;
+                            assignment.oldRoomId = startRoomId;
+                            assignment.newRoomId = activeRoomId;
+                            fillAssignments.push_back(assignment);
+                            
+                            // Apply immediately for visual feedback
+                            model.SetCellRoom(x, y, activeRoomId);
+                            
+                            // Check all 4 neighbors - only cross if no wall
+                            EdgeSide sides[] = {
+                                EdgeSide::North, EdgeSide::South,
+                                EdgeSide::East, EdgeSide::West
+                            };
+                            int dx[] = {0, 0, 1, -1};
+                            int dy[] = {-1, 1, 0, 0};
+                            
+                            for (int i = 0; i < 4; ++i) {
+                                EdgeId edgeId = MakeEdgeId(x, y, sides[i]);
+                                EdgeState edgeState = model.GetEdgeState(edgeId);
+                                
+                                // Can only cross if edge is None or Door
+                                // Wall blocks fill
+                                if (edgeState == EdgeState::None || 
+                                    edgeState == EdgeState::Door) {
+                                    int nx = x + dx[i];
+                                    int ny = y + dy[i];
+                                    
+                                    if (!visited.count({nx, ny})) {
+                                        toVisit.push_back({nx, ny});
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Create command if we filled anything
+                        if (!fillAssignments.empty()) {
+                            auto cmd = std::make_unique<ModifyRoomAssignmentsCommand>(
+                                fillAssignments
+                            );
+                            history.AddCommand(std::move(cmd), model, false);
+                            
+                            // Generate perimeter walls if enabled
+                            if (model.autoGenerateRoomWalls && !activeRoomId.empty()) {
+                                model.GenerateRoomPerimeterWalls(activeRoomId);
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
     
     // Handle mouse release for Paint/Erase tools (outside hover check)
