@@ -291,8 +291,9 @@ void UI::InitializeMenuCallbacks(App& app) {
     });
     
     m_nativeMenu->SetCallback("help.license", []() {
-        std::string licensePath = Platform::GetAssetsDir() + "../LICENSE";
-        Platform::OpenURL("file://" + licensePath);
+        Platform::OpenURL(
+            "https://github.com/Unveil-gg/Cartograph/blob/main/LICENSE"
+        );
     });
     
     m_nativeMenu->SetCallback("help.report_bug", []() {
