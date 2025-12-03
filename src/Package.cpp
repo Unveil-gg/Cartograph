@@ -2,7 +2,7 @@
 #include "Model.h"
 #include "IOJson.h"
 #include "Icons.h"
-#include "Limits.h"
+#include "Config.h"
 #include "platform/Fs.h"
 #include <nlohmann/json.hpp>
 
@@ -283,13 +283,7 @@ bool Package::Load(
     
     unzClose(uf);
     
-    // Rebuild atlas if icons were loaded
-    if (icons && foundProject) {
-        icons->BuildAtlas();
-    }
-    
     return foundProject;
 }
 
 } // namespace Cartograph
-

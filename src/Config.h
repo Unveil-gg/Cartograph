@@ -32,4 +32,3 @@ constexpr size_t MAX_CELL_ASSIGNMENTS = 10000000;  // 10M cell assignments
 
 }  // namespace Limits
 }  // namespace Cartograph
-

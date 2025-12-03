@@ -132,9 +132,6 @@ bool ProjectFolder::Load(
                     }
                 }
             }
-            
-            // Rebuild atlas
-            icons->BuildAtlas();
         }
     }
     

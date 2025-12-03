@@ -455,6 +455,9 @@ void App::OpenProject(const std::string& path) {
         UpdateWindowTitle();
         m_ui.m_welcomeScreen.AddRecentProject(path);
         
+        // Rebuild icon atlas (must be on main thread for OpenGL)
+        m_icons.BuildAtlas();
+        
         // Load keymap bindings into keymap manager
         m_keymap.LoadBindings(m_model.keymap);
         
