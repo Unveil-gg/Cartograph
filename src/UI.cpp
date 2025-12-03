@@ -1360,10 +1360,28 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
         ImGui::Text("Marker Settings");
         ImGui::Separator();
         
+        // Helper lambda to capture current marker properties
+        auto captureMarkerProps = [](const Marker* m) -> MarkerPropertiesSnapshot {
+            MarkerPropertiesSnapshot snap;
+            if (m) {
+                snap.label = m->label;
+                snap.icon = m->icon;
+                snap.color = m->color;
+                snap.showLabel = m->showLabel;
+            }
+            return snap;
+        };
+        
         // Label input
         char labelBuf[128];
-        std::strncpy(labelBuf, m_canvasPanel.markerLabel.c_str(), sizeof(labelBuf) - 1);
+        std::strncpy(labelBuf, m_canvasPanel.markerLabel.c_str(), 
+                    sizeof(labelBuf) - 1);
         labelBuf[sizeof(labelBuf) - 1] = '\0';
+        
+        // Capture state when label input becomes active
+        if (ImGui::IsItemActive() == false) {
+            // Will check activation after InputText
+        }
         
         if (ImGui::InputText("Label", labelBuf, sizeof(labelBuf))) {
             m_canvasPanel.markerLabel = labelBuf;
@@ -1371,8 +1389,29 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
             // Update selected marker if editing
             if (m_canvasPanel.selectedMarker) {
                 m_canvasPanel.selectedMarker->label = m_canvasPanel.markerLabel;
-                m_canvasPanel.selectedMarker->showLabel = !m_canvasPanel.markerLabel.empty();
+                m_canvasPanel.selectedMarker->showLabel = 
+                    !m_canvasPanel.markerLabel.empty();
                 model.MarkDirty();
+            }
+        }
+        
+        // Capture state when starting to edit label
+        if (ImGui::IsItemActivated() && m_canvasPanel.selectedMarker) {
+            m_markerEditStartState = captureMarkerProps(m_canvasPanel.selectedMarker);
+            m_editingMarkerId = m_canvasPanel.selectedMarker->id;
+        }
+        
+        // Create command when label edit finishes
+        if (ImGui::IsItemDeactivatedAfterEdit() && m_canvasPanel.selectedMarker &&
+            m_editingMarkerId == m_canvasPanel.selectedMarker->id) {
+            auto newProps = captureMarkerProps(m_canvasPanel.selectedMarker);
+            if (newProps != m_markerEditStartState) {
+                auto cmd = std::make_unique<ModifyMarkerPropertiesCommand>(
+                    m_canvasPanel.selectedMarker->id,
+                    m_markerEditStartState,
+                    newProps
+                );
+                history.AddCommand(std::move(cmd), model, false);
             }
         }
         
@@ -1387,10 +1426,17 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
                               ImVec2(40, 20))) {
             // Open color picker popup
             ImGui::OpenPopup("ColorPicker");
+            // Capture state when popup opens
+            if (m_canvasPanel.selectedMarker) {
+                m_markerEditStartState = 
+                    captureMarkerProps(m_canvasPanel.selectedMarker);
+                m_editingMarkerId = m_canvasPanel.selectedMarker->id;
+            }
         }
         
         // Color picker popup
-        if (ImGui::BeginPopup("ColorPicker")) {
+        bool colorPickerIsOpen = ImGui::BeginPopup("ColorPicker");
+        if (colorPickerIsOpen) {
             float colorArray[4] = {
                 m_canvasPanel.markerColor.r, m_canvasPanel.markerColor.g, 
                 m_canvasPanel.markerColor.b, m_canvasPanel.markerColor.a
@@ -1406,7 +1452,8 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
                 std::string hexStr = m_canvasPanel.markerColor.ToHex(false);
                 std::strncpy(m_canvasPanel.markerColorHex, hexStr.c_str(), 
                             sizeof(m_canvasPanel.markerColorHex) - 1);
-                m_canvasPanel.markerColorHex[sizeof(m_canvasPanel.markerColorHex) - 1] = '\0';
+                m_canvasPanel.markerColorHex[
+                    sizeof(m_canvasPanel.markerColorHex) - 1] = '\0';
                 
                 // Update selected marker if editing
                 if (m_canvasPanel.selectedMarker) {
@@ -1416,6 +1463,22 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
             }
             ImGui::EndPopup();
         }
+        
+        // Create command when color picker closes
+        if (m_colorPickerWasOpen && !colorPickerIsOpen && 
+            m_canvasPanel.selectedMarker &&
+            m_editingMarkerId == m_canvasPanel.selectedMarker->id) {
+            auto newProps = captureMarkerProps(m_canvasPanel.selectedMarker);
+            if (newProps != m_markerEditStartState) {
+                auto cmd = std::make_unique<ModifyMarkerPropertiesCommand>(
+                    m_canvasPanel.selectedMarker->id,
+                    m_markerEditStartState,
+                    newProps
+                );
+                history.AddCommand(std::move(cmd), model, false);
+            }
+        }
+        m_colorPickerWasOpen = colorPickerIsOpen;
         
         // Hex input field
         ImGui::SameLine();
@@ -1435,6 +1498,26 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
                     m_canvasPanel.selectedMarker->color = m_canvasPanel.markerColor;
                     model.MarkDirty();
                 }
+            }
+        }
+        
+        // Capture state when starting to edit hex color
+        if (ImGui::IsItemActivated() && m_canvasPanel.selectedMarker) {
+            m_markerEditStartState = captureMarkerProps(m_canvasPanel.selectedMarker);
+            m_editingMarkerId = m_canvasPanel.selectedMarker->id;
+        }
+        
+        // Create command when hex edit finishes
+        if (ImGui::IsItemDeactivatedAfterEdit() && m_canvasPanel.selectedMarker &&
+            m_editingMarkerId == m_canvasPanel.selectedMarker->id) {
+            auto newProps = captureMarkerProps(m_canvasPanel.selectedMarker);
+            if (newProps != m_markerEditStartState) {
+                auto cmd = std::make_unique<ModifyMarkerPropertiesCommand>(
+                    m_canvasPanel.selectedMarker->id,
+                    m_markerEditStartState,
+                    newProps
+                );
+                history.AddCommand(std::move(cmd), model, false);
             }
         }
         
@@ -1617,23 +1700,68 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
                             icons.GetAtlasTexture(),
                             ImVec2(buttonSize, buttonSize),
                             uvMin, uvMax)) {
-                            m_canvasPanel.selectedIconName = iconName;
-                            
-                            // Update selected marker if editing
+                            // Update selected marker if editing (with undo)
                             if (m_canvasPanel.selectedMarker) {
-                                m_canvasPanel.selectedMarker->icon = m_canvasPanel.selectedIconName;
+                                // Capture old state before change
+                                MarkerPropertiesSnapshot oldProps;
+                                oldProps.label = m_canvasPanel.selectedMarker->label;
+                                oldProps.icon = m_canvasPanel.selectedMarker->icon;
+                                oldProps.color = m_canvasPanel.selectedMarker->color;
+                                oldProps.showLabel = 
+                                    m_canvasPanel.selectedMarker->showLabel;
+                                
+                                // Apply change
+                                m_canvasPanel.selectedIconName = iconName;
+                                m_canvasPanel.selectedMarker->icon = iconName;
                                 model.MarkDirty();
+                                
+                                // Capture new state and create command
+                                MarkerPropertiesSnapshot newProps = oldProps;
+                                newProps.icon = iconName;
+                                
+                                auto cmd = 
+                                    std::make_unique<ModifyMarkerPropertiesCommand>(
+                                        m_canvasPanel.selectedMarker->id,
+                                        oldProps,
+                                        newProps
+                                    );
+                                history.AddCommand(std::move(cmd), model, false);
+                            } else {
+                                m_canvasPanel.selectedIconName = iconName;
                             }
                         }
                     } else {
                         // Fallback if no texture
                         if (ImGui::Button("##icon", 
                                          ImVec2(buttonSize, buttonSize))) {
-                            m_canvasPanel.selectedIconName = iconName;
-                            
+                            // Update selected marker if editing (with undo)
                             if (m_canvasPanel.selectedMarker) {
-                                m_canvasPanel.selectedMarker->icon = m_canvasPanel.selectedIconName;
+                                // Capture old state before change
+                                MarkerPropertiesSnapshot oldProps;
+                                oldProps.label = m_canvasPanel.selectedMarker->label;
+                                oldProps.icon = m_canvasPanel.selectedMarker->icon;
+                                oldProps.color = m_canvasPanel.selectedMarker->color;
+                                oldProps.showLabel = 
+                                    m_canvasPanel.selectedMarker->showLabel;
+                                
+                                // Apply change
+                                m_canvasPanel.selectedIconName = iconName;
+                                m_canvasPanel.selectedMarker->icon = iconName;
                                 model.MarkDirty();
+                                
+                                // Capture new state and create command
+                                MarkerPropertiesSnapshot newProps = oldProps;
+                                newProps.icon = iconName;
+                                
+                                auto cmd = 
+                                    std::make_unique<ModifyMarkerPropertiesCommand>(
+                                        m_canvasPanel.selectedMarker->id,
+                                        oldProps,
+                                        newProps
+                                    );
+                                history.AddCommand(std::move(cmd), model, false);
+                            } else {
+                                m_canvasPanel.selectedIconName = iconName;
                             }
                         }
                     }

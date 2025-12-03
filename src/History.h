@@ -281,6 +281,52 @@ private:
 };
 
 /**
+ * Snapshot of marker properties for undo/redo.
+ * Used by ModifyMarkerPropertiesCommand.
+ */
+struct MarkerPropertiesSnapshot {
+    std::string label;
+    std::string icon;
+    Color color;
+    bool showLabel;
+    
+    bool operator==(const MarkerPropertiesSnapshot& other) const {
+        return label == other.label && icon == other.icon &&
+               color.r == other.color.r && color.g == other.color.g &&
+               color.b == other.color.b && color.a == other.color.a &&
+               showLabel == other.showLabel;
+    }
+    
+    bool operator!=(const MarkerPropertiesSnapshot& other) const {
+        return !(*this == other);
+    }
+};
+
+/**
+ * Command to modify marker properties (label, icon, color).
+ * Supports coalescing for rapid edits like typing.
+ */
+class ModifyMarkerPropertiesCommand : public ICommand {
+public:
+    ModifyMarkerPropertiesCommand(
+        const std::string& markerId,
+        const MarkerPropertiesSnapshot& oldProps,
+        const MarkerPropertiesSnapshot& newProps
+    );
+    
+    void Execute(Model& model) override;
+    void Undo(Model& model) override;
+    std::string GetDescription() const override;
+    bool TryCoalesce(ICommand* other, uint64_t timeDelta, 
+                     float distanceSq) override;
+    
+private:
+    std::string m_markerId;
+    MarkerPropertiesSnapshot m_oldProps;
+    MarkerPropertiesSnapshot m_newProps;
+};
+
+/**
  * Command to delete a custom icon.
  * Optionally removes all markers using the icon.
  * Fully undoable - restores icon and any deleted markers.

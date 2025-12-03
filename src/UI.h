@@ -244,6 +244,11 @@ private:
     // Status bar error message
     std::string m_statusError;
     float m_statusErrorTime = 0.0f;
+    
+    // Marker property editing state (for undo/redo)
+    MarkerPropertiesSnapshot m_markerEditStartState;
+    bool m_colorPickerWasOpen = false;
+    std::string m_editingMarkerId;  // Track which marker we're editing
 };
 
 } // namespace Cartograph
