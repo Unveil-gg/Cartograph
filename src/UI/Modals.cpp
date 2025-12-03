@@ -801,6 +801,9 @@ void Modals::RenderSettingsModal(Model& model, KeymapManager& keymap) {
             renderBinding("Tool: Marker", "toolMarker");
             renderBinding("Tool: Eyedropper", "toolEyedropper");
             renderBinding("Tool: Zoom", "toolZoom");
+            renderBinding("Tool: Room Paint", "toolRoomPaint");
+            renderBinding("Tool: Room Erase", "toolRoomErase");
+            renderBinding("Tool: Room Fill", "toolRoomFill");
             
             // VIEW CATEGORY
             ImGui::TableNextRow();
@@ -812,6 +815,7 @@ void Modals::RenderSettingsModal(Model& model, KeymapManager& keymap) {
             renderBinding("Zoom In", "zoomIn");
             renderBinding("Zoom Out", "zoomOut");
             renderBinding("Toggle Grid", "toggleGrid");
+            renderBinding("Toggle Room Overlays", "toggleRoomOverlays");
             renderBinding("Toggle Hierarchy Panel", "togglePropertiesPanel");
             
             // EDIT CATEGORY
@@ -826,6 +830,18 @@ void Modals::RenderSettingsModal(Model& model, KeymapManager& keymap) {
             renderBinding("Copy", "copy");
             renderBinding("Paste", "paste");
             renderBinding("Delete", "delete");
+            renderBinding("Delete (Alt)", "deleteAlt");
+            
+            // ACTIONS CATEGORY
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.4f, 1.0f), "ACTIONS");
+            ImGui::TableNextColumn();
+            ImGui::TableNextColumn();
+            
+            renderBinding("Place Wall", "placeWall");
+            renderBinding("Place Door", "placeDoor");
+            renderBinding("Detect Rooms", "detectRooms");
             
             // FILE CATEGORY
             ImGui::TableNextRow();

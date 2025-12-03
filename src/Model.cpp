@@ -805,14 +805,10 @@ void Model::InitDefaultPalette() {
 void Model::InitDefaultKeymap() {
     keymap.clear();
     
-    // Tools
+    // Mouse-based actions (not rebindable via UI)
     keymap["paint"] = "Mouse1";  // Left click or single tap
     keymap["erase"] = "Mouse2";  // Right click or two-finger tap (trackpad)
     keymap["eraseAlt"] = "E+Mouse1";  // Hold E key + left click to erase
-    keymap["fill"] = "F";
-    keymap["rect"] = "R";
-    keymap["marker"] = "M";
-    keymap["eyedropper"] = "I";  // Use I key for eyedropper
     
     // Edge actions (within Paint tool)
     keymap["placeWall"] = "W";   // Direct wall placement
@@ -850,7 +846,7 @@ void Model::InitDefaultKeymap() {
     keymap["export"] = "Cmd+E";
     keymap["exportPackage"] = "Cmd+Shift+E";
     keymap["undo"] = "Cmd+Z";
-    keymap["redo"] = "Cmd+Y";
+    keymap["redo"] = "Cmd+Shift+Z";
     keymap["copy"] = "Cmd+C";
     keymap["paste"] = "Cmd+V";
     keymap["togglePropertiesPanel"] = "Cmd+P";
