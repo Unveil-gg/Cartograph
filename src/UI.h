@@ -249,6 +249,11 @@ private:
     MarkerPropertiesSnapshot m_markerEditStartState;
     bool m_colorPickerWasOpen = false;
     std::string m_editingMarkerId;  // Track which marker we're editing
+    
+    // Room property editing state (for undo/redo)
+    RoomPropertiesSnapshot m_roomEditStartState;
+    bool m_roomColorPickerWasOpen = false;
+    std::string m_editingRoomId;  // Track which room we're editing
 };
 
 } // namespace Cartograph

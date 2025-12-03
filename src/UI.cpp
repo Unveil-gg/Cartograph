@@ -2339,6 +2339,18 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
             ImGui::Separator();
             ImGui::Spacing();
             
+            // Helper lambda to capture current room properties
+            auto captureRoomProps = [](const Room* r) -> RoomPropertiesSnapshot {
+                RoomPropertiesSnapshot snap;
+                if (r) {
+                    snap.name = r->name;
+                    snap.color = r->color;
+                    snap.notes = r->notes;
+                    snap.tags = r->tags;
+                }
+                return snap;
+            };
+            
             {
                 // Room name
                 char nameBuf[256];
@@ -2346,6 +2358,23 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
                 if (ImGui::InputText("Name", nameBuf, sizeof(nameBuf))) {
                     room->name = nameBuf;
                     model.MarkDirty();
+                }
+                
+                // Capture state when starting to edit name
+                if (ImGui::IsItemActivated()) {
+                    m_roomEditStartState = captureRoomProps(room);
+                    m_editingRoomId = room->id;
+                }
+                
+                // Create command when name edit finishes
+                if (ImGui::IsItemDeactivatedAfterEdit() && 
+                    m_editingRoomId == room->id) {
+                    auto newProps = captureRoomProps(room);
+                    if (newProps != m_roomEditStartState) {
+                        auto cmd = std::make_unique<ModifyRoomPropertiesCommand>(
+                            room->id, m_roomEditStartState, newProps);
+                        history.AddCommand(std::move(cmd), model, false);
+                    }
                 }
                 
                 // Room color (hex input like palette)
@@ -2364,8 +2393,10 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
                 if (ImGui::ColorButton("##roomColorPreview", colorPreview,
                                       ImGuiColorEditFlags_NoTooltip,
                                       ImVec2(24, 24))) {
-                    // Click opens full color picker
+                    // Click opens full color picker - capture state
                     ImGui::OpenPopup("##roomColorPicker");
+                    m_roomEditStartState = captureRoomProps(room);
+                    m_editingRoomId = room->id;
                 }
                 
                 ImGui::SameLine();
@@ -2380,8 +2411,26 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
                     model.MarkDirty();
                 }
                 
+                // Capture state when starting to edit hex color
+                if (ImGui::IsItemActivated()) {
+                    m_roomEditStartState = captureRoomProps(room);
+                    m_editingRoomId = room->id;
+                }
+                
+                // Create command when hex edit finishes
+                if (ImGui::IsItemDeactivatedAfterEdit() && 
+                    m_editingRoomId == room->id) {
+                    auto newProps = captureRoomProps(room);
+                    if (newProps != m_roomEditStartState) {
+                        auto cmd = std::make_unique<ModifyRoomPropertiesCommand>(
+                            room->id, m_roomEditStartState, newProps);
+                        history.AddCommand(std::move(cmd), model, false);
+                    }
+                }
+                
                 // Full color picker popup
-                if (ImGui::BeginPopup("##roomColorPicker")) {
+                bool roomColorPickerIsOpen = ImGui::BeginPopup("##roomColorPicker");
+                if (roomColorPickerIsOpen) {
                     float colorArray[4] = {
                         room->color.r, room->color.g,
                         room->color.b, room->color.a
@@ -2397,6 +2446,18 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
                     ImGui::EndPopup();
                 }
                 
+                // Create command when color picker closes
+                if (m_roomColorPickerWasOpen && !roomColorPickerIsOpen && 
+                    m_editingRoomId == room->id) {
+                    auto newProps = captureRoomProps(room);
+                    if (newProps != m_roomEditStartState) {
+                        auto cmd = std::make_unique<ModifyRoomPropertiesCommand>(
+                            room->id, m_roomEditStartState, newProps);
+                        history.AddCommand(std::move(cmd), model, false);
+                    }
+                }
+                m_roomColorPickerWasOpen = roomColorPickerIsOpen;
+                
                 // Room description
                 ImGui::Spacing();
                 ImGui::Text("Description:");
@@ -2407,6 +2468,23 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
                                              ImVec2(-1, 80))) {
                     room->notes = notesBuf;
                     model.MarkDirty();
+                }
+                
+                // Capture state when starting to edit notes
+                if (ImGui::IsItemActivated()) {
+                    m_roomEditStartState = captureRoomProps(room);
+                    m_editingRoomId = room->id;
+                }
+                
+                // Create command when notes edit finishes
+                if (ImGui::IsItemDeactivatedAfterEdit() && 
+                    m_editingRoomId == room->id) {
+                    auto newProps = captureRoomProps(room);
+                    if (newProps != m_roomEditStartState) {
+                        auto cmd = std::make_unique<ModifyRoomPropertiesCommand>(
+                            room->id, m_roomEditStartState, newProps);
+                        history.AddCommand(std::move(cmd), model, false);
+                    }
                 }
                 
                 // Tags
@@ -2439,11 +2517,21 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
                 }
                 
                 if (tagRemoved) {
+                    // Capture old state before removing tag
+                    auto oldProps = captureRoomProps(room);
+                    
                     room->tags.erase(
-                        std::remove(room->tags.begin(), room->tags.end(), tagToRemove),
+                        std::remove(room->tags.begin(), room->tags.end(), 
+                                   tagToRemove),
                         room->tags.end()
                     );
                     model.MarkDirty();
+                    
+                    // Create command for tag removal
+                    auto newProps = captureRoomProps(room);
+                    auto cmd = std::make_unique<ModifyRoomPropertiesCommand>(
+                        room->id, oldProps, newProps);
+                    history.AddCommand(std::move(cmd), model, false);
                 }
                 
                 // If tags exist, add newline; otherwise keep tight
@@ -2467,8 +2555,17 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
                     // Check if tag already exists
                     if (std::find(room->tags.begin(), room->tags.end(), newTag) == 
                         room->tags.end()) {
+                        // Capture old state before adding tag
+                        auto oldProps = captureRoomProps(room);
+                        
                         room->tags.push_back(newTag);
                         model.MarkDirty();
+                        
+                        // Create command for tag addition
+                        auto newProps = captureRoomProps(room);
+                        auto cmd = std::make_unique<ModifyRoomPropertiesCommand>(
+                            room->id, oldProps, newProps);
+                        history.AddCommand(std::move(cmd), model, false);
                     }
                     newTagBuf[0] = '\0';  // Clear input
                 }
