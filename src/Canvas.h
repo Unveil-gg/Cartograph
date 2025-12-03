@@ -87,6 +87,7 @@ public:
     
     // View manipulation
     void SetZoom(float newZoom);
+    void ZoomToPoint(float newZoom, float screenX, float screenY);
     void Pan(float dx, float dy);
     void FocusOnTile(int tx, int ty, int tileWidth, int tileHeight);
     

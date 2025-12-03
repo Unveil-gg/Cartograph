@@ -798,7 +798,9 @@ void Modals::RenderSettingsModal(Model& model, KeymapManager& keymap) {
             renderBinding("Tool: Paint", "toolPaint");
             renderBinding("Tool: Erase", "toolErase");
             renderBinding("Tool: Fill", "toolFill");
+            renderBinding("Tool: Marker", "toolMarker");
             renderBinding("Tool: Eyedropper", "toolEyedropper");
+            renderBinding("Tool: Zoom", "toolZoom");
             
             // VIEW CATEGORY
             ImGui::TableNextRow();

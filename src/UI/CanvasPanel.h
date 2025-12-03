@@ -33,6 +33,7 @@ public:
         Erase, 
         Marker, 
         Eyedropper,
+        Zoom,          // Zoom in/out centered on click point
         RoomPaint,     // Paint cells to assign to active room
         RoomErase,     // Remove cells from rooms
         RoomFill       // Flood-fill cells into active room

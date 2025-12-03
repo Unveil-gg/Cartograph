@@ -220,7 +220,8 @@ private:
     void InitializeMenuCallbacks(App& app);
     void RenderPalettePanel(Model& model);
     void RenderToolsPanel(Model& model, History& history, IconManager& icons, 
-                         JobQueue& jobs);
+                         JobQueue& jobs, Canvas& canvas);
+    void RenderZoomOptions(Canvas& canvas, History& history, Model& model);
     void RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
                               History& history, Canvas& canvas);
     void RenderStatusBar(Model& model, Canvas& canvas);

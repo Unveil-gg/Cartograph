@@ -824,7 +824,9 @@ void Model::InitDefaultKeymap() {
     keymap["toolPaint"] = "B";  // B for Brush
     keymap["toolErase"] = "E";
     keymap["toolFill"] = "F";
+    keymap["toolMarker"] = "M";
     keymap["toolEyedropper"] = "I";
+    keymap["toolZoom"] = "Z";
     keymap["toolRoomPaint"] = "Shift+R";
     keymap["toolRoomErase"] = "Shift+E";
     keymap["toolRoomFill"] = "Shift+F";

@@ -121,6 +121,23 @@ void Canvas::SetZoom(float newZoom) {
     zoom = std::clamp(newZoom, 0.25f, 25.0f);
 }
 
+void Canvas::ZoomToPoint(float newZoom, float screenX, float screenY) {
+    // Get world position under cursor before zoom
+    float worldX, worldY;
+    ScreenToWorld(screenX, screenY, &worldX, &worldY);
+    
+    // Apply new zoom
+    float clampedZoom = std::clamp(newZoom, 0.25f, 25.0f);
+    
+    // Adjust offset so world position stays under cursor
+    // After zoom: screenX = (worldX - offsetX) * newZoom + vpX
+    // Solve for offsetX: offsetX = worldX - (screenX - vpX) / newZoom
+    offsetX = worldX - (screenX - m_vpX) / clampedZoom;
+    offsetY = worldY - (screenY - m_vpY) / clampedZoom;
+    
+    zoom = clampedZoom;
+}
+
 void Canvas::Pan(float dx, float dy) {
     offsetX += dx / zoom;
     offsetY += dy / zoom;

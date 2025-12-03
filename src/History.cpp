@@ -1,5 +1,6 @@
 #include "History.h"
 #include "Model.h"
+#include "Canvas.h"
 #include "Icons.h"
 #include "platform/Time.h"
 
@@ -974,6 +975,31 @@ void UpdatePaletteColorCommand::Undo(Model& model) {
 
 std::string UpdatePaletteColorCommand::GetDescription() const {
     return "Update Color: " + m_newName;
+}
+
+// ============================================================================
+// SetZoomCommand
+// ============================================================================
+
+SetZoomCommand::SetZoomCommand(Canvas& canvas, float oldZoom, float newZoom,
+                               int displayPercent)
+    : m_canvas(canvas)
+    , m_oldZoom(oldZoom)
+    , m_newZoom(newZoom)
+    , m_displayPercent(displayPercent)
+{
+}
+
+void SetZoomCommand::Execute(Model& /*model*/) {
+    m_canvas.SetZoom(m_newZoom);
+}
+
+void SetZoomCommand::Undo(Model& /*model*/) {
+    m_canvas.SetZoom(m_oldZoom);
+}
+
+std::string SetZoomCommand::GetDescription() const {
+    return "Zoom to " + std::to_string(m_displayPercent) + "%";
 }
 
 } // namespace Cartograph

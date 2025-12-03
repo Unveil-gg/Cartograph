@@ -191,7 +191,7 @@ void UI::Render(
     // Canvas first (background layer), then side panels (on top for tooltips)
     m_canvasPanel.Render(renderer, model, canvas, history, icons, keymap);
     RenderStatusBar(model, canvas);
-    RenderToolsPanel(model, history, icons, jobs);
+    RenderToolsPanel(model, history, icons, jobs, canvas);
     
     if (showPropertiesPanel) {
         RenderPropertiesPanel(model, icons, jobs, history, canvas);
@@ -534,7 +534,7 @@ void UI::RenderPalettePanel(Model& model) {
 }
 
 void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons, 
-                          JobQueue& jobs) {
+                          JobQueue& jobs, Canvas& canvas) {
     ImGuiWindowFlags flags = 
         ImGuiWindowFlags_NoMove | 
         ImGuiWindowFlags_NoCollapse;
@@ -546,16 +546,16 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
     
     const char* toolNames[] = {
         "Move", "Select", "Paint", "Erase", "Fill", 
-        "Marker", "Eyedropper"
+        "Marker", "Eyedropper", "Zoom"
     };
     
     const char* toolIconNames[] = {
         "move", "square-dashed", "paintbrush", "paint-bucket", "eraser",
-        "map-pinned", "pipette"
+        "map-pinned", "pipette", "zoom-in"
     };
     
     const char* toolShortcuts[] = {
-        "V", "S", "B", "E", "F", "M", "I"
+        "V", "S", "B", "E", "F", "M", "I", "Z"
     };
     
     // Icon button size and spacing
@@ -567,7 +567,7 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
     // Add padding
     ImGui::Dummy(ImVec2(0, panelPadding * 0.5f));
     
-    for (int i = 0; i < 7; ++i) {
+    for (int i = 0; i < 8; ++i) {
         bool selected = (static_cast<int>(m_canvasPanel.currentTool) == i);
         
         ImGui::PushID(i);
@@ -654,6 +654,13 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
                     ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
                         "Click to pick tile color");
                     break;
+                case 7: // Zoom
+                    ImGui::Text("Zoom Tool [Z]");
+                    ImGui::Separator();
+                    ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
+                        "Left-click: Zoom in at point\n"
+                        "Right-click: Zoom out at point");
+                    break;
                 default:
                     ImGui::Text("%s", toolNames[i]);
                     ImGui::Separator();
@@ -674,7 +681,7 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
         }
         
         // Fixed 4-column grid layout
-        if ((i + 1) % TOOLS_PER_ROW != 0 && i < 6) {
+        if ((i + 1) % TOOLS_PER_ROW != 0 && i < 7) {
             ImGui::SameLine(0, iconSpacing);
         }
         
@@ -792,6 +799,12 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
         }
         
         ImGui::PopID();
+    }
+    
+    // Show tool options for Zoom tool
+    if (m_canvasPanel.currentTool == CanvasPanel::Tool::Zoom) {
+        ImGui::Spacing();
+        RenderZoomOptions(canvas, history, model);
     }
     
     // Show tool options for room tools (match regular tool UX)
@@ -1875,6 +1888,119 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
     // TODO: Add layers toggles here
     
     ImGui::End();
+}
+
+// Zoom preset levels (display percentages)
+static const int ZOOM_PRESETS[] = {
+    10, 25, 50, 75, 100, 150, 200, 400, 800, 1000
+};
+static const int ZOOM_PRESET_COUNT = 
+    sizeof(ZOOM_PRESETS) / sizeof(ZOOM_PRESETS[0]);
+
+// Convert display percentage to internal zoom value
+static float DisplayToInternalZoom(int displayPercent) {
+    return (displayPercent / 100.0f) * Canvas::DEFAULT_ZOOM;
+}
+
+// Convert internal zoom to display percentage
+static int InternalToDisplayZoom(float internalZoom) {
+    return static_cast<int>((internalZoom / Canvas::DEFAULT_ZOOM) * 100.0f);
+}
+
+// Find next zoom preset (higher or lower)
+static int GetNextZoomPreset(int currentPercent, bool zoomIn) {
+    if (zoomIn) {
+        // Find first preset > current
+        for (int i = 0; i < ZOOM_PRESET_COUNT; ++i) {
+            if (ZOOM_PRESETS[i] > currentPercent) {
+                return ZOOM_PRESETS[i];
+            }
+        }
+        return ZOOM_PRESETS[ZOOM_PRESET_COUNT - 1];  // Max
+    } else {
+        // Find last preset < current
+        for (int i = ZOOM_PRESET_COUNT - 1; i >= 0; --i) {
+            if (ZOOM_PRESETS[i] < currentPercent) {
+                return ZOOM_PRESETS[i];
+            }
+        }
+        return ZOOM_PRESETS[0];  // Min
+    }
+}
+
+void UI::RenderZoomOptions(Canvas& canvas, History& history, Model& model) {
+    ImGui::Text("Zoom");
+    ImGui::Separator();
+    
+    // Get current zoom as display percentage
+    int currentPercent = InternalToDisplayZoom(canvas.zoom);
+    float oldZoom = canvas.zoom;
+    
+    // Compact layout: [ - ] [ 100% ] [ + ]
+    ImGui::Spacing();
+    
+    float buttonWidth = 28.0f;
+    float inputWidth = 60.0f;
+    float spacing = 4.0f;
+    
+    // Minus button
+    if (ImGui::Button("-##zoomOut", ImVec2(buttonWidth, 0))) {
+        int newPercent = GetNextZoomPreset(currentPercent, false);
+        if (newPercent != currentPercent) {
+            float newZoom = DisplayToInternalZoom(newPercent);
+            auto cmd = std::make_unique<SetZoomCommand>(
+                canvas, oldZoom, newZoom, newPercent
+            );
+            history.AddCommand(std::move(cmd), model);
+        }
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Zoom out to previous preset");
+    }
+    
+    ImGui::SameLine(0, spacing);
+    
+    // Input field for direct percentage entry
+    ImGui::SetNextItemWidth(inputWidth);
+    static char zoomBuf[16];
+    snprintf(zoomBuf, sizeof(zoomBuf), "%d%%", currentPercent);
+    
+    if (ImGui::InputText("##zoomInput", zoomBuf, sizeof(zoomBuf),
+                        ImGuiInputTextFlags_EnterReturnsTrue)) {
+        // Parse input (strip % if present)
+        int inputPercent = 0;
+        if (sscanf(zoomBuf, "%d", &inputPercent) == 1) {
+            // Clamp to valid range (10% - 1000%)
+            inputPercent = std::clamp(inputPercent, 10, 1000);
+            if (inputPercent != currentPercent) {
+                float newZoom = DisplayToInternalZoom(inputPercent);
+                auto cmd = std::make_unique<SetZoomCommand>(
+                    canvas, oldZoom, newZoom, inputPercent
+                );
+                history.AddCommand(std::move(cmd), model);
+            }
+        }
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Enter zoom percentage (10%% - 1000%%)");
+    }
+    
+    ImGui::SameLine(0, spacing);
+    
+    // Plus button
+    if (ImGui::Button("+##zoomIn", ImVec2(buttonWidth, 0))) {
+        int newPercent = GetNextZoomPreset(currentPercent, true);
+        if (newPercent != currentPercent) {
+            float newZoom = DisplayToInternalZoom(newPercent);
+            auto cmd = std::make_unique<SetZoomCommand>(
+                canvas, oldZoom, newZoom, newPercent
+            );
+            history.AddCommand(std::move(cmd), model);
+        }
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Zoom in to next preset");
+    }
 }
 
 void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
