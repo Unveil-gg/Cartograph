@@ -9,6 +9,7 @@
 #include "../Keymap.h"
 #include "../Package.h"
 #include "../ProjectFolder.h"
+#include "../Preferences.h"
 #include "../platform/Paths.h"
 #include "../platform/Fs.h"
 #include "../platform/Time.h"
@@ -22,6 +23,9 @@
 #include <fstream>
 #include <SDL3/SDL.h>
 #include <nlohmann/json.hpp>
+
+// minizip-ng for reading .cart thumbnails
+#include "unzip.h"
 
 // OpenGL for texture generation
 #ifdef __APPLE__
@@ -510,63 +514,42 @@ void WelcomeScreen::LoadRecentProjects() {
     
     namespace fs = std::filesystem;
     
-    // Get default projects directory
-    std::string projectsDir = Platform::GetDefaultProjectsDir();
+    // Get recently opened projects from persistent storage
+    auto entries = RecentProjects::GetValidEntries();
     
-    // Check if directory exists
-    if (!fs::exists(projectsDir) || !fs::is_directory(projectsDir)) {
-        return;
-    }
-    
-    try {
-        // Scan directory for project folders
-        std::vector<std::pair<fs::file_time_type, fs::path>> projectPaths;
+    for (const auto& entry : entries) {
+        RecentProject project;
+        project.path = entry.path;
         
-        for (const auto& entry : fs::directory_iterator(projectsDir)) {
-            if (!entry.is_directory()) continue;
-            
-            // Check if it has a project.json file
-            fs::path projectJson = entry.path() / "project.json";
-            if (!fs::exists(projectJson)) continue;
-            
-            // Get last modified time
-            auto modTime = fs::last_write_time(entry.path());
-            projectPaths.push_back({modTime, entry.path()});
-        }
+        bool isCartFile = (entry.type == "cart");
         
-        // Sort by last modified time (newest first)
-        std::sort(projectPaths.begin(), projectPaths.end(),
-            [](const auto& a, const auto& b) {
-                return a.first > b.first;
-            });
-        
-        // Convert to RecentProject entries (limit to 10)
-        size_t count = std::min(projectPaths.size(), size_t(10));
-        for (size_t i = 0; i < count; ++i) {
-            const auto& [modTime, path] = projectPaths[i];
+        if (isCartFile) {
+            // .cart file - extract name from filename
+            fs::path p(entry.path);
+            std::string filename = p.stem().string();  // Remove .cart extension
+            project.name = filename;
             
-            RecentProject project;
-            project.path = path.string();
-            project.name = path.filename().string();
+            // For .cart files, thumbnail will be extracted on demand
+            // We store a marker to indicate this is a cart file
+            project.thumbnailPath = "";  // Will use placeholder or extract
             
-            // Format last modified time
-            auto sctp = std::chrono::time_point_cast<std::chrono::system_clock::duration>(
-                modTime - fs::file_time_type::clock::now() + 
-                std::chrono::system_clock::now());
-            auto time_t = std::chrono::system_clock::to_time_t(sctp);
-            std::tm tm = *std::localtime(&time_t);
-            char timeStr[64];
-            std::strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M", &tm);
-            project.lastModified = timeStr;
+            // Try to read description from manifest inside .cart
+            // (We'll use a simplified approach - just use filename)
+            project.description = "";
+            
+        } else {
+            // Project folder - get name from folder name
+            fs::path p(entry.path);
+            project.name = p.filename().string();
             
             // Set thumbnail path if preview.png exists
-            fs::path previewPath = path / "preview.png";
+            fs::path previewPath = p / "preview.png";
             if (fs::exists(previewPath)) {
                 project.thumbnailPath = previewPath.string();
             }
             
             // Read description from project.json
-            fs::path projectJsonPath = path / "project.json";
+            fs::path projectJsonPath = p / "project.json";
             if (fs::exists(projectJsonPath)) {
                 try {
                     std::ifstream file(projectJsonPath);
@@ -582,29 +565,19 @@ void WelcomeScreen::LoadRecentProjects() {
                     // Silently ignore parse errors - description stays empty
                 }
             }
-            
-            recentProjects.push_back(project);
         }
         
-    } catch (const std::exception& e) {
-        // Failed to scan directory - clear list and continue
-        recentProjects.clear();
+        // Use lastOpened timestamp from the entry
+        project.lastModified = entry.lastOpened;
+        
+        recentProjects.push_back(project);
     }
 }
 
 
 void WelcomeScreen::AddRecentProject(const std::string& path) {
-    // Note: This function no longer saves to JSON.
-    // Recent projects are now loaded dynamically by scanning the directory.
-    // We keep this function as a no-op for now in case it's called elsewhere,
-    // but it doesn't need to do anything since LoadRecentProjects() handles
-    // everything.
-    
-    // The directory scan approach means:
-    // - No file I/O failures
-    // - Always shows current state
-    // - Self-healing (deleted projects auto-remove)
-    // - Simpler and more reliable
+    // Add to persistent recent projects list
+    RecentProjects::Add(path);
 }
 
 
