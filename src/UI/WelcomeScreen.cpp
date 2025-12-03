@@ -21,6 +21,7 @@
 #include <iomanip>
 #include <sstream>
 #include <fstream>
+#include <unordered_set>
 #include <SDL3/SDL.h>
 #include <nlohmann/json.hpp>
 
@@ -509,47 +510,106 @@ void WelcomeScreen::RenderRecentProjectsList(App& app) {
 }
 
 
-void WelcomeScreen::LoadRecentProjects() {
-    recentProjects.clear();
-    
+/**
+ * Extract thumbnail from a .cart file to cache directory.
+ * @param cartPath Path to .cart file
+ * @return Path to extracted thumbnail, or empty if extraction failed
+ */
+static std::string ExtractCartThumbnail(const std::string& cartPath) {
     namespace fs = std::filesystem;
     
-    // Get recently opened projects from persistent storage
-    auto entries = RecentProjects::GetValidEntries();
+    // Create cache directory for thumbnails
+    std::string cacheDir = Platform::GetUserDataDir() + "thumbnail_cache/";
+    Platform::EnsureDirectoryExists(cacheDir);
     
-    for (const auto& entry : entries) {
-        RecentProject project;
-        project.path = entry.path;
-        
-        bool isCartFile = (entry.type == "cart");
-        
-        if (isCartFile) {
-            // .cart file - extract name from filename
-            fs::path p(entry.path);
-            std::string filename = p.stem().string();  // Remove .cart extension
-            project.name = filename;
+    // Generate cache filename based on cart file path hash
+    // (Simple approach: use filename + modification time)
+    fs::path cartFsPath(cartPath);
+    std::string baseName = cartFsPath.stem().string();
+    
+    // Get file modification time for cache invalidation
+    std::error_code ec;
+    auto modTime = fs::last_write_time(cartPath, ec);
+    if (ec) return "";
+    
+    auto modTimeVal = static_cast<long long>(
+        modTime.time_since_epoch().count());
+    std::string cacheFileName = baseName + "_" + 
+        std::to_string(modTimeVal) + ".png";
+    std::string cachePath = cacheDir + cacheFileName;
+    
+    // Check if cached thumbnail already exists and is valid
+    if (fs::exists(cachePath)) {
+        return cachePath;
+    }
+    
+    // Extract thumb.png from .cart ZIP
+    unzFile uf = unzOpen(cartPath.c_str());
+    if (!uf) return "";
+    
+    // Try to locate thumb.png
+    if (unzLocateFile(uf, "thumb.png", 0) != UNZ_OK) {
+        unzClose(uf);
+        return "";
+    }
+    
+    // Get file info
+    unz_file_info fileInfo;
+    if (unzGetCurrentFileInfo(uf, &fileInfo, nullptr, 0, 
+                              nullptr, 0, nullptr, 0) != UNZ_OK) {
+        unzClose(uf);
+        return "";
+    }
+    
+    // Open and read the file
+    if (unzOpenCurrentFile(uf) != UNZ_OK) {
+        unzClose(uf);
+        return "";
+    }
+    
+    std::vector<uint8_t> buffer(fileInfo.uncompressed_size);
+    int bytesRead = unzReadCurrentFile(uf, buffer.data(), buffer.size());
+    unzCloseCurrentFile(uf);
+    unzClose(uf);
+    
+    if (bytesRead <= 0) return "";
+    
+    // Write to cache file
+    std::ofstream outFile(cachePath, std::ios::binary);
+    if (!outFile.is_open()) return "";
+    
+    outFile.write(reinterpret_cast<const char*>(buffer.data()), bytesRead);
+    outFile.close();
+    
+    return cachePath;
+}
+
+/**
+ * Create RecentProject entry from a project folder path.
+ * @param folderPath Path to project folder
+ * @param lastModified Optional last modified string (empty = use file time)
+ * @return Populated RecentProject entry
+ */
+static RecentProject CreateProjectEntryFromFolder(
+    const std::string& folderPath,
+    const std::string& lastModified = ""
+) {
+    namespace fs = std::filesystem;
             
-            // For .cart files, thumbnail will be extracted on demand
-            // We store a marker to indicate this is a cart file
-            project.thumbnailPath = "";  // Will use placeholder or extract
-            
-            // Try to read description from manifest inside .cart
-            // (We'll use a simplified approach - just use filename)
-            project.description = "";
-            
-        } else {
-            // Project folder - get name from folder name
-            fs::path p(entry.path);
-            project.name = p.filename().string();
+            RecentProject project;
+    project.path = folderPath;
+    
+    fs::path p(folderPath);
+    project.name = p.filename().string();
             
             // Set thumbnail path if preview.png exists
-            fs::path previewPath = p / "preview.png";
+    fs::path previewPath = p / "preview.png";
             if (fs::exists(previewPath)) {
                 project.thumbnailPath = previewPath.string();
             }
             
             // Read description from project.json
-            fs::path projectJsonPath = p / "project.json";
+    fs::path projectJsonPath = p / "project.json";
             if (fs::exists(projectJsonPath)) {
                 try {
                     std::ifstream file(projectJsonPath);
@@ -562,16 +622,102 @@ void WelcomeScreen::LoadRecentProjects() {
                         }
                     }
                 } catch (...) {
-                    // Silently ignore parse errors - description stays empty
-                }
-            }
+            // Silently ignore parse errors
+        }
+    }
+    
+    // Set last modified time
+    if (!lastModified.empty()) {
+        project.lastModified = lastModified;
+    } else {
+        // Get from filesystem
+        std::error_code ec;
+        auto modTime = fs::last_write_time(folderPath, ec);
+        if (!ec) {
+            auto sctp = std::chrono::time_point_cast<
+                std::chrono::system_clock::duration>(
+                modTime - fs::file_time_type::clock::now() + 
+                std::chrono::system_clock::now());
+            auto time_t = std::chrono::system_clock::to_time_t(sctp);
+            std::tm tm = *std::localtime(&time_t);
+            char timeStr[64];
+            std::strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M", &tm);
+            project.lastModified = timeStr;
+        }
+    }
+    
+    return project;
+}
+
+void WelcomeScreen::LoadRecentProjects() {
+    recentProjects.clear();
+    
+    namespace fs = std::filesystem;
+    
+    // Track paths we've already added (for deduplication)
+    std::unordered_set<std::string> addedPaths;
+    
+    // 1. Load from persistent recent projects list
+    auto entries = RecentProjects::GetValidEntries();
+    
+    for (const auto& entry : entries) {
+        RecentProject project;
+        project.path = entry.path;
+        
+        bool isCartFile = (entry.type == "cart");
+        
+        if (isCartFile) {
+            // .cart file - extract name from filename
+            fs::path p(entry.path);
+            project.name = p.stem().string();
+            
+            // Extract thumbnail from .cart to cache
+            project.thumbnailPath = ExtractCartThumbnail(entry.path);
+            
+            project.description = "";
+            
+        } else {
+            // Project folder
+            project = CreateProjectEntryFromFolder(entry.path, entry.lastOpened);
         }
         
-        // Use lastOpened timestamp from the entry
         project.lastModified = entry.lastOpened;
-        
         recentProjects.push_back(project);
+        addedPaths.insert(entry.path);
     }
+    
+    // 2. Scan default projects directory for additional projects
+    std::string projectsDir = Platform::GetDefaultProjectsDir();
+    
+    if (fs::exists(projectsDir) && fs::is_directory(projectsDir)) {
+        try {
+            for (const auto& dirEntry : fs::directory_iterator(projectsDir)) {
+                if (!dirEntry.is_directory()) continue;
+                
+                std::string folderPath = dirEntry.path().string();
+                
+                // Skip if already in recent list
+                if (addedPaths.count(folderPath) > 0) continue;
+                
+                // Check if it's a valid project folder
+                fs::path projectJson = dirEntry.path() / "project.json";
+                if (!fs::exists(projectJson)) continue;
+                
+                // Add to list
+                RecentProject project = CreateProjectEntryFromFolder(folderPath);
+                recentProjects.push_back(project);
+                addedPaths.insert(folderPath);
+            }
+        } catch (...) {
+            // Silently ignore scan errors
+        }
+    }
+    
+    // 3. Sort by last modified (most recent first)
+    std::sort(recentProjects.begin(), recentProjects.end(),
+        [](const RecentProject& a, const RecentProject& b) {
+            return a.lastModified > b.lastModified;
+        });
 }
 
 
