@@ -1868,7 +1868,7 @@ void Modals::RenderProjectBrowserModal(App& app,
         projectBrowserModalOpened = true;
     }
     
-    ImGui::SetNextWindowSize(ImVec2(850, 600), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(880, 600), ImGuiCond_FirstUseEver);
     
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
