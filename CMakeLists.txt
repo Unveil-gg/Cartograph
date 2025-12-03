@@ -59,6 +59,12 @@ if(APPLE)
     )
 endif()
 
+if(WIN32)
+    list(APPEND CARTOGRAPH_SOURCES
+        src/app.rc
+    )
+endif()
+
 set(CARTOGRAPH_HEADERS
     src/App.h
     src/UI.h
@@ -147,7 +153,15 @@ if(APPLE)
         MACOSX_BUNDLE_INFO_STRING "Unveil Cartograph - Metroidvania Map Editor"
         MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
         MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
+        MACOSX_BUNDLE_ICON_FILE "cartograph.icns"
         XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "-"
+    )
+    
+    # Copy icon into bundle Resources
+    add_custom_command(TARGET Cartograph POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_SOURCE_DIR}/assets/project/cartograph.icns
+        $<TARGET_BUNDLE_CONTENT_DIR:Cartograph>/Resources/cartograph.icns
     )
     
     # Copy assets into bundle

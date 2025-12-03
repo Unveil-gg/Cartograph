@@ -10,6 +10,10 @@
 #include <memory>
 #include <string>
 
+// SDL includes for callback types
+#include <SDL3/SDL_events.h>
+#include <SDL3/SDL_init.h>
+
 // Forward declarations
 struct SDL_Window;
 
@@ -58,10 +62,17 @@ public:
     bool Init(const std::string& title, int width, int height);
     
     /**
-     * Run the main loop.
-     * @return Exit code
+     * Per-frame iteration (called by SDL3 main callbacks).
+     * @return SDL_APP_CONTINUE to keep running, SDL_APP_SUCCESS to quit
      */
-    int Run();
+    SDL_AppResult Iterate();
+    
+    /**
+     * Handle a single SDL event (called by SDL3 main callbacks).
+     * @param event The SDL event to process
+     * @return SDL_APP_CONTINUE to keep running, SDL_APP_SUCCESS to quit
+     */
+    SDL_AppResult HandleEvent(SDL_Event* event);
     
     /**
      * Shutdown and cleanup.
@@ -127,7 +138,6 @@ public:
     void UpdateWindowTitle();
     
 private:
-    void ProcessEvents();
     void Update(float deltaTime);
     void Render();
     

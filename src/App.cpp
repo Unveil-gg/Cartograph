@@ -75,6 +75,13 @@ bool App::Init(const std::string& title, int width, int height) {
         return false;
     }
     
+    // Lock aspect ratio to 16:9 to prevent warping during resize
+    float aspectRatio = 16.0f / 9.0f;
+    SDL_SetWindowAspectRatio(m_window.get(), aspectRatio, aspectRatio);
+    
+    // Minimum size to prevent unusably small UI (maintains 16:9)
+    SDL_SetWindowMinimumSize(m_window.get(), 1152, 648);
+    
     // Create OpenGL context
     m_glContext.reset(SDL_GL_CreateContext(m_window.get()));
     if (!m_glContext) {
@@ -131,24 +138,59 @@ bool App::Init(const std::string& title, int width, int height) {
     return true;
 }
 
-int App::Run() {
-    while (m_running) {
-        double currentTime = Platform::GetTime();
-        float deltaTime = static_cast<float>(currentTime - m_lastFrameTime);
-        m_lastFrameTime = currentTime;
-        
-        ProcessEvents();
-        Update(deltaTime);
-        Render();
-        
-        // Process job callbacks
-        m_jobs.ProcessCallbacks();
-        
-        // Autosave check
-        DoAutosave();
+SDL_AppResult App::Iterate() {
+    if (!m_running) {
+        return SDL_APP_SUCCESS;
     }
     
-    return 0;
+    double currentTime = Platform::GetTime();
+    float deltaTime = static_cast<float>(currentTime - m_lastFrameTime);
+    m_lastFrameTime = currentTime;
+    
+    Update(deltaTime);
+    Render();
+    
+    // Process job callbacks
+    m_jobs.ProcessCallbacks();
+    
+    // Autosave check
+    DoAutosave();
+    
+    return SDL_APP_CONTINUE;
+}
+
+SDL_AppResult App::HandleEvent(SDL_Event* event) {
+    ImGui_ImplSDL3_ProcessEvent(event);
+    
+    switch (event->type) {
+        case SDL_EVENT_QUIT:
+            RequestQuit();
+            break;
+            
+        case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
+            if (event->window.windowID == SDL_GetWindowID(m_window.get())) {
+                RequestQuit();
+            }
+            break;
+            
+        case SDL_EVENT_DROP_BEGIN:
+            m_isDragging = true;
+            break;
+            
+        case SDL_EVENT_DROP_FILE:
+            m_isDragging = false;
+            if (event->drop.data) {
+                m_droppedFilePath = event->drop.data;
+                m_hasDroppedFile = true;
+            }
+            break;
+            
+        case SDL_EVENT_DROP_COMPLETE:
+            m_isDragging = false;
+            break;
+    }
+    
+    return SDL_APP_CONTINUE;
 }
 
 void App::Shutdown() {
@@ -218,43 +260,6 @@ void App::ShowEditor() {
     }
 }
 
-void App::ProcessEvents() {
-    SDL_Event event;
-    while (SDL_PollEvent(&event)) {
-        ImGui_ImplSDL3_ProcessEvent(&event);
-        
-        switch (event.type) {
-            case SDL_EVENT_QUIT:
-                RequestQuit();
-                break;
-                
-            case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
-                if (event.window.windowID == SDL_GetWindowID(m_window.get())) {
-                    RequestQuit();
-                }
-                break;
-                
-            case SDL_EVENT_DROP_BEGIN:
-                // Drag operation started
-                m_isDragging = true;
-                break;
-                
-            case SDL_EVENT_DROP_FILE:
-                // File was dropped on the window
-                m_isDragging = false;
-                if (event.drop.data) {
-                    m_droppedFilePath = event.drop.data;
-                    m_hasDroppedFile = true;
-                }
-                break;
-                
-            case SDL_EVENT_DROP_COMPLETE:
-                // Drag operation ended (dropped or cancelled)
-                m_isDragging = false;
-                break;
-        }
-    }
-}
 
 void App::Update(float deltaTime) {
     // Update canvas
