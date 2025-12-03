@@ -2,6 +2,7 @@
 #include "Model.h"
 #include "IOJson.h"
 #include "Icons.h"
+#include "Limits.h"
 #include "platform/Fs.h"
 #include <nlohmann/json.hpp>
 
@@ -17,6 +18,28 @@
 using json = nlohmann::json;
 
 namespace Cartograph {
+
+/**
+ * Validates that a ZIP entry path is safe (no path traversal).
+ * @param path The path from a ZIP file entry
+ * @return true if path is safe, false if it contains traversal sequences
+ */
+static bool IsZipPathSafe(const std::string& path) {
+    // Reject empty paths
+    if (path.empty()) return false;
+    
+    // Reject paths with directory traversal
+    if (path.find("..") != std::string::npos) return false;
+    
+    // Reject absolute paths (Unix or Windows style)
+    if (path[0] == '/' || path[0] == '\\') return false;
+    if (path.length() >= 2 && path[1] == ':') return false;  // C:\...
+    
+    // Reject paths with null bytes
+    if (path.find('\0') != std::string::npos) return false;
+    
+    return true;
+}
 
 std::string Package::CreateManifest(const Model& model) {
     json j;
@@ -184,8 +207,18 @@ bool Package::Load(
             
             std::string fname(filename);
             
+            // Security: validate path to prevent directory traversal attacks
+            if (!IsZipPathSafe(fname)) {
+                continue;  // Skip unsafe paths
+            }
+            
             // Look for project.json
             if (fname == "project.json") {
+                // Security: check file size before allocating
+                if (fileInfo.uncompressed_size > Limits::MAX_PROJECT_JSON_SIZE) {
+                    continue;  // File too large, skip
+                }
+                
                 if (unzOpenCurrentFile(uf) == UNZ_OK) {
                     std::vector<char> buffer(fileInfo.uncompressed_size);
                     int read = unzReadCurrentFile(uf, buffer.data(), 
@@ -214,6 +247,13 @@ bool Package::Load(
                         // Extract icon name from path (icons/name.png -> name)
                         std::string iconName = fname.substr(6, 
                                                            fname.size() - 10);
+                        
+                        // Security: validate icon name has no path separators
+                        if (iconName.find('/') != std::string::npos ||
+                            iconName.find('\\') != std::string::npos ||
+                            iconName.empty()) {
+                            continue;  // Skip invalid icon names
+                        }
                         
                         // Process the PNG data
                         std::vector<uint8_t> pixels;

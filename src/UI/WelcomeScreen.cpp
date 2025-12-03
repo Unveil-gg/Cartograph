@@ -182,7 +182,10 @@ void WelcomeScreen::Render(
                                                     buttonHeight))) {
         m_ui.m_modals.showNewProjectModal = true;
         // Reset config to defaults
-        std::strcpy(m_ui.m_modals.newProjectConfig.projectName, "New Map");
+        std::strncpy(m_ui.m_modals.newProjectConfig.projectName, "New Map",
+                     sizeof(m_ui.m_modals.newProjectConfig.projectName) - 1);
+        m_ui.m_modals.newProjectConfig.projectName[
+            sizeof(m_ui.m_modals.newProjectConfig.projectName) - 1] = '\0';
         m_ui.m_modals.newProjectConfig.gridPreset = GridPreset::Square;
         m_ui.m_modals.newProjectConfig.mapWidth = 100;
         m_ui.m_modals.newProjectConfig.mapHeight = 100;

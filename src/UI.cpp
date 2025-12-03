@@ -3092,7 +3092,9 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
             m_canvasPanel.selectedRoomId = newRoom.id;
             
             // Reset form
-            strcpy(m_modals.newRoomName, "New Room");
+            strncpy(m_modals.newRoomName, "New Room", 
+                    sizeof(m_modals.newRoomName) - 1);
+            m_modals.newRoomName[sizeof(m_modals.newRoomName) - 1] = '\0';
             m_modals.newRoomColor[0] = 1.0f;
             m_modals.newRoomColor[1] = 0.5f;
             m_modals.newRoomColor[2] = 0.5f;

@@ -1,8 +1,10 @@
 #include "IOJson.h"
 #include "Model.h"
+#include "Limits.h"
 #include "platform/Fs.h"
 #include <nlohmann/json.hpp>
 #include <fstream>
+#include <algorithm>
 
 using json = nlohmann::json;
 
@@ -240,6 +242,11 @@ std::string IOJson::SaveToString(const Model& model) {
 }
 
 bool IOJson::LoadFromString(const std::string& jsonStr, Model& outModel) {
+    // Security: check JSON size before parsing
+    if (jsonStr.size() > Limits::MAX_PROJECT_JSON_SIZE) {
+        return false;  // File too large
+    }
+    
     try {
         json j = json::parse(jsonStr);
         
@@ -271,13 +278,19 @@ bool IOJson::LoadFromString(const std::string& jsonStr, Model& outModel) {
                 }
             }
             
-            // Load dimensions
+            // Load dimensions with security bounds
             if (grid.contains("tileWidth") && grid.contains("tileHeight")) {
-                outModel.grid.tileWidth = grid.value("tileWidth", 16);
-                outModel.grid.tileHeight = grid.value("tileHeight", 16);
+                outModel.grid.tileWidth = std::clamp(
+                    grid.value("tileWidth", 16),
+                    Limits::MIN_TILE_SIZE, Limits::MAX_TILE_SIZE);
+                outModel.grid.tileHeight = std::clamp(
+                    grid.value("tileHeight", 16),
+                    Limits::MIN_TILE_SIZE, Limits::MAX_TILE_SIZE);
             } else if (grid.contains("tileSize")) {
                 // Old format: use same value for both
-                int tileSize = grid.value("tileSize", 16);
+                int tileSize = std::clamp(
+                    grid.value("tileSize", 16),
+                    Limits::MIN_TILE_SIZE, Limits::MAX_TILE_SIZE);
                 outModel.grid.tileWidth = tileSize;
                 outModel.grid.tileHeight = tileSize;
             } else {
@@ -285,8 +298,13 @@ bool IOJson::LoadFromString(const std::string& jsonStr, Model& outModel) {
                 outModel.grid.tileHeight = 16;
             }
             
-            outModel.grid.cols = grid.value("cols", 256);
-            outModel.grid.rows = grid.value("rows", 256);
+            // Security: clamp grid dimensions to prevent overflow
+            outModel.grid.cols = std::clamp(
+                grid.value("cols", 256),
+                Limits::MIN_GRID_DIMENSION, Limits::MAX_GRID_DIMENSION);
+            outModel.grid.rows = std::clamp(
+                grid.value("rows", 256),
+                Limits::MIN_GRID_DIMENSION, Limits::MAX_GRID_DIMENSION);
             outModel.grid.locked = grid.value("locked", false);
             
             // Edge configuration (optional, with defaults)
@@ -298,7 +316,8 @@ bool IOJson::LoadFromString(const std::string& jsonStr, Model& outModel) {
         }
         
         // Palette
-        if (j.contains("palette")) {
+        if (j.contains("palette") && 
+            j["palette"].size() <= Limits::MAX_PALETTE_ENTRIES) {
             outModel.palette.clear();
             for (const auto& tile : j["palette"]) {
                 TileType t;
@@ -310,7 +329,8 @@ bool IOJson::LoadFromString(const std::string& jsonStr, Model& outModel) {
         }
         
         // Region Groups (user-defined groupings)
-        if (j.contains("regionGroups")) {
+        if (j.contains("regionGroups") && 
+            j["regionGroups"].size() <= Limits::MAX_REGION_GROUPS) {
             outModel.regionGroups.clear();
             for (const auto& group : j["regionGroups"]) {
                 RegionGroup rg;
@@ -331,7 +351,7 @@ bool IOJson::LoadFromString(const std::string& jsonStr, Model& outModel) {
         }
         
         // Rooms (metadata only, regions inferred from walls)
-        if (j.contains("rooms")) {
+        if (j.contains("rooms") && j["rooms"].size() <= Limits::MAX_ROOMS) {
             outModel.rooms.clear();
             for (const auto& room : j["rooms"]) {
                 Room r;
@@ -379,7 +399,8 @@ bool IOJson::LoadFromString(const std::string& jsonStr, Model& outModel) {
         }
         
         // Tiles
-        if (j.contains("tiles")) {
+        if (j.contains("tiles") && 
+            j["tiles"].size() <= Limits::MAX_TILE_ROWS) {
             outModel.tiles.clear();
             for (const auto& row : j["tiles"]) {
                 TileRow tr;
@@ -399,7 +420,7 @@ bool IOJson::LoadFromString(const std::string& jsonStr, Model& outModel) {
         }
         
         // Edges
-        if (j.contains("edges")) {
+        if (j.contains("edges") && j["edges"].size() <= Limits::MAX_EDGES) {
             outModel.edges.clear();
             for (const auto& edge : j["edges"]) {
                 EdgeId edgeId;
@@ -418,7 +439,8 @@ bool IOJson::LoadFromString(const std::string& jsonStr, Model& outModel) {
         }
         
         // Cell room assignments
-        if (j.contains("cellRooms")) {
+        if (j.contains("cellRooms") && 
+            j["cellRooms"].size() <= Limits::MAX_CELL_ASSIGNMENTS) {
             outModel.cellRoomAssignments.clear();
             for (const auto& cellRoom : j["cellRooms"]) {
                 int x = cellRoom.value("x", 0);
@@ -432,7 +454,7 @@ bool IOJson::LoadFromString(const std::string& jsonStr, Model& outModel) {
         }
         
         // Doors
-        if (j.contains("doors")) {
+        if (j.contains("doors") && j["doors"].size() <= Limits::MAX_DOORS) {
             outModel.doors.clear();
             for (const auto& door : j["doors"]) {
                 Door d;
@@ -468,7 +490,8 @@ bool IOJson::LoadFromString(const std::string& jsonStr, Model& outModel) {
         }
         
         // Markers
-        if (j.contains("markers")) {
+        if (j.contains("markers") && 
+            j["markers"].size() <= Limits::MAX_MARKERS) {
             outModel.markers.clear();
             for (const auto& marker : j["markers"]) {
                 Marker m;
