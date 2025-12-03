@@ -2132,34 +2132,64 @@ void Modals::RenderProjectBrowserModal(App& app,
 
 
 void Modals::RenderWhatsNewPanel() {
-    ImGui::SetNextWindowSize(ImVec2(500, 400), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(520, 480), ImGuiCond_FirstUseEver);
     
     if (ImGui::Begin("What's New in Cartograph", &showWhatsNew)) {
         ImGui::TextColored(ImVec4(0.4f, 0.7f, 1.0f, 1.0f), 
-            "Version 0.1.0 - Initial Release");
+            "Version 1.0.0");
         ImGui::Separator();
         ImGui::Spacing();
         
+        // Canvas & Navigation
+        ImGui::TextColored(ImVec4(0.6f, 0.8f, 0.6f, 1.0f), "Canvas & Navigation");
+        ImGui::BulletText("Infinite pan/zoom canvas with grid snapping");
+        ImGui::BulletText("Multiple grid presets (Square, Rectangle)");
+        ImGui::Spacing();
+        
+        // Tools
+        ImGui::TextColored(ImVec4(0.6f, 0.8f, 0.6f, 1.0f), "Editing Tools");
+        ImGui::BulletText("Paint, Erase, Fill, and Eyedropper tools");
+        ImGui::BulletText("Room painting with auto-wall generation");
+        ImGui::BulletText("Walls and doors on cell edges");
+        ImGui::BulletText("Markers with custom icons");
+        ImGui::Spacing();
+        
+        // Organization
+        ImGui::TextColored(ImVec4(0.6f, 0.8f, 0.6f, 1.0f), "Organization");
+        ImGui::BulletText("Named rooms with metadata and tags");
+        ImGui::BulletText("Region groups for area organization");
+        ImGui::BulletText("Customizable tile palette");
+        ImGui::Spacing();
+        
+        // Project Management
+        ImGui::TextColored(ImVec4(0.6f, 0.8f, 0.6f, 1.0f), "Project Management");
         ImGui::BulletText("Welcome screen with project templates");
-        ImGui::BulletText("Pan/zoom canvas with grid");
-        ImGui::BulletText("Room and tile painting tools");
-        ImGui::BulletText("Door and marker placement");
-        ImGui::BulletText("PNG export with layers");
-        ImGui::BulletText("Undo/redo support");
-        ImGui::BulletText("Autosave functionality");
-        ImGui::BulletText("Theme support (Dark/Light)");
+        ImGui::BulletText("Recent projects with thumbnails");
+        ImGui::BulletText("Drag & drop project import");
+        ImGui::BulletText("Autosave with recovery");
+        ImGui::Spacing();
+        
+        // Export & Customization
+        ImGui::TextColored(ImVec4(0.6f, 0.8f, 0.6f, 1.0f), "Export & Customization");
+        ImGui::BulletText("PNG export with configurable layers and scale");
+        ImGui::BulletText("Full undo/redo history");
+        ImGui::BulletText("Customizable keyboard shortcuts");
+        ImGui::BulletText("Dark and Light themes");
         
         ImGui::Spacing();
         ImGui::Separator();
         ImGui::Spacing();
         
-        ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), 
-            "Coming Soon:");
-        ImGui::BulletText("Reachability analysis");
-        ImGui::BulletText("Minimap panel");
-        ImGui::BulletText("Legend generation");
-        ImGui::BulletText("SVG icon support");
-        ImGui::BulletText("Web build");
+        ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "What's Next:");
+        ImGui::TextWrapped("TBD - Have a feature request?");
+        ImGui::Spacing();
+        
+        if (ImGui::SmallButton("Submit a feature request on GitHub")) {
+            Platform::OpenURL(
+                "https://github.com/Unveil-gg/Cartograph/issues/new"
+                "?template=feature_request.md"
+            );
+        }
         
         ImGui::Spacing();
         ImGui::Separator();
