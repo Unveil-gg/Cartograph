@@ -682,10 +682,30 @@ void CanvasPanel::Render(
                         isModifyingEdges = true;
                     }
                 }
+                // Right-click (two-finger): delete edge
+                else if (ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+                    EdgeState currentState = model.GetEdgeState(edgeId);
+                    
+                    // Only delete if there's an edge to delete
+                    if (currentState != EdgeState::None) {
+                        ModifyEdgesCommand::EdgeChange change;
+                        change.edgeId = edgeId;
+                        change.oldState = currentState;
+                        change.newState = EdgeState::None;
+                        
+                        currentEdgeChanges.push_back(change);
+                        
+                        // Apply immediately for visual feedback
+                        model.SetEdgeState(edgeId, EdgeState::None);
+                        
+                        isModifyingEdges = true;
+                    }
+                }
                 
                 // When mouse is released, commit edge changes
                 if (isModifyingEdges && 
-                    ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+                    (ImGui::IsMouseReleased(ImGuiMouseButton_Left) ||
+                     ImGui::IsMouseReleased(ImGuiMouseButton_Right))) {
                     if (!currentEdgeChanges.empty()) {
                         auto cmd = std::make_unique<ModifyEdgesCommand>(
                             currentEdgeChanges
