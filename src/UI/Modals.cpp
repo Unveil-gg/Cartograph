@@ -63,13 +63,13 @@ void Modals::RenderAll(
     if (showQuitConfirmationModal) RenderQuitConfirmationModal(app, model);
     if (showSaveBeforeActionModal) RenderSaveBeforeActionModal(app, model);
     if (showAboutModal) RenderAboutModal();
-    if (showDeleteRoomDialog) RenderDeleteRoomModal(model);
+    if (showDeleteRoomDialog) RenderDeleteRoomModal(model, history);
     if (showRenameRoomDialog) RenderRenameRoomModal(model);
     if (showRenameRegionDialog) RenderRenameRegionModal(model);
     if (showDeleteRegionDialog) RenderDeleteRegionModal(model);
 }
 
-void Modals::RenderDeleteRoomModal(Model& model) {
+void Modals::RenderDeleteRoomModal(Model& model, History& history) {
     // Only call OpenPopup once when modal is first shown
     if (!deleteRoomDialogOpened) {
         ImGui::OpenPopup("Delete Room?");
@@ -107,18 +107,12 @@ void Modals::RenderDeleteRoomModal(Model& model) {
                 ImVec4(0.7f, 0.1f, 0.1f, 1.0f));
             
             if (ImGui::Button("Delete", ImVec2(120, 0))) {
-                // Clear all cell assignments for this room
-                model.ClearAllCellsForRoom(editingRoomId);
+                // Save room name for console message
+                std::string roomName = room->name;
                 
-                // Remove room from model
-                auto it = std::find_if(
-                    model.rooms.begin(),
-                    model.rooms.end(),
-                    [&](const Room& r) { return r.id == editingRoomId; }
-                );
-                if (it != model.rooms.end()) {
-                    model.rooms.erase(it);
-                }
+                // Delete room via command (undoable)
+                auto cmd = std::make_unique<DeleteRoomCommand>(editingRoomId);
+                history.AddCommand(std::move(cmd), model);
                 
                 // Clear selection if we deleted the selected room
                 if (m_ui.GetCanvasPanel().selectedRoomId == editingRoomId) {
@@ -128,8 +122,7 @@ void Modals::RenderDeleteRoomModal(Model& model) {
                     m_ui.GetCanvasPanel().activeRoomId.clear();
                 }
                 
-                model.MarkDirty();
-                m_ui.AddConsoleMessage("Deleted room \"" + room->name + "\"",
+                m_ui.AddConsoleMessage("Deleted room \"" + roomName + "\"",
                                      MessageType::Success);
                 
                 showDeleteRoomDialog = false;

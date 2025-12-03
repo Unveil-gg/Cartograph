@@ -162,14 +162,40 @@ private:
 };
 
 /**
- * Command to create/modify/delete a room.
+ * Command to create a new room.
+ * Supports undo by removing the created room.
  */
-class ModifyRoomCommand : public ICommand {
+class CreateRoomCommand : public ICommand {
 public:
-    // TODO: Implement room modification command
-    void Execute(Model& model) override {}
-    void Undo(Model& model) override {}
-    std::string GetDescription() const override { return "Modify Room"; }
+    explicit CreateRoomCommand(const Room& room);
+    
+    void Execute(Model& model) override;
+    void Undo(Model& model) override;
+    std::string GetDescription() const override;
+    
+    // Get the created room's ID (for UI to select it after creation)
+    const std::string& GetRoomId() const { return m_room.id; }
+    
+private:
+    Room m_room;
+};
+
+/**
+ * Command to delete a room.
+ * Saves room data and cell assignments for undo.
+ */
+class DeleteRoomCommand : public ICommand {
+public:
+    explicit DeleteRoomCommand(const std::string& roomId);
+    
+    void Execute(Model& model) override;
+    void Undo(Model& model) override;
+    std::string GetDescription() const override;
+    
+private:
+    std::string m_roomId;
+    Room m_savedRoom;  // Full room data for undo
+    std::vector<std::pair<int, int>> m_savedCellAssignments;  // Cells assigned
 };
 
 /**

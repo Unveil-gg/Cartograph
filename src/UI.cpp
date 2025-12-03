@@ -808,7 +808,7 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
         
         ImGui::SetNextItemWidth(-1);
         if (ImGui::BeginCombo("##targetRoom", previewName)) {
-            // Option to create new room
+            // Option to create new room (undoable)
             if (ImGui::Selectable("+ Create New Room")) {
                 Room newRoom;
                 newRoom.id = model.GenerateRoomId();
@@ -817,9 +817,11 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
                 newRoom.color = model.GenerateDistinctRoomColor();
                 newRoom.cellsCacheDirty = true;
                 newRoom.connectionsDirty = true;
-                model.rooms.push_back(newRoom);
+                
+                auto cmd = std::make_unique<CreateRoomCommand>(newRoom);
+                history.AddCommand(std::move(cmd), model);
+                
                 m_canvasPanel.activeRoomId = newRoom.id;
-                model.MarkDirty();
             }
             
             if (!model.rooms.empty()) {
@@ -1892,7 +1894,7 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
     
     // Toolbar buttons
     if (ImGui::Button("+ Room")) {
-        // Create new room
+        // Create new room via command (undoable)
         Room newRoom;
         newRoom.id = model.GenerateRoomId();
         newRoom.name = "Room " + std::to_string(model.rooms.size() + 1);
@@ -1900,9 +1902,11 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
         newRoom.color = model.GenerateDistinctRoomColor();
         newRoom.cellsCacheDirty = true;
         newRoom.connectionsDirty = true;
-        model.rooms.push_back(newRoom);
+        
+        auto cmd = std::make_unique<CreateRoomCommand>(newRoom);
+        history.AddCommand(std::move(cmd), model);
+        
         m_canvasPanel.activeRoomId = newRoom.id;
-        model.MarkDirty();
         AddConsoleMessage("Created " + newRoom.name, MessageType::Success);
     }
     
@@ -1979,12 +1983,15 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
             Room newRoom;
             newRoom.id = model.GenerateRoomId();
             newRoom.name = "Room " + std::to_string(model.rooms.size() + 1);
+            newRoom.regionId = -1;
             newRoom.color = model.GenerateDistinctRoomColor();
             newRoom.cellsCacheDirty = true;
             newRoom.connectionsDirty = true;
-            model.rooms.push_back(newRoom);
+            
+            auto cmd = std::make_unique<CreateRoomCommand>(newRoom);
+            history.AddCommand(std::move(cmd), model);
+            
             m_canvasPanel.selectedRoomId = newRoom.id;
-            model.MarkDirty();
             AddConsoleMessage("Created " + newRoom.name, MessageType::Success);
         }
         if (ImGui::MenuItem("Create Region")) {
@@ -2776,19 +2783,20 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
         ImGui::ColorEdit3("Room Color", m_modals.newRoomColor);
         
         if (ImGui::Button("Create", ImVec2(120, 0))) {
-            // Generate unique room ID
-            std::string roomId = "room_" + std::to_string(model.rooms.size());
-            
+            // Create room via command (undoable)
             Room newRoom;
-            newRoom.id = roomId;
+            newRoom.id = model.GenerateRoomId();
             newRoom.name = m_modals.newRoomName;
             newRoom.color = Color(m_modals.newRoomColor[0], m_modals.newRoomColor[1], 
                                  m_modals.newRoomColor[2], 1.0f);
             newRoom.regionId = -1;
+            newRoom.cellsCacheDirty = true;
+            newRoom.connectionsDirty = true;
             
-            model.rooms.push_back(newRoom);
-            m_canvasPanel.selectedRoomId = roomId;
-            model.MarkDirty();
+            auto cmd = std::make_unique<CreateRoomCommand>(newRoom);
+            history.AddCommand(std::move(cmd), model);
+            
+            m_canvasPanel.selectedRoomId = newRoom.id;
             
             // Reset form
             strcpy(m_modals.newRoomName, "New Room");

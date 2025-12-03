@@ -225,7 +225,7 @@ private:
     void RenderQuitConfirmationModal(App& app, Model& model);
     void RenderSaveBeforeActionModal(App& app, Model& model);
     void RenderAboutModal();
-    void RenderDeleteRoomModal(Model& model);
+    void RenderDeleteRoomModal(Model& model, History& history);
     void RenderRenameRoomModal(Model& model);
     void RenderRenameRegionModal(Model& model);
     void RenderDeleteRegionModal(Model& model);
