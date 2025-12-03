@@ -17,7 +17,7 @@ public:
         m_pixels.resize(width * height * 4, 0);
     }
     
-    // Set pixel with bounds checking
+    // Set pixel with bounds checking (overwrites existing pixel)
     void SetPixel(int x, int y, const Color& color) {
         if (x < 0 || x >= m_width || y < 0 || y >= m_height) return;
         
@@ -26,6 +26,33 @@ public:
         m_pixels[idx + 1] = static_cast<uint8_t>(color.g * 255);
         m_pixels[idx + 2] = static_cast<uint8_t>(color.b * 255);
         m_pixels[idx + 3] = static_cast<uint8_t>(color.a * 255);
+    }
+    
+    // Blend pixel using standard "over" alpha compositing
+    void BlendPixel(int x, int y, const Color& src) {
+        if (x < 0 || x >= m_width || y < 0 || y >= m_height) return;
+        
+        int idx = (y * m_width + x) * 4;
+        
+        // Get existing pixel (destination)
+        float dstR = m_pixels[idx + 0] / 255.0f;
+        float dstG = m_pixels[idx + 1] / 255.0f;
+        float dstB = m_pixels[idx + 2] / 255.0f;
+        float dstA = m_pixels[idx + 3] / 255.0f;
+        
+        // Standard "over" compositing formula
+        float outA = src.a + dstA * (1.0f - src.a);
+        
+        if (outA > 0.0f) {
+            float outR = (src.r * src.a + dstR * dstA * (1.0f - src.a)) / outA;
+            float outG = (src.g * src.a + dstG * dstA * (1.0f - src.a)) / outA;
+            float outB = (src.b * src.a + dstB * dstA * (1.0f - src.a)) / outA;
+            
+            m_pixels[idx + 0] = static_cast<uint8_t>(outR * 255);
+            m_pixels[idx + 1] = static_cast<uint8_t>(outG * 255);
+            m_pixels[idx + 2] = static_cast<uint8_t>(outB * 255);
+        }
+        m_pixels[idx + 3] = static_cast<uint8_t>(outA * 255);
     }
     
     // Fill rectangle
@@ -52,6 +79,15 @@ public:
         }
     }
     
+    // Draw horizontal line with alpha blending
+    void BlendHLine(int x1, int x2, int y, const Color& color) {
+        int startX = std::max(0, std::min(x1, x2));
+        int endX = std::min(m_width - 1, std::max(x1, x2));
+        for (int x = startX; x <= endX; ++x) {
+            BlendPixel(x, y, color);
+        }
+    }
+    
     // Draw vertical line with thickness
     void DrawVLine(int x, int y1, int y2, const Color& color, int thickness = 1) {
         int halfThick = thickness / 2;
@@ -64,6 +100,15 @@ public:
             for (int y = startY; y <= endY; ++y) {
                 SetPixel(px, y, color);
             }
+        }
+    }
+    
+    // Draw vertical line with alpha blending
+    void BlendVLine(int x, int y1, int y2, const Color& color) {
+        int startY = std::max(0, std::min(y1, y2));
+        int endY = std::min(m_height - 1, std::max(y1, y2));
+        for (int y = startY; y <= endY; ++y) {
+            BlendPixel(x, y, color);
         }
     }
     
@@ -244,7 +289,7 @@ bool ExportPng::Export(
         }
     }
     
-    // Render grid
+    // Render grid (using alpha blending so it only shows over content)
     if (options.layerGrid) {
         Color gridColor(0.2f, 0.2f, 0.2f, 0.5f);
         
@@ -252,16 +297,18 @@ bool ExportPng::Export(
         for (int tx = bounds.minX; tx <= bounds.maxX + 1; ++tx) {
             int px, py;
             tileToPixel(tx, bounds.minY, &px, &py);
-            int py2 = static_cast<int>((bounds.maxY - bounds.minY + 1) * model.grid.tileHeight * scale + options.padding * scale);
-            buffer.DrawVLine(px, py, py2, gridColor);
+            int py2 = static_cast<int>((bounds.maxY - bounds.minY + 1) * 
+                model.grid.tileHeight * scale + options.padding * scale);
+            buffer.BlendVLine(px, py, py2, gridColor);
         }
         
         // Horizontal lines
         for (int ty = bounds.minY; ty <= bounds.maxY + 1; ++ty) {
             int px, py;
             tileToPixel(bounds.minX, ty, &px, &py);
-            int px2 = static_cast<int>((bounds.maxX - bounds.minX + 1) * model.grid.tileWidth * scale + options.padding * scale);
-            buffer.DrawHLine(px, px2, py, gridColor);
+            int px2 = static_cast<int>((bounds.maxX - bounds.minX + 1) * 
+                model.grid.tileWidth * scale + options.padding * scale);
+            buffer.BlendHLine(px, px2, py, gridColor);
         }
     }
     
