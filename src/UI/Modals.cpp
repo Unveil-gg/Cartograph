@@ -66,7 +66,7 @@ void Modals::RenderAll(
     if (showDeleteRoomDialog) RenderDeleteRoomModal(model, history);
     if (showRenameRoomDialog) RenderRenameRoomModal(model);
     if (showRenameRegionDialog) RenderRenameRegionModal(model);
-    if (showDeleteRegionDialog) RenderDeleteRegionModal(model);
+    if (showDeleteRegionDialog) RenderDeleteRegionModal(model, history);
 }
 
 void Modals::RenderDeleteRoomModal(Model& model, History& history) {
@@ -272,7 +272,7 @@ void Modals::RenderRenameRegionModal(Model& model) {
     }
 }
 
-void Modals::RenderDeleteRegionModal(Model& model) {
+void Modals::RenderDeleteRegionModal(Model& model, History& history) {
     // Only call OpenPopup once when modal is first shown
     if (!deleteRegionDialogOpened) {
         ImGui::OpenPopup("Delete Region?");
@@ -310,30 +310,19 @@ void Modals::RenderDeleteRegionModal(Model& model) {
                 ImVec4(0.7f, 0.1f, 0.1f, 1.0f));
             
             if (ImGui::Button("Delete", ImVec2(120, 0))) {
-                // Unassign all rooms from this region
-                for (auto& room : model.rooms) {
-                    if (room.parentRegionGroupId == editingRegionId) {
-                        room.parentRegionGroupId = "";
-                    }
-                }
+                // Save region name for console message
+                std::string regionName = region->name;
                 
-                // Remove region from model
-                auto it = std::find_if(
-                    model.regionGroups.begin(),
-                    model.regionGroups.end(),
-                    [&](const RegionGroup& r) { return r.id == editingRegionId; }
-                );
-                if (it != model.regionGroups.end()) {
-                    model.regionGroups.erase(it);
-                }
+                // Delete region via command (undoable)
+                auto cmd = std::make_unique<DeleteRegionCommand>(editingRegionId);
+                history.AddCommand(std::move(cmd), model);
                 
                 // Clear selection if we deleted the selected region
                 if (m_ui.GetCanvasPanel().selectedRegionGroupId == editingRegionId) {
                     m_ui.GetCanvasPanel().selectedRegionGroupId.clear();
                 }
                 
-                model.MarkDirty();
-                m_ui.AddConsoleMessage("Deleted region \"" + region->name + "\"",
+                m_ui.AddConsoleMessage("Deleted region \"" + regionName + "\"",
                                      MessageType::Success);
                 
                 showDeleteRegionDialog = false;

@@ -245,6 +245,84 @@ private:
 };
 
 /**
+ * Command to create a new region.
+ * Supports undo by removing the created region.
+ */
+class CreateRegionCommand : public ICommand {
+public:
+    explicit CreateRegionCommand(const RegionGroup& region);
+    
+    void Execute(Model& model) override;
+    void Undo(Model& model) override;
+    std::string GetDescription() const override;
+    
+    const std::string& GetRegionId() const { return m_region.id; }
+    
+private:
+    RegionGroup m_region;
+};
+
+/**
+ * Command to delete a region.
+ * Saves region data and room assignments for undo.
+ */
+class DeleteRegionCommand : public ICommand {
+public:
+    explicit DeleteRegionCommand(const std::string& regionId);
+    
+    void Execute(Model& model) override;
+    void Undo(Model& model) override;
+    std::string GetDescription() const override;
+    
+private:
+    std::string m_regionId;
+    RegionGroup m_savedRegion;
+    std::vector<std::string> m_orphanedRoomIds;  // Rooms that were in region
+};
+
+/**
+ * Snapshot of region properties for undo/redo.
+ */
+struct RegionPropertiesSnapshot {
+    std::string name;
+    std::string description;
+    std::vector<std::string> tags;
+    
+    bool operator==(const RegionPropertiesSnapshot& other) const {
+        return name == other.name && description == other.description &&
+               tags == other.tags;
+    }
+    
+    bool operator!=(const RegionPropertiesSnapshot& other) const {
+        return !(*this == other);
+    }
+};
+
+/**
+ * Command to modify region properties (name, description, tags).
+ * Supports coalescing for rapid edits like typing.
+ */
+class ModifyRegionPropertiesCommand : public ICommand {
+public:
+    ModifyRegionPropertiesCommand(
+        const std::string& regionId,
+        const RegionPropertiesSnapshot& oldProps,
+        const RegionPropertiesSnapshot& newProps
+    );
+    
+    void Execute(Model& model) override;
+    void Undo(Model& model) override;
+    std::string GetDescription() const override;
+    bool TryCoalesce(ICommand* other, uint64_t timeDelta, 
+                     float distanceSq) override;
+    
+private:
+    std::string m_regionId;
+    RegionPropertiesSnapshot m_oldProps;
+    RegionPropertiesSnapshot m_newProps;
+};
+
+/**
  * Command to assign/unassign cells to rooms.
  * Used for room painting mode.
  */

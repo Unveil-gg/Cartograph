@@ -380,6 +380,155 @@ bool ModifyRoomPropertiesCommand::TryCoalesce(
 }
 
 // ============================================================================
+// CreateRegionCommand
+// ============================================================================
+
+CreateRegionCommand::CreateRegionCommand(const RegionGroup& region)
+    : m_region(region) {
+}
+
+void CreateRegionCommand::Execute(Model& model) {
+    model.regionGroups.push_back(m_region);
+    model.MarkDirty();
+}
+
+void CreateRegionCommand::Undo(Model& model) {
+    auto it = std::find_if(
+        model.regionGroups.begin(),
+        model.regionGroups.end(),
+        [this](const RegionGroup& r) { return r.id == m_region.id; }
+    );
+    if (it != model.regionGroups.end()) {
+        model.regionGroups.erase(it);
+    }
+    model.MarkDirty();
+}
+
+std::string CreateRegionCommand::GetDescription() const {
+    return "Create Region: " + m_region.name;
+}
+
+// ============================================================================
+// DeleteRegionCommand
+// ============================================================================
+
+DeleteRegionCommand::DeleteRegionCommand(const std::string& regionId)
+    : m_regionId(regionId) {
+}
+
+void DeleteRegionCommand::Execute(Model& model) {
+    // Save region data (only first time)
+    if (m_savedRegion.id.empty()) {
+        const RegionGroup* region = model.FindRegionGroup(m_regionId);
+        if (region) {
+            m_savedRegion = *region;
+        }
+        
+        // Save room assignments and clear them
+        for (auto& room : model.rooms) {
+            if (room.parentRegionGroupId == m_regionId) {
+                m_orphanedRoomIds.push_back(room.id);
+            }
+        }
+    }
+    
+    // Unassign rooms from this region
+    for (auto& room : model.rooms) {
+        if (room.parentRegionGroupId == m_regionId) {
+            room.parentRegionGroupId = "";
+        }
+    }
+    
+    // Remove region from model
+    auto it = std::find_if(
+        model.regionGroups.begin(),
+        model.regionGroups.end(),
+        [this](const RegionGroup& r) { return r.id == m_regionId; }
+    );
+    if (it != model.regionGroups.end()) {
+        model.regionGroups.erase(it);
+    }
+    
+    model.MarkDirty();
+}
+
+void DeleteRegionCommand::Undo(Model& model) {
+    // Restore the region
+    model.regionGroups.push_back(m_savedRegion);
+    
+    // Restore room assignments
+    for (const auto& roomId : m_orphanedRoomIds) {
+        Room* room = model.FindRoom(roomId);
+        if (room) {
+            room->parentRegionGroupId = m_regionId;
+        }
+    }
+    
+    model.MarkDirty();
+}
+
+std::string DeleteRegionCommand::GetDescription() const {
+    return "Delete Region: " + m_savedRegion.name;
+}
+
+// ============================================================================
+// ModifyRegionPropertiesCommand
+// ============================================================================
+
+ModifyRegionPropertiesCommand::ModifyRegionPropertiesCommand(
+    const std::string& regionId,
+    const RegionPropertiesSnapshot& oldProps,
+    const RegionPropertiesSnapshot& newProps
+) : m_regionId(regionId), m_oldProps(oldProps), m_newProps(newProps) {
+}
+
+void ModifyRegionPropertiesCommand::Execute(Model& model) {
+    RegionGroup* region = model.FindRegionGroup(m_regionId);
+    if (region) {
+        region->name = m_newProps.name;
+        region->description = m_newProps.description;
+        region->tags = m_newProps.tags;
+        model.MarkDirty();
+    }
+}
+
+void ModifyRegionPropertiesCommand::Undo(Model& model) {
+    RegionGroup* region = model.FindRegionGroup(m_regionId);
+    if (region) {
+        region->name = m_oldProps.name;
+        region->description = m_oldProps.description;
+        region->tags = m_oldProps.tags;
+        model.MarkDirty();
+    }
+}
+
+std::string ModifyRegionPropertiesCommand::GetDescription() const {
+    return "Modify Region: " + m_newProps.name;
+}
+
+bool ModifyRegionPropertiesCommand::TryCoalesce(
+    ICommand* other,
+    uint64_t timeDelta,
+    float /*distanceSq*/
+) {
+    if (timeDelta > PROPERTY_COALESCE_TIME_MS) {
+        return false;
+    }
+    
+    auto* otherCmd = dynamic_cast<ModifyRegionPropertiesCommand*>(other);
+    if (!otherCmd) {
+        return false;
+    }
+    
+    if (m_regionId != otherCmd->m_regionId) {
+        return false;
+    }
+    
+    m_newProps = otherCmd->m_newProps;
+    return true;
+}
+
+// ============================================================================
 // ModifyRoomAssignmentsCommand
 // ============================================================================
 

@@ -1913,12 +1913,14 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
     ImGui::SameLine();
     
     if (ImGui::Button("+ Region")) {
-        // Create new region group
+        // Create new region group via command (undoable)
         RegionGroup newRegion;
         newRegion.id = model.GenerateRegionGroupId();
         newRegion.name = "Region " + std::to_string(model.regionGroups.size() + 1);
-        model.regionGroups.push_back(newRegion);
-        model.MarkDirty();
+        
+        auto cmd = std::make_unique<CreateRegionCommand>(newRegion);
+        history.AddCommand(std::move(cmd), model);
+        
         AddConsoleMessage("Created " + newRegion.name, MessageType::Success);
     }
     
@@ -1998,9 +2000,11 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
             RegionGroup newRegion;
             newRegion.id = model.GenerateRegionGroupId();
             newRegion.name = "Region " + std::to_string(model.regionGroups.size() + 1);
-            model.regionGroups.push_back(newRegion);
+            
+            auto cmd = std::make_unique<CreateRegionCommand>(newRegion);
+            history.AddCommand(std::move(cmd), model);
+            
             m_canvasPanel.selectedRegionGroupId = newRegion.id;
-            model.MarkDirty();
             AddConsoleMessage("Created " + newRegion.name, MessageType::Success);
         }
         ImGui::EndPopup();
@@ -2677,6 +2681,18 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
             ImGui::Separator();
             ImGui::Spacing();
             
+            // Helper lambda to capture current region properties
+            auto captureRegionProps = [](const RegionGroup* r) 
+                -> RegionPropertiesSnapshot {
+                RegionPropertiesSnapshot snap;
+                if (r) {
+                    snap.name = r->name;
+                    snap.description = r->description;
+                    snap.tags = r->tags;
+                }
+                return snap;
+            };
+            
             {
                 // Region name
                 char nameBuf[256];
@@ -2685,6 +2701,23 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
                 if (ImGui::InputText("Name", nameBuf, sizeof(nameBuf))) {
                     region->name = nameBuf;
                     model.MarkDirty();
+                }
+                
+                // Capture state when starting to edit name
+                if (ImGui::IsItemActivated()) {
+                    m_regionEditStartState = captureRegionProps(region);
+                    m_editingRegionId = region->id;
+                }
+                
+                // Create command when name edit finishes
+                if (ImGui::IsItemDeactivatedAfterEdit() && 
+                    m_editingRegionId == region->id) {
+                    auto newProps = captureRegionProps(region);
+                    if (newProps != m_regionEditStartState) {
+                        auto cmd = std::make_unique<ModifyRegionPropertiesCommand>(
+                            region->id, m_regionEditStartState, newProps);
+                        history.AddCommand(std::move(cmd), model, false);
+                    }
                 }
                 
                 // Region description
@@ -2698,6 +2731,23 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
                                              ImVec2(-1, 80))) {
                     region->description = descBuf;
                     model.MarkDirty();
+                }
+                
+                // Capture state when starting to edit description
+                if (ImGui::IsItemActivated()) {
+                    m_regionEditStartState = captureRegionProps(region);
+                    m_editingRegionId = region->id;
+                }
+                
+                // Create command when description edit finishes
+                if (ImGui::IsItemDeactivatedAfterEdit() && 
+                    m_editingRegionId == region->id) {
+                    auto newProps = captureRegionProps(region);
+                    if (newProps != m_regionEditStartState) {
+                        auto cmd = std::make_unique<ModifyRegionPropertiesCommand>(
+                            region->id, m_regionEditStartState, newProps);
+                        history.AddCommand(std::move(cmd), model, false);
+                    }
                 }
                 
                 // Tags
@@ -2730,11 +2780,21 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
                 }
                 
                 if (tagRemoved) {
+                    // Capture old state before removing tag
+                    auto oldProps = captureRegionProps(region);
+                    
                     region->tags.erase(
-                        std::remove(region->tags.begin(), region->tags.end(), tagToRemove),
+                        std::remove(region->tags.begin(), region->tags.end(), 
+                                   tagToRemove),
                         region->tags.end()
                     );
                     model.MarkDirty();
+                    
+                    // Create command for tag removal
+                    auto newProps = captureRegionProps(region);
+                    auto cmd = std::make_unique<ModifyRegionPropertiesCommand>(
+                        region->id, oldProps, newProps);
+                    history.AddCommand(std::move(cmd), model, false);
                 }
                 
                 // If tags exist, add newline; otherwise keep tight
@@ -2746,7 +2806,8 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
                 static char newRegionTagBuf[64] = "";
                 ImGui::SetNextItemWidth(-70);
                 bool enterPressed = ImGui::InputTextWithHint(
-                    "##newregiontag", "Add tag...", newRegionTagBuf, sizeof(newRegionTagBuf),
+                    "##newregiontag", "Add tag...", newRegionTagBuf, 
+                    sizeof(newRegionTagBuf),
                     ImGuiInputTextFlags_EnterReturnsTrue
                 );
                 
@@ -2758,8 +2819,17 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
                     // Check if tag already exists
                     if (std::find(region->tags.begin(), region->tags.end(), newTag) == 
                         region->tags.end()) {
+                        // Capture old state before adding tag
+                        auto oldProps = captureRegionProps(region);
+                        
                         region->tags.push_back(newTag);
                         model.MarkDirty();
+                        
+                        // Create command for tag addition
+                        auto newProps = captureRegionProps(region);
+                        auto cmd = std::make_unique<ModifyRegionPropertiesCommand>(
+                            region->id, oldProps, newProps);
+                        history.AddCommand(std::move(cmd), model, false);
                     }
                     newRegionTagBuf[0] = '\0';  // Clear input
                 }

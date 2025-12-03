@@ -228,7 +228,7 @@ private:
     void RenderDeleteRoomModal(Model& model, History& history);
     void RenderRenameRoomModal(Model& model);
     void RenderRenameRegionModal(Model& model);
-    void RenderDeleteRegionModal(Model& model);
+    void RenderDeleteRegionModal(Model& model, History& history);
     void ApplyTemplate(ProjectTemplate tmpl);
     
     UI& m_ui;  // Reference to UI for ShowToast

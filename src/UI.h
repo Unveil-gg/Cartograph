@@ -254,6 +254,10 @@ private:
     RoomPropertiesSnapshot m_roomEditStartState;
     bool m_roomColorPickerWasOpen = false;
     std::string m_editingRoomId;  // Track which room we're editing
+    
+    // Region property editing state (for undo/redo)
+    RegionPropertiesSnapshot m_regionEditStartState;
+    std::string m_editingRegionId;  // Track which region we're editing
 };
 
 } // namespace Cartograph
