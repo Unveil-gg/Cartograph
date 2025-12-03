@@ -653,6 +653,12 @@ void Canvas::RenderRoomOverlays(IRenderer& renderer, const Model& model) {
 void Canvas::CaptureThumbnail(IRenderer& renderer, const Model& model,
                               int viewportX, int viewportY,
                               int viewportW, int viewportH) {
+    // Guard: viewport must be valid (canvas must have rendered at least once)
+    if (viewportW <= 0 || viewportH <= 0) {
+        hasCachedThumbnail = false;
+        return;
+    }
+    
     // Thumbnail dimensions (16:9 aspect ratio)
     const int thumbWidth = 384;
     const int thumbHeight = 216;
