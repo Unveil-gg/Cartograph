@@ -49,6 +49,55 @@ void SDL_CursorDeleter::operator()(SDL_Cursor* cursor) const {
 
 namespace Cartograph {
 
+namespace {
+
+/**
+ * Sanitize a string for use as a filename.
+ * Replaces spaces and special characters with dashes, collapses multiple
+ * dashes, and trims leading/trailing dashes.
+ * @param input The string to sanitize
+ * @return Sanitized filename (without extension)
+ */
+std::string SanitizeFilename(const std::string& input) {
+    if (input.empty()) {
+        return "Untitled";
+    }
+    
+    std::string result;
+    result.reserve(input.size());
+    
+    bool lastWasDash = true;  // Start true to trim leading dashes
+    
+    for (char c : input) {
+        // Replace spaces and invalid filename characters with dash
+        if (c == ' ' || c == '/' || c == '\\' || c == ':' || c == '*' ||
+            c == '?' || c == '"' || c == '<' || c == '>' || c == '|' ||
+            c == '\t' || c == '\n' || c == '\r') {
+            if (!lastWasDash) {
+                result += '-';
+                lastWasDash = true;
+            }
+        } else {
+            result += c;
+            lastWasDash = false;
+        }
+    }
+    
+    // Trim trailing dashes
+    while (!result.empty() && result.back() == '-') {
+        result.pop_back();
+    }
+    
+    // Fallback if result is empty after sanitization
+    if (result.empty()) {
+        return "Untitled";
+    }
+    
+    return result;
+}
+
+}  // anonymous namespace
+
 UI::UI() : m_modals(*this), m_welcomeScreen(*this) {
     // Connect canvas panel to UI state for shared members
     m_canvasPanel.showPropertiesPanel = &showPropertiesPanel;
@@ -3548,6 +3597,10 @@ void UI::ShowExportPackageDialog(App& app) {
         "Cartograph Package", "cart" 
     };
     
+    // Build default filename from project title
+    std::string defaultFilename = 
+        SanitizeFilename(app.GetModel().meta.title) + ".cart";
+    
     // Show native save file dialog
     SDL_ShowSaveFileDialog(
         // Callback
@@ -3591,8 +3644,8 @@ void UI::ShowExportPackageDialog(App& app) {
         &filter,
         // Number of filters
         1,
-        // Default location
-        nullptr
+        // Default filename (pre-filled in save dialog)
+        defaultFilename.c_str()
     );
 }
 
@@ -3613,6 +3666,10 @@ void UI::ShowExportPngDialog(App& app) {
         { "PNG Image", "png" },
         { "All Files", "*" }
     };
+    
+    // Build default filename from project title
+    std::string defaultFilename = 
+        SanitizeFilename(app.GetModel().meta.title) + ".png";
     
     // Show native save file dialog
     SDL_ShowSaveFileDialog(
@@ -3666,8 +3723,8 @@ void UI::ShowExportPngDialog(App& app) {
         filters,
         // Number of filters
         2,
-        // Default location
-        nullptr
+        // Default filename (pre-filled in save dialog)
+        defaultFilename.c_str()
     );
 }
 
