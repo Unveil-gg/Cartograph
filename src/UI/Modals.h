@@ -22,6 +22,16 @@ namespace Cartograph {
 namespace Cartograph {
 
 /**
+ * Sort order options for project browser modal.
+ */
+enum class ProjectSortOrder {
+    MostRecent,    // Newest first (default)
+    OldestFirst,   // Oldest first
+    AtoZ,          // Alphabetical A-Z
+    ZtoA           // Alphabetical Z-A
+};
+
+/**
  * Project template presets (for new project modal).
  */
 enum class ProjectTemplate {

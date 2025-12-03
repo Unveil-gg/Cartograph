@@ -19,7 +19,9 @@
 #include <chrono>
 #include <iomanip>
 #include <sstream>
+#include <fstream>
 #include <SDL3/SDL.h>
+#include <nlohmann/json.hpp>
 
 // OpenGL for texture generation
 #ifdef __APPLE__
@@ -558,6 +560,24 @@ void WelcomeScreen::LoadRecentProjects() {
             fs::path previewPath = path / "preview.png";
             if (fs::exists(previewPath)) {
                 project.thumbnailPath = previewPath.string();
+            }
+            
+            // Read description from project.json
+            fs::path projectJsonPath = path / "project.json";
+            if (fs::exists(projectJsonPath)) {
+                try {
+                    std::ifstream file(projectJsonPath);
+                    if (file.is_open()) {
+                        nlohmann::json j = nlohmann::json::parse(file);
+                        if (j.contains("meta") && 
+                            j["meta"].contains("description")) {
+                            project.description = 
+                                j["meta"]["description"].get<std::string>();
+                        }
+                    }
+                } catch (...) {
+                    // Silently ignore parse errors - description stays empty
+                }
             }
             
             recentProjects.push_back(project);

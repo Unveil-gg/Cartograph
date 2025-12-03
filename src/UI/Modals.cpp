@@ -3,6 +3,7 @@
 #include "../UI.h"
 #include "../Canvas.h"
 #include "../Jobs.h"
+#include "../Preferences.h"
 #include "../platform/Paths.h"
 #include "../platform/System.h"
 #include "../IOJson.h"
@@ -11,6 +12,7 @@
 #include <algorithm>
 #include <SDL3/SDL.h>
 #include <stb/stb_image.h>
+#include <cstring>  // For strcasecmp
 
 #ifdef __APPLE__
 #include <OpenGL/gl.h>
@@ -1866,7 +1868,7 @@ void Modals::RenderProjectBrowserModal(App& app,
         projectBrowserModalOpened = true;
     }
     
-    ImGui::SetNextWindowSize(ImVec2(900, 600), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(850, 600), ImGuiCond_FirstUseEver);
     
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
@@ -1875,19 +1877,33 @@ void Modals::RenderProjectBrowserModal(App& app,
         ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove)) {
         
         ImGui::Text("All Recent Projects");
-        ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f),
-            "Sorted by last modified");
         ImGui::Separator();
         ImGui::Spacing();
         
-        // Search bar
+        // Search bar and sorting dropdown on same line
         static char searchFilter[256] = "";
-        ImGui::SetNextItemWidth(-1.0f);  // Full width
+        float comboWidth = 130.0f;
+        float searchWidth = ImGui::GetContentRegionAvail().x - comboWidth - 10.0f;
+        
+        ImGui::SetNextItemWidth(searchWidth);
         if (ImGui::InputTextWithHint("##projectsearch", 
-                                     "🔍 Search projects...", 
+                                     "Search projects...", 
                                      searchFilter, 
                                      sizeof(searchFilter))) {
             // Filter updates on every keystroke
+        }
+        
+        // Sorting dropdown
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(comboWidth);
+        const char* sortLabels[] = { 
+            "Most Recent", "Oldest First", "A -> Z", "Z -> A" 
+        };
+        int currentSort = static_cast<int>(Preferences::projectBrowserSortOrder);
+        if (ImGui::Combo("##sort", &currentSort, sortLabels, 4)) {
+            Preferences::projectBrowserSortOrder = 
+                static_cast<ProjectSortOrder>(currentSort);
+            Preferences::Save();
         }
         
         // Show count of filtered results
@@ -1918,12 +1934,12 @@ void Modals::RenderProjectBrowserModal(App& app,
         // Scrollable content area
         ImGui::BeginChild("ProjectList", ImVec2(0, -40), true);
         
-        // Card dimensions for modal view (smaller than welcome screen)
-        const float cardWidth = 250.0f;
-        const float cardHeight = 180.0f;
-        const float thumbnailHeight = 141.0f;  // 250*9/16
+        // Card dimensions for modal view (sized to fit 3 per row snugly)
+        const float cardWidth = 265.0f;
+        const float cardHeight = 190.0f;
+        const float thumbnailHeight = 149.0f;  // 265*9/16
         const float titleHeight = 25.0f;
-        const float cardSpacing = 15.0f;
+        const float cardSpacing = 12.0f;
         const int cardsPerRow = 3;
         
         // Load all thumbnails
@@ -1931,10 +1947,52 @@ void Modals::RenderProjectBrowserModal(App& app,
             m_ui.m_welcomeScreen.LoadThumbnailTexture(project);
         }
         
+        // Build sorted list of project pointers
+        std::vector<RecentProject*> sortedProjects;
+        for (auto& p : recentProjects) {
+            sortedProjects.push_back(&p);
+        }
+        
+        // Apply sort order
+        switch (Preferences::projectBrowserSortOrder) {
+            case ProjectSortOrder::MostRecent:
+                // Already sorted by LoadRecentProjects()
+                break;
+            case ProjectSortOrder::OldestFirst:
+                std::reverse(sortedProjects.begin(), sortedProjects.end());
+                break;
+            case ProjectSortOrder::AtoZ:
+                std::sort(sortedProjects.begin(), sortedProjects.end(),
+                    [](const RecentProject* a, const RecentProject* b) {
+                        // Case-insensitive comparison
+                        std::string nameA = a->name;
+                        std::string nameB = b->name;
+                        std::transform(nameA.begin(), nameA.end(), 
+                                      nameA.begin(), ::tolower);
+                        std::transform(nameB.begin(), nameB.end(), 
+                                      nameB.begin(), ::tolower);
+                        return nameA < nameB;
+                    });
+                break;
+            case ProjectSortOrder::ZtoA:
+                std::sort(sortedProjects.begin(), sortedProjects.end(),
+                    [](const RecentProject* a, const RecentProject* b) {
+                        // Case-insensitive comparison
+                        std::string nameA = a->name;
+                        std::string nameB = b->name;
+                        std::transform(nameA.begin(), nameA.end(), 
+                                      nameA.begin(), ::tolower);
+                        std::transform(nameB.begin(), nameB.end(), 
+                                      nameB.begin(), ::tolower);
+                        return nameA > nameB;
+                    });
+                break;
+        }
+        
         // Render projects in a grid (with search filtering)
         int visibleIndex = 0;
-        for (size_t i = 0; i < recentProjects.size(); ++i) {
-            auto& project = recentProjects[i];
+        for (size_t i = 0; i < sortedProjects.size(); ++i) {
+            auto& project = *sortedProjects[i];
             
             // Apply search filter
             if (searchFilter[0] != '\0') {
@@ -1984,9 +2042,25 @@ void Modals::RenderProjectBrowserModal(App& app,
                 // Tooltip on hover
                 if (ImGui::IsItemHovered()) {
                     ImGui::BeginTooltip();
-                    ImGui::Text("%s", project.path.c_str());
+                    
+                    // Truncated description (50 chars max)
+                    if (!project.description.empty()) {
+                        std::string desc = project.description;
+                        if (desc.length() > 50) {
+                            desc = desc.substr(0, 47) + "...";
+                        }
+                        ImGui::TextWrapped("%s", desc.c_str());
+                        ImGui::Spacing();
+                    }
+                    
+                    // Path (dimmed)
+                    ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f),
+                        "%s", project.path.c_str());
+                    
+                    // Last modified
                     ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f),
                         "Last modified: %s", project.lastModified.c_str());
+                    
                     ImGui::EndTooltip();
                 }
                 

@@ -23,8 +23,9 @@ namespace Cartograph {
 struct RecentProject {
     std::string path;
     std::string name;
+    std::string description;         // Project description from project.json
     std::string lastModified;
-    std::string thumbnailPath;      // Path to thumbnail image file
+    std::string thumbnailPath;       // Path to thumbnail image file
     unsigned int thumbnailTextureId; // OpenGL texture ID (0 if not loaded)
     bool thumbnailLoaded;            // Whether texture has been loaded
     

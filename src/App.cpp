@@ -8,6 +8,7 @@
 #include "ProjectFolder.h"
 #include "ExportPng.h"
 #include "Thumbnail.h"
+#include "Preferences.h"
 #include <SDL3/SDL.h>
 #include <imgui.h>
 #include <imgui_impl_sdl3.h>
@@ -125,6 +126,9 @@ bool App::Init(const std::string& title, int width, int height) {
     
     std::string userDataDir = Platform::GetUserDataDir();
     Platform::EnsureDirectoryExists(userDataDir);
+    
+    // Load user preferences
+    Preferences::Load();
     
     // Load recent projects for welcome screen
     m_ui.m_welcomeScreen.LoadRecentProjects();
