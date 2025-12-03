@@ -131,6 +131,18 @@ public:
     bool* showPropertiesPanel = nullptr;
     bool* layoutInitialized = nullptr;
     
+    /**
+     * Initialize custom cursors for tools.
+     * Call once after SDL is initialized.
+     */
+    void InitCursors();
+    
+    /**
+     * Update cursor based on current tool and hover state.
+     * Called each frame during Render.
+     */
+    void UpdateCursor();
+    
 private:
     /**
      * Detect if mouse position is near a cell edge.
@@ -149,6 +161,13 @@ private:
         EdgeId* outEdgeId,
         EdgeSide* outEdgeSide
     );
+    
+    // Custom cursors for tools
+    SDL_Cursor* m_eyedropperCursor = nullptr;
+    SDL_Cursor* m_zoomCursor = nullptr;
+    SDL_Cursor* m_defaultCursor = nullptr;
+    bool m_cursorsInitialized = false;
+    Tool m_lastCursorTool = Tool::Move;  // Track tool for cursor changes
 };
 
 /**
