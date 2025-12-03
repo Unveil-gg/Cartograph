@@ -747,15 +747,15 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
     ImGui::Dummy(ImVec2(0, panelPadding * 0.5f));
     
     const char* roomToolNames[] = {
-        "Room Paint", "Room Erase", "Room Fill"
+        "Room Paint", "Room Fill", "Room Erase"
     };
     
     const char* roomToolIconNames[] = {
-        "paintbrush", "eraser", "paint-bucket"
+        "paintbrush", "paint-bucket", "eraser"
     };
     
     const char* roomToolShortcuts[] = {
-        "Shift+R", "Shift+E", "Shift+F"
+        "Shift+R", "Shift+F", "Shift+E"
     };
     
     const ImVec4 maroonBg(0.55f, 0.1f, 0.1f, 1.0f);
@@ -763,7 +763,7 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
     const ImVec4 maroonBgActive(0.45f, 0.05f, 0.05f, 1.0f);
     
     for (int i = 0; i < 3; ++i) {
-        int toolIdx = 7 + i;  // RoomPaint=7, RoomErase=8, RoomFill=9
+        int toolIdx = 8 + i;  // RoomPaint=8, RoomFill=9, RoomErase=10
         bool selected = (static_cast<int>(m_canvasPanel.currentTool) == toolIdx);
         
         ImGui::PushID(toolIdx);
@@ -815,17 +815,17 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
                     ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
                         "Click/drag to assign cells to active room");
                     break;
-                case 1: // Room Erase
-                    ImGui::Text("Room Erase Tool [Shift+E]");
-                    ImGui::Separator();
-                    ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
-                        "Click/drag to remove cells from rooms");
-                    break;
-                case 2: // Room Fill
+                case 1: // Room Fill
                     ImGui::Text("Room Fill Tool [Shift+F]");
                     ImGui::Separator();
                     ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
                         "Click to flood-fill area into active room");
+                    break;
+                case 2: // Room Erase
+                    ImGui::Text("Room Erase Tool [Shift+E]");
+                    ImGui::Separator();
+                    ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
+                        "Click/drag to remove cells from rooms");
                     break;
             }
             ImGui::EndTooltip();
