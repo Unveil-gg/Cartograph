@@ -479,11 +479,53 @@ void CanvasPanel::Render(
             }
         }
         else if (currentTool == Tool::Select) {
-            // Select tool: Left mouse drag to create selection rectangle
-            if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-                // Start selection - clear any existing selection first
+            ImVec2 mousePos = ImGui::GetMousePos();
+            
+            // Update paste preview position
+            if (isPasteMode) {
+                canvas.ScreenToTile(
+                    mousePos.x, mousePos.y,
+                    model.grid.tileWidth, model.grid.tileHeight,
+                    &pastePreviewX, &pastePreviewY
+                );
+                
+                // Click to commit paste
+                if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+                    PasteClipboard(model, history, pastePreviewX, pastePreviewY);
+                    ExitPasteMode();
+                }
+            }
+            // Check if clicking inside existing selection (for drag)
+            else if (hasSelection && 
+                     ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+                int clickTileX, clickTileY;
+                canvas.ScreenToTile(
+                    mousePos.x, mousePos.y,
+                    model.grid.tileWidth, model.grid.tileHeight,
+                    &clickTileX, &clickTileY
+                );
+                
+                // Check if click is inside selection bounds
+                if (currentSelection.bounds.Contains(clickTileX, clickTileY)) {
+                    // Start dragging selection
+                    isDraggingSelection = true;
+                    dragSelectionStartX = currentSelection.bounds.x;
+                    dragSelectionStartY = currentSelection.bounds.y;
+                    dragOffsetX = 0;
+                    dragOffsetY = 0;
+                } else {
+                    // Start new selection
+                    ClearSelection();
+                    selectionStartX = mousePos.x;
+                    selectionStartY = mousePos.y;
+                    selectionEndX = mousePos.x;
+                    selectionEndY = mousePos.y;
+                    isSelecting = true;
+                }
+            }
+            // Start new selection (no existing selection)
+            else if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
                 ClearSelection();
-                ImVec2 mousePos = ImGui::GetMousePos();
                 selectionStartX = mousePos.x;
                 selectionStartY = mousePos.y;
                 selectionEndX = mousePos.x;
@@ -491,16 +533,44 @@ void CanvasPanel::Render(
                 isSelecting = true;
             }
             
+            // Handle selection dragging
+            if (isDraggingSelection && 
+                ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
+                int currentTileX, currentTileY;
+                canvas.ScreenToTile(
+                    mousePos.x, mousePos.y,
+                    model.grid.tileWidth, model.grid.tileHeight,
+                    &currentTileX, &currentTileY
+                );
+                
+                // Calculate drag offset from start
+                int newOffsetX = currentTileX - dragSelectionStartX;
+                int newOffsetY = currentTileY - dragSelectionStartY;
+                
+                // Only move if offset changed
+                if (newOffsetX != dragOffsetX || newOffsetY != dragOffsetY) {
+                    int dx = newOffsetX - dragOffsetX;
+                    int dy = newOffsetY - dragOffsetY;
+                    MoveSelection(model, history, dx, dy);
+                    dragOffsetX = newOffsetX;
+                    dragOffsetY = newOffsetY;
+                }
+            }
+            
+            // Finish drag
+            if (isDraggingSelection && 
+                ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+                isDraggingSelection = false;
+            }
+            
+            // Update selection rectangle while dragging
             if (ImGui::IsMouseDragging(ImGuiMouseButton_Left) && isSelecting) {
-                // Update selection end position
-                ImVec2 mousePos = ImGui::GetMousePos();
                 selectionEndX = mousePos.x;
                 selectionEndY = mousePos.y;
             }
             
+            // Finish selection rectangle
             if (ImGui::IsMouseReleased(ImGuiMouseButton_Left) && isSelecting) {
-                // Finish selection
-                ImVec2 mousePos = ImGui::GetMousePos();
                 selectionEndX = mousePos.x;
                 selectionEndY = mousePos.y;
                 isSelecting = false;
@@ -1923,74 +1993,124 @@ void CanvasPanel::Render(
         isSelecting = false;
     }
     
-    // Keyboard shortcuts for markers
+    // Keyboard shortcuts
     if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)) {
-        // Copy selected marker
-        if (keymap.IsActionTriggered("copy")) {
-            if (selectedMarker) {
-                copiedMarkers.clear();
-                copiedMarkers.push_back(*selectedMarker);
+        // Selection operations take priority when Select tool is active
+        if (currentTool == Tool::Select) {
+            // Copy selection (Ctrl+C)
+            if (keymap.IsActionTriggered("copy") && hasSelection) {
+                CopySelection(model);
+            }
+            
+            // Cut selection (Ctrl+X)
+            if (keymap.IsActionTriggered("cut") && hasSelection) {
+                CopySelection(model);
+                DeleteSelection(model, history);
+            }
+            
+            // Paste (Ctrl+V) - enter paste mode if clipboard has content
+            if (keymap.IsActionTriggered("paste") && !clipboard.IsEmpty()) {
+                EnterPasteMode();
+            }
+            
+            // Delete selection (Delete/Backspace)
+            if (hasSelection && 
+                (keymap.IsActionTriggered("delete") || 
+                 keymap.IsActionTriggered("deleteAlt"))) {
+                DeleteSelection(model, history);
+            }
+            
+            // Escape cancels paste mode or clears selection
+            if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+                if (isPasteMode) {
+                    ExitPasteMode();
+                } else if (hasSelection) {
+                    ClearSelection();
+                }
+            }
+            
+            // Arrow keys nudge selection
+            if (hasSelection && !isPasteMode) {
+                int nudgeX = 0, nudgeY = 0;
+                if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow)) nudgeX = -1;
+                if (ImGui::IsKeyPressed(ImGuiKey_RightArrow)) nudgeX = 1;
+                if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) nudgeY = -1;
+                if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) nudgeY = 1;
+                
+                if (nudgeX != 0 || nudgeY != 0) {
+                    MoveSelection(model, history, nudgeX, nudgeY);
+                }
             }
         }
-        
-        // Paste marker
-        if (keymap.IsActionTriggered("paste")) {
-            if (!copiedMarkers.empty()) {
-                // Paste at mouse position or offset from original
-                ImVec2 mousePos = ImGui::GetMousePos();
-                float wx, wy;
-                canvas.ScreenToWorld(mousePos.x, mousePos.y, &wx, &wy);
-                
-                float tileX = wx / model.grid.tileWidth;
-                float tileY = wy / model.grid.tileHeight;
-                
-                // Snap to nearest snap point based on grid preset
-                auto snapPoints = model.GetMarkerSnapPoints();
-                int baseTileX = static_cast<int>(std::floor(tileX));
-                int baseTileY = static_cast<int>(std::floor(tileY));
-                float fractionalX = tileX - baseTileX;
-                float fractionalY = tileY - baseTileY;
-                
-                float minDist = FLT_MAX;
-                float bestSnapX = 0.5f, bestSnapY = 0.5f;
-                
-                for (const auto& snap : snapPoints) {
-                    float dx = fractionalX - snap.first;
-                    float dy = fractionalY - snap.second;
-                    float dist = dx*dx + dy*dy;
-                    if (dist < minDist) {
-                        minDist = dist;
-                        bestSnapX = snap.first;
-                        bestSnapY = snap.second;
+        // Marker copy/paste (when not in Select tool)
+        else {
+            // Copy selected marker
+            if (keymap.IsActionTriggered("copy")) {
+                if (selectedMarker) {
+                    copiedMarkers.clear();
+                    copiedMarkers.push_back(*selectedMarker);
+                }
+            }
+            
+            // Paste marker
+            if (keymap.IsActionTriggered("paste")) {
+                if (!copiedMarkers.empty()) {
+                    // Paste at mouse position or offset from original
+                    ImVec2 mousePos = ImGui::GetMousePos();
+                    float wx, wy;
+                    canvas.ScreenToWorld(mousePos.x, mousePos.y, &wx, &wy);
+                    
+                    float tileX = wx / model.grid.tileWidth;
+                    float tileY = wy / model.grid.tileHeight;
+                    
+                    // Snap to nearest snap point based on grid preset
+                    auto snapPoints = model.GetMarkerSnapPoints();
+                    int baseTileX = static_cast<int>(std::floor(tileX));
+                    int baseTileY = static_cast<int>(std::floor(tileY));
+                    float fractionalX = tileX - baseTileX;
+                    float fractionalY = tileY - baseTileY;
+                    
+                    float minDist = FLT_MAX;
+                    float bestSnapX = 0.5f, bestSnapY = 0.5f;
+                    
+                    for (const auto& snap : snapPoints) {
+                        float dx = fractionalX - snap.first;
+                        float dy = fractionalY - snap.second;
+                        float dist = dx*dx + dy*dy;
+                        if (dist < minDist) {
+                            minDist = dist;
+                            bestSnapX = snap.first;
+                            bestSnapY = snap.second;
+                        }
+                    }
+                    
+                    tileX = baseTileX + bestSnapX;
+                    tileY = baseTileY + bestSnapY;
+                    
+                    for (const auto& marker : copiedMarkers) {
+                        Marker newMarker = marker;
+                        newMarker.id = model.GenerateMarkerId();
+                        newMarker.x = tileX;
+                        newMarker.y = tileY;
+                        
+                        auto cmd = std::make_unique<PlaceMarkerCommand>(
+                            newMarker, true
+                        );
+                        history.AddCommand(std::move(cmd), model);
                     }
                 }
-                
-                tileX = baseTileX + bestSnapX;
-                tileY = baseTileY + bestSnapY;
-                
-                for (const auto& marker : copiedMarkers) {
-                    Marker newMarker = marker;
-                    newMarker.id = model.GenerateMarkerId();
-                    newMarker.x = tileX;
-                    newMarker.y = tileY;
-                    
-                    auto cmd = std::make_unique<PlaceMarkerCommand>(
-                        newMarker, true
-                    );
-                    history.AddCommand(std::move(cmd), model);
-                }
             }
-        }
-        
-        // Delete selected marker
-        if (selectedMarker && 
-            (keymap.IsActionTriggered("delete") || 
-             keymap.IsActionTriggered("deleteAlt"))) {
-            auto cmd = std::make_unique<DeleteMarkerCommand>(
-                selectedMarker->id
-            );
-            history.AddCommand(std::move(cmd), model);   
-            selectedMarker = nullptr;
+            
+            // Delete selected marker
+            if (selectedMarker && 
+                (keymap.IsActionTriggered("delete") || 
+                 keymap.IsActionTriggered("deleteAlt"))) {
+                auto cmd = std::make_unique<DeleteMarkerCommand>(
+                    selectedMarker->id
+                );
+                history.AddCommand(std::move(cmd), model);   
+                selectedMarker = nullptr;
+            }
         }
     }
     
@@ -2258,6 +2378,103 @@ void CanvasPanel::Render(
                 3.0f
             );
         }
+    }
+    
+    // Draw paste preview if in paste mode
+    if (currentTool == Tool::Select && isPasteMode && !clipboard.IsEmpty()) {
+        // Paste preview colors
+        ImU32 previewFillColor = ImGui::GetColorU32(
+            ImVec4(0.2f, 0.8f, 0.4f, 0.25f)
+        );
+        ImU32 previewBorderColor = ImGui::GetColorU32(
+            ImVec4(0.3f, 0.9f, 0.5f, 0.9f)
+        );
+        ImU32 previewTileColor = ImGui::GetColorU32(
+            ImVec4(0.3f, 0.9f, 0.5f, 0.4f)
+        );
+        
+        float tileW = model.grid.tileWidth * canvas.zoom;
+        float tileH = model.grid.tileHeight * canvas.zoom;
+        
+        // Draw ghost tiles
+        for (const auto& tilePair : clipboard.tiles) {
+            int tx = pastePreviewX + tilePair.first.first;
+            int ty = pastePreviewY + tilePair.first.second;
+            
+            float wx, wy;
+            canvas.TileToWorld(tx, ty, model.grid.tileWidth, 
+                              model.grid.tileHeight, &wx, &wy);
+            float sx, sy;
+            canvas.WorldToScreen(wx, wy, &sx, &sy);
+            
+            drawList->AddRectFilled(
+                ImVec2(sx, sy),
+                ImVec2(sx + tileW, sy + tileH),
+                previewTileColor
+            );
+        }
+        
+        // Draw bounding box outline
+        float bx, by;
+        canvas.TileToWorld(
+            pastePreviewX, pastePreviewY,
+            model.grid.tileWidth, model.grid.tileHeight, &bx, &by
+        );
+        float bsx, bsy;
+        canvas.WorldToScreen(bx, by, &bsx, &bsy);
+        
+        float boxW = clipboard.width * tileW;
+        float boxH = clipboard.height * tileH;
+        
+        // Dashed outline
+        float dashLen = 8.0f;
+        float time = static_cast<float>(ImGui::GetTime());
+        float offset = std::fmod(time * 30.0f, dashLen * 2.0f);
+        
+        auto drawDashedLine = [&](ImVec2 p1, ImVec2 p2) {
+            float dx = p2.x - p1.x;
+            float dy = p2.y - p1.y;
+            float len = std::sqrt(dx * dx + dy * dy);
+            if (len < 0.1f) return;
+            
+            float ux = dx / len;
+            float uy = dy / len;
+            
+            float pos = -offset;
+            while (pos < len) {
+                float start = std::max(0.0f, pos);
+                float end = std::min(len, pos + dashLen);
+                if (end > start) {
+                    drawList->AddLine(
+                        ImVec2(p1.x + ux * start, p1.y + uy * start),
+                        ImVec2(p1.x + ux * end, p1.y + uy * end),
+                        previewBorderColor,
+                        2.0f
+                    );
+                }
+                pos += dashLen * 2.0f;
+            }
+        };
+        
+        drawDashedLine(ImVec2(bsx, bsy), ImVec2(bsx + boxW, bsy));
+        drawDashedLine(ImVec2(bsx + boxW, bsy), ImVec2(bsx + boxW, bsy + boxH));
+        drawDashedLine(ImVec2(bsx + boxW, bsy + boxH), ImVec2(bsx, bsy + boxH));
+        drawDashedLine(ImVec2(bsx, bsy + boxH), ImVec2(bsx, bsy));
+        
+        // Draw "Click to paste" hint
+        const char* pasteText = "Click to paste";
+        ImVec2 textSize = ImGui::CalcTextSize(pasteText);
+        ImVec2 textPos(bsx + boxW / 2.0f - textSize.x / 2.0f, 
+                      bsy - textSize.y - 8.0f);
+        
+        drawList->AddRectFilled(
+            ImVec2(textPos.x - 4, textPos.y - 2),
+            ImVec2(textPos.x + textSize.x + 4, textPos.y + textSize.y + 2),
+            ImGui::GetColorU32(ImVec4(0.0f, 0.0f, 0.0f, 0.8f))
+        );
+        drawList->AddText(textPos, 
+            ImGui::GetColorU32(ImVec4(0.3f, 0.9f, 0.5f, 1.0f)), 
+            pasteText);
     }
     
     // Draw paint cursor preview if Paint or Erase tool is active
@@ -2881,6 +3098,334 @@ void CanvasPanel::PopulateSelectionFromRect(
     
     // Mark selection as valid if we found anything
     hasSelection = !currentSelection.IsEmpty();
+}
+
+void CanvasPanel::DeleteSelection(Model& model, History& history) {
+    if (!hasSelection || currentSelection.IsEmpty()) return;
+    
+    const std::string globalRoomId = "";
+    
+    // Build compound command for all deletions
+    // Delete tiles (set to empty)
+    std::vector<PaintTilesCommand::TileChange> tileChanges;
+    for (const auto& tilePair : currentSelection.tiles) {
+        PaintTilesCommand::TileChange change;
+        change.roomId = globalRoomId;
+        change.x = tilePair.first.first;
+        change.y = tilePair.first.second;
+        change.oldTileId = tilePair.second;
+        change.newTileId = 0;  // Empty
+        tileChanges.push_back(change);
+        
+        // Apply immediately
+        model.SetTileAt(globalRoomId, change.x, change.y, 0);
+    }
+    
+    if (!tileChanges.empty()) {
+        auto cmd = std::make_unique<PaintTilesCommand>(tileChanges);
+        history.AddCommand(std::move(cmd), model, false);
+    }
+    
+    // Delete edges (set to None)
+    std::vector<ModifyEdgesCommand::EdgeChange> edgeChanges;
+    for (const auto& edgePair : currentSelection.edges) {
+        ModifyEdgesCommand::EdgeChange change;
+        change.edgeId = edgePair.first;
+        change.oldState = edgePair.second;
+        change.newState = EdgeState::None;
+        edgeChanges.push_back(change);
+        
+        // Apply immediately
+        model.SetEdgeState(edgePair.first, EdgeState::None);
+    }
+    
+    if (!edgeChanges.empty()) {
+        auto cmd = std::make_unique<ModifyEdgesCommand>(edgeChanges);
+        history.AddCommand(std::move(cmd), model, false);
+    }
+    
+    // Delete markers
+    for (const auto& markerId : currentSelection.markerIds) {
+        auto cmd = std::make_unique<DeleteMarkerCommand>(markerId);
+        history.AddCommand(std::move(cmd), model, false);
+    }
+    
+    // Clear selection after delete
+    ClearSelection();
+    model.MarkDirty();
+}
+
+void CanvasPanel::CopySelection(const Model& model) {
+    if (!hasSelection || currentSelection.IsEmpty()) return;
+    
+    clipboard.Clear();
+    
+    // Store origin (top-left of selection)
+    int originX = currentSelection.bounds.x;
+    int originY = currentSelection.bounds.y;
+    
+    // Copy tiles with relative positions
+    for (const auto& tilePair : currentSelection.tiles) {
+        int dx = tilePair.first.first - originX;
+        int dy = tilePair.first.second - originY;
+        clipboard.tiles[{dx, dy}] = tilePair.second;
+    }
+    
+    // Copy edges with relative positions
+    for (const auto& edgePair : currentSelection.edges) {
+        ClipboardData::RelativeEdge relEdge;
+        relEdge.dx1 = edgePair.first.x1 - originX;
+        relEdge.dy1 = edgePair.first.y1 - originY;
+        relEdge.dx2 = edgePair.first.x2 - originX;
+        relEdge.dy2 = edgePair.first.y2 - originY;
+        relEdge.state = edgePair.second;
+        clipboard.edges.push_back(relEdge);
+    }
+    
+    // Copy markers with relative positions
+    for (const auto& markerId : currentSelection.markerIds) {
+        const Marker* marker = model.FindMarker(markerId);
+        if (marker) {
+            ClipboardData::RelativeMarker relMarker;
+            relMarker.dx = marker->x - originX;
+            relMarker.dy = marker->y - originY;
+            relMarker.kind = marker->kind;
+            relMarker.label = marker->label;
+            relMarker.icon = marker->icon;
+            relMarker.color = marker->color;
+            relMarker.size = marker->size;
+            relMarker.showLabel = marker->showLabel;
+            clipboard.markers.push_back(relMarker);
+        }
+    }
+    
+    // Store dimensions for preview
+    clipboard.width = currentSelection.bounds.w;
+    clipboard.height = currentSelection.bounds.h;
+}
+
+void CanvasPanel::PasteClipboard(
+    Model& model, 
+    History& history,
+    int targetX, 
+    int targetY
+) {
+    if (clipboard.IsEmpty()) return;
+    
+    const std::string globalRoomId = "";
+    
+    // Paste tiles
+    std::vector<PaintTilesCommand::TileChange> tileChanges;
+    for (const auto& tilePair : clipboard.tiles) {
+        int x = targetX + tilePair.first.first;
+        int y = targetY + tilePair.first.second;
+        
+        int oldTileId = model.GetTileAt(globalRoomId, x, y);
+        
+        PaintTilesCommand::TileChange change;
+        change.roomId = globalRoomId;
+        change.x = x;
+        change.y = y;
+        change.oldTileId = oldTileId;
+        change.newTileId = tilePair.second;
+        tileChanges.push_back(change);
+        
+        // Apply immediately
+        model.SetTileAt(globalRoomId, x, y, tilePair.second);
+    }
+    
+    if (!tileChanges.empty()) {
+        auto cmd = std::make_unique<PaintTilesCommand>(tileChanges);
+        history.AddCommand(std::move(cmd), model, false);
+    }
+    
+    // Paste edges
+    std::vector<ModifyEdgesCommand::EdgeChange> edgeChanges;
+    for (const auto& relEdge : clipboard.edges) {
+        EdgeId edgeId(
+            targetX + relEdge.dx1, targetY + relEdge.dy1,
+            targetX + relEdge.dx2, targetY + relEdge.dy2
+        );
+        
+        EdgeState oldState = model.GetEdgeState(edgeId);
+        
+        ModifyEdgesCommand::EdgeChange change;
+        change.edgeId = edgeId;
+        change.oldState = oldState;
+        change.newState = relEdge.state;
+        edgeChanges.push_back(change);
+        
+        // Apply immediately
+        model.SetEdgeState(edgeId, relEdge.state);
+    }
+    
+    if (!edgeChanges.empty()) {
+        auto cmd = std::make_unique<ModifyEdgesCommand>(edgeChanges);
+        history.AddCommand(std::move(cmd), model, false);
+    }
+    
+    // Paste markers (create new markers with new IDs)
+    for (const auto& relMarker : clipboard.markers) {
+        Marker newMarker;
+        newMarker.id = model.GenerateMarkerId();
+        newMarker.roomId = "";
+        newMarker.x = targetX + relMarker.dx;
+        newMarker.y = targetY + relMarker.dy;
+        newMarker.kind = relMarker.kind;
+        newMarker.label = relMarker.label;
+        newMarker.icon = relMarker.icon;
+        newMarker.color = relMarker.color;
+        newMarker.size = relMarker.size;
+        newMarker.showLabel = relMarker.showLabel;
+        
+        auto cmd = std::make_unique<PlaceMarkerCommand>(newMarker, true);
+        history.AddCommand(std::move(cmd), model, false);
+    }
+    
+    model.MarkDirty();
+}
+
+void CanvasPanel::EnterPasteMode() {
+    if (clipboard.IsEmpty()) return;
+    isPasteMode = true;
+}
+
+void CanvasPanel::ExitPasteMode() {
+    isPasteMode = false;
+}
+
+void CanvasPanel::MoveSelection(
+    Model& model, 
+    History& history, 
+    int dx, 
+    int dy
+) {
+    if (!hasSelection || currentSelection.IsEmpty()) return;
+    if (dx == 0 && dy == 0) return;
+    
+    const std::string globalRoomId = "";
+    
+    // Step 1: Collect all content to move
+    auto tilesToMove = currentSelection.tiles;
+    auto edgesToMove = currentSelection.edges;
+    auto markersToMove = currentSelection.markerIds;
+    
+    // Step 2: Delete original content (tiles and edges)
+    std::vector<PaintTilesCommand::TileChange> deleteTileChanges;
+    for (const auto& tilePair : tilesToMove) {
+        PaintTilesCommand::TileChange change;
+        change.roomId = globalRoomId;
+        change.x = tilePair.first.first;
+        change.y = tilePair.first.second;
+        change.oldTileId = tilePair.second;
+        change.newTileId = 0;
+        deleteTileChanges.push_back(change);
+        model.SetTileAt(globalRoomId, change.x, change.y, 0);
+    }
+    
+    std::vector<ModifyEdgesCommand::EdgeChange> deleteEdgeChanges;
+    for (const auto& edgePair : edgesToMove) {
+        ModifyEdgesCommand::EdgeChange change;
+        change.edgeId = edgePair.first;
+        change.oldState = edgePair.second;
+        change.newState = EdgeState::None;
+        deleteEdgeChanges.push_back(change);
+        model.SetEdgeState(edgePair.first, EdgeState::None);
+    }
+    
+    // Step 3: Place content at new positions
+    std::vector<PaintTilesCommand::TileChange> placeTileChanges;
+    for (const auto& tilePair : tilesToMove) {
+        int newX = tilePair.first.first + dx;
+        int newY = tilePair.first.second + dy;
+        int oldTileId = model.GetTileAt(globalRoomId, newX, newY);
+        
+        PaintTilesCommand::TileChange change;
+        change.roomId = globalRoomId;
+        change.x = newX;
+        change.y = newY;
+        change.oldTileId = oldTileId;
+        change.newTileId = tilePair.second;
+        placeTileChanges.push_back(change);
+        model.SetTileAt(globalRoomId, newX, newY, tilePair.second);
+    }
+    
+    std::vector<ModifyEdgesCommand::EdgeChange> placeEdgeChanges;
+    for (const auto& edgePair : edgesToMove) {
+        EdgeId newEdgeId(
+            edgePair.first.x1 + dx, edgePair.first.y1 + dy,
+            edgePair.first.x2 + dx, edgePair.first.y2 + dy
+        );
+        EdgeState oldState = model.GetEdgeState(newEdgeId);
+        
+        ModifyEdgesCommand::EdgeChange change;
+        change.edgeId = newEdgeId;
+        change.oldState = oldState;
+        change.newState = edgePair.second;
+        placeEdgeChanges.push_back(change);
+        model.SetEdgeState(newEdgeId, edgePair.second);
+    }
+    
+    // Step 4: Move markers
+    for (const auto& markerId : markersToMove) {
+        Marker* marker = model.FindMarker(markerId);
+        if (marker) {
+            float oldX = marker->x;
+            float oldY = marker->y;
+            marker->x += dx;
+            marker->y += dy;
+            
+            auto cmd = std::make_unique<MoveMarkersCommand>(
+                markerId, oldX, oldY, marker->x, marker->y
+            );
+            history.AddCommand(std::move(cmd), model, false);
+        }
+    }
+    
+    // Add tile commands to history
+    if (!deleteTileChanges.empty()) {
+        auto cmd = std::make_unique<PaintTilesCommand>(deleteTileChanges);
+        history.AddCommand(std::move(cmd), model, false);
+    }
+    if (!placeTileChanges.empty()) {
+        auto cmd = std::make_unique<PaintTilesCommand>(placeTileChanges);
+        history.AddCommand(std::move(cmd), model, false);
+    }
+    
+    // Add edge commands to history
+    if (!deleteEdgeChanges.empty()) {
+        auto cmd = std::make_unique<ModifyEdgesCommand>(deleteEdgeChanges);
+        history.AddCommand(std::move(cmd), model, false);
+    }
+    if (!placeEdgeChanges.empty()) {
+        auto cmd = std::make_unique<ModifyEdgesCommand>(placeEdgeChanges);
+        history.AddCommand(std::move(cmd), model, false);
+    }
+    
+    // Step 5: Update selection bounds
+    currentSelection.bounds.x += dx;
+    currentSelection.bounds.y += dy;
+    
+    // Update selection tiles map with new positions
+    std::unordered_map<std::pair<int, int>, int, PairHash> newTiles;
+    for (const auto& tilePair : currentSelection.tiles) {
+        newTiles[{tilePair.first.first + dx, tilePair.first.second + dy}] = 
+            tilePair.second;
+    }
+    currentSelection.tiles = std::move(newTiles);
+    
+    // Update selection edges map with new positions
+    std::unordered_map<EdgeId, EdgeState, EdgeIdHash> newEdges;
+    for (const auto& edgePair : currentSelection.edges) {
+        EdgeId newEdgeId(
+            edgePair.first.x1 + dx, edgePair.first.y1 + dy,
+            edgePair.first.x2 + dx, edgePair.first.y2 + dy
+        );
+        newEdges[newEdgeId] = edgePair.second;
+    }
+    currentSelection.edges = std::move(newEdges);
+    
+    model.MarkDirty();
 }
 
 } // namespace Cartograph

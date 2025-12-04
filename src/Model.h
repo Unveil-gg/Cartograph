@@ -362,6 +362,56 @@ struct SelectionData {
 };
 
 // ============================================================================
+// Clipboard data (for copy/paste operations)
+// ============================================================================
+
+/**
+ * Holds copied content for paste operations.
+ * Positions are stored relative to the selection origin (top-left).
+ */
+struct ClipboardData {
+    // Copied tiles: relative position (dx, dy) -> tile ID
+    std::unordered_map<std::pair<int, int>, int, PairHash> tiles;
+    
+    // Copied edges: stored with relative positions
+    struct RelativeEdge {
+        int dx1, dy1, dx2, dy2;  // Relative to origin
+        EdgeState state;
+    };
+    std::vector<RelativeEdge> edges;
+    
+    // Copied markers: full marker data with relative positions
+    struct RelativeMarker {
+        float dx, dy;           // Relative to origin
+        std::string kind;
+        std::string label;
+        std::string icon;
+        Color color;
+        float size;
+        bool showLabel;
+    };
+    std::vector<RelativeMarker> markers;
+    
+    // Original bounds width/height (for preview)
+    int width = 0;
+    int height = 0;
+    
+    // Check if clipboard is empty
+    bool IsEmpty() const {
+        return tiles.empty() && edges.empty() && markers.empty();
+    }
+    
+    // Clear clipboard
+    void Clear() {
+        tiles.clear();
+        edges.clear();
+        markers.clear();
+        width = 0;
+        height = 0;
+    }
+};
+
+// ============================================================================
 // Model - Complete project state
 // ============================================================================
 

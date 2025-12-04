@@ -849,6 +849,7 @@ void Model::InitDefaultKeymap() {
     keymap["redo"] = "Cmd+Shift+Z";
     keymap["copy"] = "Cmd+C";
     keymap["paste"] = "Cmd+V";
+    keymap["cut"] = "Cmd+X";
     keymap["togglePropertiesPanel"] = "Cmd+P";
 #else
     keymap["new"] = "Ctrl+N";
@@ -861,6 +862,7 @@ void Model::InitDefaultKeymap() {
     keymap["redo"] = "Ctrl+Y";
     keymap["copy"] = "Ctrl+C";
     keymap["paste"] = "Ctrl+V";
+    keymap["cut"] = "Ctrl+X";
     keymap["togglePropertiesPanel"] = "Ctrl+P";
 #endif
     

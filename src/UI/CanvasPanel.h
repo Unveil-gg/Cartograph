@@ -78,6 +78,21 @@ public:
     SelectionData currentSelection;
     bool hasSelection = false;          // True if currentSelection is valid
     
+    // Clipboard for copy/paste
+    ClipboardData clipboard;
+    
+    // Paste preview state
+    bool isPasteMode = false;           // Currently in paste preview mode
+    int pastePreviewX = 0;              // Tile position for paste preview
+    int pastePreviewY = 0;
+    
+    // Selection drag state (for move operation)
+    bool isDraggingSelection = false;
+    int dragSelectionStartX = 0;        // Original selection position
+    int dragSelectionStartY = 0;
+    int dragOffsetX = 0;                // Current drag offset in tiles
+    int dragOffsetY = 0;
+    
     // Paint state (for Paint/Erase tools)
     bool isPainting = false;
     int lastPaintedTileX = -1;
@@ -180,6 +195,54 @@ public:
         const Model& model,
         const Canvas& canvas
     );
+    
+    /**
+     * Delete selected content (tiles, edges, markers).
+     * Creates a compound undo command.
+     * @param model Model to modify
+     * @param history History for undo
+     */
+    void DeleteSelection(Model& model, History& history);
+    
+    /**
+     * Copy current selection to clipboard.
+     * Stores content with relative positions.
+     * @param model Model to read from
+     */
+    void CopySelection(const Model& model);
+    
+    /**
+     * Paste clipboard content at specified position.
+     * @param model Model to modify
+     * @param history History for undo
+     * @param targetX Target tile X position
+     * @param targetY Target tile Y position
+     */
+    void PasteClipboard(
+        Model& model, 
+        History& history,
+        int targetX, 
+        int targetY
+    );
+    
+    /**
+     * Enter paste preview mode.
+     */
+    void EnterPasteMode();
+    
+    /**
+     * Exit paste preview mode without pasting.
+     */
+    void ExitPasteMode();
+    
+    /**
+     * Move selection by offset (for nudge/drag).
+     * @param model Model to modify
+     * @param history History for undo
+     * @param dx X offset in tiles
+     * @param dy Y offset in tiles
+     */
+    void MoveSelection(Model& model, History& history, int dx, int dy);
     
 private:
     /**
