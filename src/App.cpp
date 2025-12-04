@@ -328,7 +328,12 @@ void App::Render() {
     
     // Capture thumbnail AFTER ImGui has rendered to framebuffer
     // (uses previous frame's pixels - 16ms delay is imperceptible)
-    if (m_appState == AppState::Editor && m_model.dirty) {
+    // Skip capture when modals are visible to avoid capturing UI overlays
+    bool modalVisible = m_ui.m_modals.showQuitConfirmationModal ||
+                        m_ui.m_modals.showSaveBeforeActionModal ||
+                        m_ui.m_modals.showAutosaveRecoveryModal;
+    
+    if (m_appState == AppState::Editor && m_model.dirty && !modalVisible) {
         static double lastThumbnailCapture = 0.0;
         double now = Platform::GetTime();
         if (now - lastThumbnailCapture > 3.0) {
