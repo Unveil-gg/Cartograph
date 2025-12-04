@@ -186,6 +186,12 @@ public:
     void ClearSelection();
     
     /**
+     * Select all content on canvas based on layer filters.
+     * @param model Model to query for content
+     */
+    void SelectAll(const Model& model);
+    
+    /**
      * Populate selection from screen rectangle.
      * Converts screen coords to tile coords and collects selected content.
      * @param model Model to query for content

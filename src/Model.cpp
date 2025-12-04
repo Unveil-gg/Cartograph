@@ -869,6 +869,7 @@ void Model::InitDefaultKeymap() {
     // Non-platform-specific edit actions
     keymap["delete"] = "Delete";
     keymap["deleteAlt"] = "Backspace";  // Alternative delete key
+    keymap["selectAll"] = "Ctrl+A";     // Select all (works on both platforms)
 }
 
 void Model::InitDefaultTheme(const std::string& name) {

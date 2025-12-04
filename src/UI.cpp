@@ -898,6 +898,17 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
         } else {
             ImGui::TextDisabled("Drag to select content");
         }
+        
+        ImGui::Spacing();
+        ImGui::Separator();
+        
+        // Select All button (always available)
+        if (ImGui::Button("Select All", ImVec2(-1, 0))) {
+            m_canvasPanel.SelectAll(model);
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Select all content on canvas (Ctrl+A)");
+        }
     }
     
     // Show tool options for Zoom tool
