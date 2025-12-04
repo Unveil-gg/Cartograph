@@ -1,4 +1,5 @@
 #include "CanvasPanel.h"
+#include "Modals.h"
 #include "../App.h"
 #include "../platform/Paths.h"
 #include <imgui.h>
@@ -1065,7 +1066,6 @@ void CanvasPanel::Render(
                 );
                 
                 // Fill tiles globally (using "" as roomId)
-                // TODO: Implement flood-fill with wall boundaries
                 const std::string globalRoomId = "";
                 
                 // Get the original tile ID to replace
@@ -1073,12 +1073,42 @@ void CanvasPanel::Render(
                 
                 // Only fill if we're changing to a different tile
                 if (originalTileId != selectedTileId) {
-                    // Perform flood fill using BFS
+                    // Calculate fill boundary from content bounds + margin
+                    ContentBounds bounds = model.CalculateContentBounds();
+                    const int FILL_MARGIN = 20;  // Cells beyond content
+                    int boundMinX, boundMinY, boundMaxX, boundMaxY;
+                    
+                    if (bounds.isEmpty) {
+                        // No content: use small area around click point
+                        boundMinX = tx - FILL_MARGIN;
+                        boundMinY = ty - FILL_MARGIN;
+                        boundMaxX = tx + FILL_MARGIN;
+                        boundMaxY = ty + FILL_MARGIN;
+                    } else {
+                        // Content exists: use bounds + margin
+                        boundMinX = bounds.minX - FILL_MARGIN;
+                        boundMinY = bounds.minY - FILL_MARGIN;
+                        boundMaxX = bounds.maxX + FILL_MARGIN;
+                        boundMaxY = bounds.maxY + FILL_MARGIN;
+                    }
+                    
+                    // Clamp to grid bounds
+                    boundMinX = std::max(0, boundMinX);
+                    boundMinY = std::max(0, boundMinY);
+                    boundMaxX = std::min(model.grid.cols - 1, boundMaxX);
+                    boundMaxY = std::min(model.grid.rows - 1, boundMaxY);
+                    
+                    // Fill limits
+                    const size_t SOFT_LIMIT = 500;    // Confirm above this
+                    const size_t HARD_LIMIT = 10000;  // Refuse above this
+                    
+                    // Perform flood fill using BFS with bounds
                     std::vector<PaintTilesCommand::TileChange> fillChanges;
                     std::vector<std::pair<int, int>> toVisit;
                     std::set<std::pair<int, int>> visited;
                     
                     toVisit.push_back({tx, ty});
+                    bool exceededHardLimit = false;
                     
                     while (!toVisit.empty()) {
                         auto [x, y] = toVisit.back();
@@ -1089,6 +1119,12 @@ void CanvasPanel::Render(
                             continue;
                         }
                         visited.insert({x, y});
+                        
+                        // Check fill boundary (content bounds + margin)
+                        if (x < boundMinX || x > boundMaxX ||
+                            y < boundMinY || y > boundMaxY) {
+                            continue;
+                        }
                         
                         // Check grid bounds
                         if (x < 0 || x >= model.grid.cols ||
@@ -1102,6 +1138,12 @@ void CanvasPanel::Render(
                         // Skip if not matching original tile
                         if (currentTile != originalTileId) {
                             continue;
+                        }
+                        
+                        // Check hard limit
+                        if (fillChanges.size() >= HARD_LIMIT) {
+                            exceededHardLimit = true;
+                            break;
                         }
                         
                         // Add this tile to changes
@@ -1120,9 +1162,30 @@ void CanvasPanel::Render(
                         toVisit.push_back({x, y - 1});
                     }
                     
-                    // Apply all changes and add to history
-                    if (!fillChanges.empty()) {
-                        // Apply changes immediately
+                    // Handle fill based on size
+                    if (exceededHardLimit) {
+                        // Hard limit exceeded: refuse and clear
+                        if (modals) {
+                            modals->pendingFillType = 
+                                Modals::PendingFillType::None;
+                            modals->pendingFillCellCount = HARD_LIMIT;
+                        }
+                        // Note: UI will show toast via checking
+                        // fillExceededHardLimit flag if needed
+                    } else if (fillChanges.size() > SOFT_LIMIT) {
+                        // Soft limit exceeded: ask for confirmation
+                        hasPendingTileFill = true;
+                        pendingTileFillChanges = std::move(fillChanges);
+                        if (modals) {
+                            modals->showFillConfirmationModal = true;
+                            modals->pendingFillType = 
+                                Modals::PendingFillType::Tile;
+                            modals->pendingFillCellCount = 
+                                pendingTileFillChanges.size();
+                            modals->fillConfirmed = false;
+                        }
+                    } else if (!fillChanges.empty()) {
+                        // Within limits: apply immediately
                         for (const auto& change : fillChanges) {
                             model.SetTileAt(
                                 change.roomId, 
@@ -1649,19 +1712,45 @@ void CanvasPanel::Render(
                     
                     std::string startRoomId = model.GetCellRoom(tx, ty);
                     
-                    // Only fill if starting from empty cell or cell in a different room
+                    // Only fill if starting from empty or different room
                     if (startRoomId != activeRoomId) {
-                        // Perform flood fill using BFS
+                        // Calculate fill boundary from content bounds + margin
+                        ContentBounds bounds = model.CalculateContentBounds();
+                        const int FILL_MARGIN = 20;
+                        int boundMinX, boundMinY, boundMaxX, boundMaxY;
+                        
+                        if (bounds.isEmpty) {
+                            boundMinX = tx - FILL_MARGIN;
+                            boundMinY = ty - FILL_MARGIN;
+                            boundMaxX = tx + FILL_MARGIN;
+                            boundMaxY = ty + FILL_MARGIN;
+                        } else {
+                            boundMinX = bounds.minX - FILL_MARGIN;
+                            boundMinY = bounds.minY - FILL_MARGIN;
+                            boundMaxX = bounds.maxX + FILL_MARGIN;
+                            boundMaxY = bounds.maxY + FILL_MARGIN;
+                        }
+                        
+                        // Clamp to grid bounds
+                        boundMinX = std::max(0, boundMinX);
+                        boundMinY = std::max(0, boundMinY);
+                        boundMaxX = std::min(model.grid.cols - 1, boundMaxX);
+                        boundMaxY = std::min(model.grid.rows - 1, boundMaxY);
+                        
+                        // Fill limits
+                        const size_t SOFT_LIMIT = 500;
+                        const size_t HARD_LIMIT = 10000;
+                        
+                        // Perform flood fill using BFS (don't apply yet)
                         std::vector<ModifyRoomAssignmentsCommand::CellAssignment> 
                             fillAssignments;
                         std::vector<std::pair<int, int>> toVisit;
                         std::set<std::pair<int, int>> visited;
                         
                         toVisit.push_back({tx, ty});
+                        bool exceededHardLimit = false;
                         
-                        const size_t MAX_FILL_SIZE = 10000;  // Safety limit
-                        
-                        while (!toVisit.empty() && visited.size() < MAX_FILL_SIZE) {
+                        while (!toVisit.empty()) {
                             auto [x, y] = toVisit.back();
                             toVisit.pop_back();
                             
@@ -1670,6 +1759,12 @@ void CanvasPanel::Render(
                                 continue;
                             }
                             visited.insert({x, y});
+                            
+                            // Check fill boundary
+                            if (x < boundMinX || x > boundMaxX ||
+                                y < boundMinY || y > boundMaxY) {
+                                continue;
+                            }
                             
                             // Check grid bounds
                             if (x < 0 || x >= model.grid.cols ||
@@ -1685,6 +1780,12 @@ void CanvasPanel::Render(
                                 continue;
                             }
                             
+                            // Check hard limit
+                            if (fillAssignments.size() >= HARD_LIMIT) {
+                                exceededHardLimit = true;
+                                break;
+                            }
+                            
                             // Add this cell to fill
                             ModifyRoomAssignmentsCommand::CellAssignment assignment;
                             assignment.x = x;
@@ -1692,9 +1793,6 @@ void CanvasPanel::Render(
                             assignment.oldRoomId = startRoomId;
                             assignment.newRoomId = activeRoomId;
                             fillAssignments.push_back(assignment);
-                            
-                            // Apply immediately for visual feedback
-                            model.SetCellRoom(x, y, activeRoomId);
                             
                             // Check all 4 neighbors - only cross if no wall
                             EdgeSide sides[] = {
@@ -1709,7 +1807,6 @@ void CanvasPanel::Render(
                                 EdgeState edgeState = model.GetEdgeState(edgeId);
                                 
                                 // Can only cross if edge is None or Door
-                                // Wall blocks fill
                                 if (edgeState == EdgeState::None || 
                                     edgeState == EdgeState::Door) {
                                     int nx = x + dx[i];
@@ -1722,15 +1819,45 @@ void CanvasPanel::Render(
                             }
                         }
                         
-                        // Create command if we filled anything
-                        if (!fillAssignments.empty()) {
-                            auto cmd = std::make_unique<ModifyRoomAssignmentsCommand>(
-                                fillAssignments
-                            );
+                        // Handle fill based on size
+                        if (exceededHardLimit) {
+                            // Hard limit exceeded: refuse
+                            if (modals) {
+                                modals->pendingFillType = 
+                                    Modals::PendingFillType::None;
+                                modals->pendingFillCellCount = HARD_LIMIT;
+                            }
+                        } else if (fillAssignments.size() > SOFT_LIMIT) {
+                            // Soft limit: ask for confirmation
+                            hasPendingRoomFill = true;
+                            pendingRoomFillAssignments = 
+                                std::move(fillAssignments);
+                            pendingRoomFillActiveRoomId = activeRoomId;
+                            if (modals) {
+                                modals->showFillConfirmationModal = true;
+                                modals->pendingFillType = 
+                                    Modals::PendingFillType::Room;
+                                modals->pendingFillCellCount = 
+                                    pendingRoomFillAssignments.size();
+                                modals->fillConfirmed = false;
+                            }
+                        } else if (!fillAssignments.empty()) {
+                            // Within limits: apply immediately
+                            for (const auto& assignment : fillAssignments) {
+                                model.SetCellRoom(
+                                    assignment.x, 
+                                    assignment.y, 
+                                    assignment.newRoomId
+                                );
+                            }
+                            
+                            auto cmd = std::make_unique<
+                                ModifyRoomAssignmentsCommand>(fillAssignments);
                             history.AddCommand(std::move(cmd), model, false);
                             
                             // Generate perimeter walls if enabled
-                            if (model.autoGenerateRoomWalls && !activeRoomId.empty()) {
+                            if (model.autoGenerateRoomWalls && 
+                                !activeRoomId.empty()) {
                                 model.GenerateRoomPerimeterWalls(activeRoomId);
                             }
                         }

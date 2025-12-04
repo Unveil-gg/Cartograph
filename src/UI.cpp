@@ -102,6 +102,7 @@ UI::UI() : m_modals(*this), m_welcomeScreen(*this) {
     // Connect canvas panel to UI state for shared members
     m_canvasPanel.showPropertiesPanel = &showPropertiesPanel;
     m_canvasPanel.layoutInitialized = &m_layoutInitialized;
+    m_canvasPanel.modals = &m_modals;
     
     // Create platform-specific native menu (but don't initialize yet)
     m_nativeMenu = CreateNativeMenu();

@@ -69,6 +69,7 @@ void Modals::RenderAll(
     if (showRenameRoomDialog) RenderRenameRoomModal(model);
     if (showRenameRegionDialog) RenderRenameRegionModal(model);
     if (showDeleteRegionDialog) RenderDeleteRegionModal(model, history);
+    if (showFillConfirmationModal) RenderFillConfirmationModal(model, history);
 }
 
 void Modals::RenderDeleteRoomModal(Model& model, History& history) {
@@ -343,6 +344,136 @@ void Modals::RenderDeleteRegionModal(Model& model, History& history) {
                 ImGui::CloseCurrentPopup();
             }
         }
+        
+        ImGui::EndPopup();
+    }
+}
+
+void Modals::RenderFillConfirmationModal(Model& model, History& history) {
+    // Only call OpenPopup once when modal is first shown
+    if (!fillConfirmationModalOpened) {
+        ImGui::OpenPopup("Large Fill Warning");
+        fillConfirmationModalOpened = true;
+    }
+    
+    ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    
+    if (ImGui::BeginPopupModal("Large Fill Warning", nullptr,
+                               ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::TextColored(ImVec4(1.0f, 0.7f, 0.3f, 1.0f), 
+                          "Warning: Large Fill Operation");
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        ImGui::TextWrapped(
+            "This fill operation will affect %zu cells. "
+            "Large fills may indicate an accidental click outside "
+            "your intended area.",
+            pendingFillCellCount
+        );
+        ImGui::Spacing();
+        ImGui::TextDisabled(
+            "Tip: Make sure your shape is fully enclosed by walls."
+        );
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        float buttonWidth = 120.0f;
+        
+        // Cancel button
+        if (ImGui::Button("Cancel", ImVec2(buttonWidth, 0))) {
+            // Clear pending fill
+            CanvasPanel& canvas = m_ui.GetCanvasPanel();
+            canvas.hasPendingTileFill = false;
+            canvas.pendingTileFillChanges.clear();
+            canvas.hasPendingRoomFill = false;
+            canvas.pendingRoomFillAssignments.clear();
+            canvas.pendingRoomFillActiveRoomId.clear();
+            
+            pendingFillType = PendingFillType::None;
+            pendingFillCellCount = 0;
+            fillConfirmed = false;
+            showFillConfirmationModal = false;
+            fillConfirmationModalOpened = false;
+            ImGui::CloseCurrentPopup();
+        }
+        
+        ImGui::SameLine(0, 10);
+        
+        // Confirm button (styled as primary action)
+        ImGui::PushStyleColor(ImGuiCol_Button, 
+                             ImVec4(0.2f, 0.6f, 0.9f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, 
+                             ImVec4(0.3f, 0.7f, 1.0f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, 
+                             ImVec4(0.1f, 0.5f, 0.8f, 1.0f));
+        
+        if (ImGui::Button("Fill Anyway", ImVec2(buttonWidth, 0))) {
+            CanvasPanel& canvas = m_ui.GetCanvasPanel();
+            
+            // Apply the pending fill
+            if (canvas.hasPendingTileFill && 
+                !canvas.pendingTileFillChanges.empty()) {
+                // Apply tile fill
+                for (const auto& change : canvas.pendingTileFillChanges) {
+                    model.SetTileAt(
+                        change.roomId, 
+                        change.x, 
+                        change.y, 
+                        change.newTileId
+                    );
+                }
+                
+                auto cmd = std::make_unique<FillTilesCommand>(
+                    canvas.pendingTileFillChanges
+                );
+                history.AddCommand(std::move(cmd), model, false);
+                
+                canvas.hasPendingTileFill = false;
+                canvas.pendingTileFillChanges.clear();
+            }
+            
+            if (canvas.hasPendingRoomFill && 
+                !canvas.pendingRoomFillAssignments.empty()) {
+                // Apply room fill
+                for (const auto& assignment : 
+                     canvas.pendingRoomFillAssignments) {
+                    model.SetCellRoom(
+                        assignment.x, 
+                        assignment.y, 
+                        assignment.newRoomId
+                    );
+                }
+                
+                auto cmd = std::make_unique<ModifyRoomAssignmentsCommand>(
+                    canvas.pendingRoomFillAssignments
+                );
+                history.AddCommand(std::move(cmd), model, false);
+                
+                // Generate perimeter walls if enabled
+                if (model.autoGenerateRoomWalls && 
+                    !canvas.pendingRoomFillActiveRoomId.empty()) {
+                    model.GenerateRoomPerimeterWalls(
+                        canvas.pendingRoomFillActiveRoomId
+                    );
+                }
+                
+                canvas.hasPendingRoomFill = false;
+                canvas.pendingRoomFillAssignments.clear();
+                canvas.pendingRoomFillActiveRoomId.clear();
+            }
+            
+            pendingFillType = PendingFillType::None;
+            pendingFillCellCount = 0;
+            fillConfirmed = true;
+            showFillConfirmationModal = false;
+            fillConfirmationModalOpened = false;
+            ImGui::CloseCurrentPopup();
+        }
+        
+        ImGui::PopStyleColor(3);
         
         ImGui::EndPopup();
     }

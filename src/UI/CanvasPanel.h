@@ -13,6 +13,8 @@ struct SDL_Cursor;
 
 namespace Cartograph {
 
+class Modals;  // Forward declaration for fill confirmation
+
 /**
  * Canvas panel renderer and input handler.
  * Handles the main editing canvas with tools, pan/zoom, and interactions.
@@ -119,6 +121,14 @@ public:
     // Eraser tool state
     int eraserBrushSize = 1;  // 1-5, eraser brush size in tiles
     
+    // Pending fill state (for confirmation dialog when exceeding soft limit)
+    bool hasPendingTileFill = false;
+    std::vector<PaintTilesCommand::TileChange> pendingTileFillChanges;
+    bool hasPendingRoomFill = false;
+    std::vector<ModifyRoomAssignmentsCommand::CellAssignment> 
+        pendingRoomFillAssignments;
+    std::string pendingRoomFillActiveRoomId;  // Room ID for pending room fill
+    
     // Hovered tile coordinates (for status bar)
     int hoveredTileX = -1;
     int hoveredTileY = -1;
@@ -130,6 +140,9 @@ public:
     // Hierarchy panel visibility (affects layout)
     bool* showPropertiesPanel = nullptr;
     bool* layoutInitialized = nullptr;
+    
+    // Modals reference for fill confirmation dialog
+    Modals* modals = nullptr;
     
     /**
      * Initialize custom cursors for tools.

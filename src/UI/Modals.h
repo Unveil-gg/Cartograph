@@ -119,6 +119,7 @@ public:
     bool showDeleteRegionDialog = false;
     bool showAboutModal = false;
     bool showSaveBeforeActionModal = false;
+    bool showFillConfirmationModal = false;
     
     // Modal popup opened tracking flags (to call OpenPopup only once)
     bool exportModalOpened = false;
@@ -139,6 +140,13 @@ public:
     bool deleteRegionDialogOpened = false;
     bool aboutModalOpened = false;
     bool saveBeforeActionModalOpened = false;
+    bool fillConfirmationModalOpened = false;
+    
+    // Fill confirmation modal state
+    enum class PendingFillType { None, Tile, Room };
+    PendingFillType pendingFillType = PendingFillType::None;
+    size_t pendingFillCellCount = 0;
+    bool fillConfirmed = false;  // Set true when user confirms
     
     // Export modal state
     ExportOptions exportOptions;
@@ -229,6 +237,7 @@ private:
     void RenderRenameRoomModal(Model& model);
     void RenderRenameRegionModal(Model& model);
     void RenderDeleteRegionModal(Model& model, History& history);
+    void RenderFillConfirmationModal(Model& model, History& history);
     void ApplyTemplate(ProjectTemplate tmpl);
     
     UI& m_ui;  // Reference to UI for ShowToast
