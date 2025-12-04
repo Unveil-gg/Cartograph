@@ -63,7 +63,7 @@ endif()
 if(WIN32)
     list(APPEND CARTOGRAPH_SOURCES
         src/platform/windows/Fs.cpp
-        src/app.rc
+        src/platform/windows/app.rc
     )
 endif()
 
