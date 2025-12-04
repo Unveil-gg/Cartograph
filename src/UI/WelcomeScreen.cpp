@@ -28,11 +28,8 @@
 // minizip-ng for reading .cart thumbnails
 #include "unzip.h"
 
-// OpenGL for texture generation
-#ifdef __APPLE__
-#define GL_SILENCE_DEPRECATION
-#endif
-#include <OpenGL/gl3.h>
+// GPU texture helper for SDL_GPU
+#include "../render/GpuTexture.h"
 
 // STB image for loading thumbnails (implementation in Icons.cpp)
 #include "../../third_party/stb/stb_image.h"
@@ -766,35 +763,17 @@ void WelcomeScreen::LoadThumbnailTexture(RecentProject& project) {
         return;
     }
     
-    // Create OpenGL texture
-    GLuint texId;
-    glGenTextures(1, &texId);
-    glBindTexture(GL_TEXTURE_2D, texId);
+    // Create GPU texture
+    if (m_gpuDevice) {
+        SDL_GPUTexture* texture = GpuTexture::CreateFromPixels(
+            m_gpuDevice, data, width, height
+        );
+        project.thumbnailTextureId = static_cast<unsigned int>(
+            reinterpret_cast<uintptr_t>(texture)
+        );
+    }
     
-    // Set texture parameters
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    
-    // Upload pixel data
-    glTexImage2D(
-        GL_TEXTURE_2D,
-        0,
-        GL_RGBA,
-        width,
-        height,
-        0,
-        GL_RGBA,
-        GL_UNSIGNED_BYTE,
-        data
-    );
-    
-    // Unbind and cleanup
-    glBindTexture(GL_TEXTURE_2D, 0);
     stbi_image_free(data);
-    
-    project.thumbnailTextureId = texId;
     project.thumbnailLoaded = true;
 }
 
@@ -805,17 +784,23 @@ void WelcomeScreen::UnloadThumbnailTextures() {
         if (project.thumbnailLoaded && 
             project.thumbnailTextureId != 0 &&
             project.thumbnailTextureId != placeholderTexture) {
-            GLuint texId = project.thumbnailTextureId;
-            glDeleteTextures(1, &texId);
+            if (m_gpuDevice) {
+                SDL_GPUTexture* texture = reinterpret_cast<SDL_GPUTexture*>(
+                    static_cast<uintptr_t>(project.thumbnailTextureId)
+                );
+                GpuTexture::Release(m_gpuDevice, texture);
+            }
             project.thumbnailTextureId = 0;
             project.thumbnailLoaded = false;
         }
     }
     
     // Delete placeholder texture
-    if (placeholderTexture != 0) {
-        GLuint texId = placeholderTexture;
-        glDeleteTextures(1, &texId);
+    if (placeholderTexture != 0 && m_gpuDevice) {
+        SDL_GPUTexture* texture = reinterpret_cast<SDL_GPUTexture*>(
+            static_cast<uintptr_t>(placeholderTexture)
+        );
+        GpuTexture::Release(m_gpuDevice, texture);
         placeholderTexture = 0;
     }
 }
@@ -854,34 +839,17 @@ unsigned int WelcomeScreen::GeneratePlaceholderTexture() {
         }
     }
     
-    // Create OpenGL texture
-    GLuint texId;
-    glGenTextures(1, &texId);
-    glBindTexture(GL_TEXTURE_2D, texId);
+    // Create GPU texture
+    if (m_gpuDevice) {
+        SDL_GPUTexture* texture = GpuTexture::CreateFromPixels(
+            m_gpuDevice, pixels.data(), width, height
+        );
+        return static_cast<unsigned int>(
+            reinterpret_cast<uintptr_t>(texture)
+        );
+    }
     
-    // Set texture parameters
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    
-    // Upload pixel data
-    glTexImage2D(
-        GL_TEXTURE_2D,
-        0,
-        GL_RGBA,
-        width,
-        height,
-        0,
-        GL_RGBA,
-        GL_UNSIGNED_BYTE,
-        pixels.data()
-    );
-    
-    // Unbind
-    glBindTexture(GL_TEXTURE_2D, 0);
-    
-    return texId;
+    return 0;
 }
 
 

@@ -7,6 +7,7 @@
 #include "../platform/Paths.h"
 #include "../platform/System.h"
 #include "../IOJson.h"
+#include "../render/GpuTexture.h"
 #include <imgui.h>
 #include <filesystem>
 #include <fstream>
@@ -16,12 +17,6 @@
 #include <cstring>  // For strcasecmp
 #include <nlohmann/json.hpp>
 
-#ifdef __APPLE__
-#include <OpenGL/gl.h>
-#else
-#include <GL/gl.h>
-#endif
-
 namespace Cartograph {
 
 Modals::Modals(UI& ui) : m_ui(ui) {
@@ -29,13 +24,25 @@ Modals::Modals(UI& ui) : m_ui(ui) {
 }
 
 Modals::~Modals() {
-    // Cleanup logo textures
-    if (cartographLogoTexture != 0) {
-        glDeleteTextures(1, &cartographLogoTexture);
+    // Note: GPU textures should be cleaned up via CleanupTextures()
+    // before the GPU device is destroyed. This destructor just resets state.
+    cartographLogoTexture = 0;
+    unveilLogoTexture = 0;
+}
+
+void Modals::CleanupTextures(SDL_GPUDevice* device) {
+    if (cartographLogoTexture != 0 && device) {
+        SDL_GPUTexture* texture = reinterpret_cast<SDL_GPUTexture*>(
+            static_cast<uintptr_t>(cartographLogoTexture)
+        );
+        GpuTexture::Release(device, texture);
         cartographLogoTexture = 0;
     }
-    if (unveilLogoTexture != 0) {
-        glDeleteTextures(1, &unveilLogoTexture);
+    if (unveilLogoTexture != 0 && device) {
+        SDL_GPUTexture* texture = reinterpret_cast<SDL_GPUTexture*>(
+            static_cast<uintptr_t>(unveilLogoTexture)
+        );
+        GpuTexture::Release(device, texture);
         unveilLogoTexture = 0;
     }
 }
@@ -2850,7 +2857,7 @@ void Modals::RenderAboutModal() {
     }
     
     // Load logo textures if not already loaded
-    if (!logosLoaded) {
+    if (!logosLoaded && m_gpuDevice) {
         std::string assetsDir = Platform::GetAssetsDir();
         std::string cartographLogoPath = assetsDir + "project/cartograph-logo.png";
         std::string unveilLogoPath = assetsDir + "project/unveil-logo.png";
@@ -2862,18 +2869,13 @@ void Modals::RenderAboutModal() {
             &width, &height, &channels, 4
         );
         if (data) {
-            GLuint texId;
-            glGenTextures(1, &texId);
-            glBindTexture(GL_TEXTURE_2D, texId);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 
-                        0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-            glBindTexture(GL_TEXTURE_2D, 0);
+            SDL_GPUTexture* texture = GpuTexture::CreateFromPixels(
+                m_gpuDevice, data, width, height
+            );
             stbi_image_free(data);
-            cartographLogoTexture = texId;
+            cartographLogoTexture = static_cast<unsigned int>(
+                reinterpret_cast<uintptr_t>(texture)
+            );
             cartographLogoWidth = width;
             cartographLogoHeight = height;
         }
@@ -2884,18 +2886,13 @@ void Modals::RenderAboutModal() {
             &width, &height, &channels, 4
         );
         if (data) {
-            GLuint texId;
-            glGenTextures(1, &texId);
-            glBindTexture(GL_TEXTURE_2D, texId);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 
-                        0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-            glBindTexture(GL_TEXTURE_2D, 0);
+            SDL_GPUTexture* texture = GpuTexture::CreateFromPixels(
+                m_gpuDevice, data, width, height
+            );
             stbi_image_free(data);
-            unveilLogoTexture = texId;
+            unveilLogoTexture = static_cast<unsigned int>(
+                reinterpret_cast<uintptr_t>(texture)
+            );
             unveilLogoWidth = width;
             unveilLogoHeight = height;
         }

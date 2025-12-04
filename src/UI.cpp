@@ -33,13 +33,6 @@
 #include <chrono>
 #include <ctime>
 
-// OpenGL for texture loading
-#ifdef __APPLE__
-#include <OpenGL/gl3.h>
-#else
-#include <GL/gl.h>
-#endif
-
 // SDL_CursorDeleter implementation (outside namespace)
 void SDL_CursorDeleter::operator()(SDL_Cursor* cursor) const {
     if (cursor) {
@@ -1658,7 +1651,7 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
                         bool success, const std::string& error) {
                         isImportingIcon = false;
                         if (success) {
-                            // Build atlas on main thread (OpenGL required)
+                            // Build atlas on main thread (GPU required)
                             icons.BuildAtlas();
                             
                             ShowToast("Icon imported: " + capturedIconName, 

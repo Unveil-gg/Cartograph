@@ -3,6 +3,9 @@
 #include <string>
 #include <vector>
 
+// Forward declaration for SDL_GPU
+struct SDL_GPUDevice;
+
 // Forward declarations
 namespace Cartograph {
     class App;
@@ -26,7 +29,7 @@ struct RecentProject {
     std::string description;         // Project description from project.json
     std::string lastModified;
     std::string thumbnailPath;       // Path to thumbnail image file
-    unsigned int thumbnailTextureId; // OpenGL texture ID (0 if not loaded)
+    unsigned int thumbnailTextureId; // GPU texture ID (0 if not loaded)
     bool thumbnailLoaded;            // Whether texture has been loaded
     
     RecentProject() 
@@ -84,6 +87,12 @@ public:
      */
     void LoadThumbnailTexture(RecentProject& project);
     
+    /**
+     * Set the GPU device for texture creation.
+     * @param device SDL_GPU device pointer
+     */
+    void SetGPUDevice(SDL_GPUDevice* device) { m_gpuDevice = device; }
+    
     // Recent projects list
     std::vector<RecentProject> recentProjects;
     
@@ -99,11 +108,12 @@ private:
     
     /**
      * Generate a placeholder texture for missing thumbnails.
-     * @return OpenGL texture ID
+     * @return GPU texture ID
      */
     unsigned int GeneratePlaceholderTexture();
     
     UI& m_ui;  // Reference to UI for accessing UI utilities
+    SDL_GPUDevice* m_gpuDevice = nullptr;  // Non-owning pointer to GPU device
 };
 
 } // namespace Cartograph

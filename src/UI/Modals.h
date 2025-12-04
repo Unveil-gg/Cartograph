@@ -7,6 +7,9 @@
 #include <vector>
 #include <atomic>
 
+// Forward declaration for SDL_GPU
+struct SDL_GPUDevice;
+
 // Forward declarations
 namespace Cartograph {
     class App;
@@ -215,6 +218,18 @@ public:
     void UpdateNewProjectPath();
     void ShowNewProjectFolderPicker();
     
+    /**
+     * Set the GPU device for texture creation.
+     * @param device SDL_GPU device pointer
+     */
+    void SetGPUDevice(SDL_GPUDevice* device) { m_gpuDevice = device; }
+    
+    /**
+     * Clean up GPU textures (call before destroying GPU device).
+     * @param device SDL_GPU device pointer
+     */
+    void CleanupTextures(SDL_GPUDevice* device);
+    
 private:
     void RenderExportModal(Model& model, Canvas& canvas);
     void RenderSettingsModal(Model& model, KeymapManager& keymap);
@@ -242,6 +257,7 @@ private:
     void ApplyTemplate(ProjectTemplate tmpl);
     
     UI& m_ui;  // Reference to UI for ShowToast
+    SDL_GPUDevice* m_gpuDevice = nullptr;  // Non-owning pointer to GPU device
 };
 
 } // namespace Cartograph

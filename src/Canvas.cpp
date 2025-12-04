@@ -1,6 +1,6 @@
 #include "Canvas.h"
 #include "render/Renderer.h"
-#include "render/GlRenderer.h"
+#include "render/SdlGpuRenderer.h"
 #include "Icons.h"
 #include <imgui.h>
 #include <algorithm>
@@ -734,18 +734,27 @@ void Canvas::CaptureThumbnail(IRenderer& renderer, const Model& model,
         captureH = viewportH;
     }
     
-    // Read pixels from framebuffer
-    GlRenderer* glRenderer = dynamic_cast<GlRenderer*>(&renderer);
-    if (!glRenderer) {
-        hasCachedThumbnail = false;
-        return;
-    }
+    // Note: With SDL_GPU, pixel readback from swapchain is not straightforward.
+    // For now, thumbnail capture is disabled. A proper implementation would
+    // render to an offscreen texture and then download pixels.
+    // TODO: Implement SDL_GPU-based thumbnail capture
+    (void)captureX;
+    (void)captureY;
+    (void)captureW;
+    (void)captureH;
+    (void)thumbWidth;
+    (void)thumbHeight;
+    (void)renderer;
+    hasCachedThumbnail = false;
+    return;
     
+    // Legacy OpenGL code (kept for reference):
+    /*
     std::vector<uint8_t> capturedPixels(captureW * captureH * 4);
-    glRenderer->ReadPixels(captureX, captureY, captureW, captureH,
-                          capturedPixels.data());
+    // renderer->ReadPixels(captureX, captureY, captureW, captureH,
+    //                       capturedPixels.data());
     
-    // Flip vertically (OpenGL reads bottom-up)
+    // Flip vertically (GPU reads bottom-up)
     std::vector<uint8_t> flipped(captureW * captureH * 4);
     for (int y = 0; y < captureH; ++y) {
         memcpy(
@@ -780,6 +789,7 @@ void Canvas::CaptureThumbnail(IRenderer& renderer, const Model& model,
     cachedThumbnailWidth = thumbWidth;
     cachedThumbnailHeight = thumbHeight;
     hasCachedThumbnail = true;
+    */
 }
 
 } // namespace Cartograph

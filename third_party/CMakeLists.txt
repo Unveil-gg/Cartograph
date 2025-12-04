@@ -14,7 +14,7 @@ else()
     message(FATAL_ERROR "SDL not found. Run ./setup_deps.sh to download it.")
 endif()
 
-# Dear ImGui
+# Dear ImGui with SDL_GPU backend
 add_library(imgui STATIC
     imgui/imgui.cpp
     imgui/imgui_demo.cpp
@@ -22,7 +22,7 @@ add_library(imgui STATIC
     imgui/imgui_tables.cpp
     imgui/imgui_widgets.cpp
     imgui/backends/imgui_impl_sdl3.cpp
-    imgui/backends/imgui_impl_opengl3.cpp
+    imgui/backends/imgui_impl_sdlgpu3.cpp
 )
 
 target_include_directories(imgui PUBLIC
@@ -30,20 +30,8 @@ target_include_directories(imgui PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/imgui/backends
 )
 
-# Don't use IMGUI_IMPL_OPENGL_LOADER_CUSTOM - let ImGui use its default loader
-# which works with SDL3's OpenGL headers
-
 # Link to vendored SDL3-static (not SDL3::SDL3)
 target_link_libraries(imgui PUBLIC SDL3-static)
-
-# Link OpenGL framework/library
-if(APPLE)
-    target_link_libraries(imgui PUBLIC "-framework OpenGL")
-elseif(WIN32)
-    target_link_libraries(imgui PUBLIC opengl32)
-elseif(UNIX)
-    target_link_libraries(imgui PUBLIC GL)
-endif()
 
 # nlohmann/json (header-only)
 add_library(nlohmann_json INTERFACE)

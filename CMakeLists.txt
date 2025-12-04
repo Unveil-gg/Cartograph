@@ -43,7 +43,8 @@ set(CARTOGRAPH_SOURCES
     src/Keymap.cpp
     src/Jobs.cpp
     src/Preferences.cpp
-    src/render/GlRenderer.cpp
+    src/render/SdlGpuRenderer.cpp
+    src/render/GpuTexture.cpp
     src/platform/Fs.cpp
     src/platform/Paths.cpp
     src/platform/Time.cpp
@@ -85,7 +86,8 @@ set(CARTOGRAPH_HEADERS
     src/Jobs.h
     src/Preferences.h
     src/render/Renderer.h
-    src/render/GlRenderer.h
+    src/render/SdlGpuRenderer.h
+    src/render/GpuTexture.h
     src/platform/Fs.h
     src/platform/Paths.h
     src/platform/Time.h
@@ -129,18 +131,14 @@ endif()
 # Platform-specific linking
 if(APPLE)
     target_link_libraries(Cartograph PRIVATE
-        "-framework OpenGL"
         "-framework Cocoa"
         "-framework IOKit"
         "-framework CoreVideo"
+        "-framework Metal"
+        "-framework QuartzCore"
     )
-elseif(WIN32)
+elseif(UNIX AND NOT WIN32)
     target_link_libraries(Cartograph PRIVATE
-        opengl32
-    )
-elseif(UNIX)
-    target_link_libraries(Cartograph PRIVATE
-        GL
         dl
         pthread
     )

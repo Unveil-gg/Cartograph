@@ -8,7 +8,7 @@ namespace Cartograph {
 
 class IRenderer;
 class IconManager;
-class GlRenderer;
+class SdlGpuRenderer;
 
 /**
  * Optional rendering context for controlling what gets rendered.
@@ -101,8 +101,7 @@ public:
     int GetViewportH() const { return m_vpH; }
     
     // Capture current canvas state for thumbnail generation
-    // Must be called AFTER ImGui_ImplOpenGL3_RenderDrawData() to ensure
-    // pixels are actually in the framebuffer
+    // Must be called AFTER ImGui render to ensure pixels are in the framebuffer
     void CaptureThumbnail(IRenderer& renderer, const Model& model,
                          int viewportX, int viewportY,
                          int viewportW, int viewportH);
