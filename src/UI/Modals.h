@@ -217,7 +217,7 @@ public:
     
 private:
     void RenderExportModal(Model& model, Canvas& canvas);
-    void RenderSettingsModal(Model& model, KeymapManager& keymap);
+    void RenderSettingsModal(App& app, Model& model, KeymapManager& keymap);
     void RenderRenameIconModal(Model& model, IconManager& icons, 
                                std::string& selectedIconName);
     void RenderDeleteIconModal(Model& model, IconManager& icons, 

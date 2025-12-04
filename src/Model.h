@@ -300,6 +300,18 @@ struct Theme {
     Color edgeHoverColor;  // Edge hover highlight
     Color markerColor;
     Color textColor;
+    
+    // Selection tool colors
+    Color selectionFill;       // Selection rectangle fill
+    Color selectionBorder;     // Selection rectangle border
+    
+    // Tool preview colors
+    Color tilePreviewBorder;   // Paint tool cursor outline
+    float tilePreviewBrightness = 1.3f;  // Brightness boost for preview
+    
+    // Paste preview colors
+    Color pastePreviewFill;    // Paste ghost fill
+    Color pastePreviewBorder;  // Paste ghost border
 };
 
 // ============================================================================

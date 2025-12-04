@@ -50,7 +50,7 @@ void Modals::RenderAll(
     int& selectedTileId
 ) {
     if (showExportModal) RenderExportModal(model, canvas);
-    if (showSettingsModal) RenderSettingsModal(model, keymap);
+    if (showSettingsModal) RenderSettingsModal(app, model, keymap);
     if (showRenameIconModal) RenderRenameIconModal(model, icons, selectedIconName);
     if (showDeleteIconModal) RenderDeleteIconModal(model, icons, history, selectedIconName, selectedMarker);
     if (showRebindModal) RenderRebindModal(model, keymap);
@@ -620,7 +620,7 @@ void Modals::RenderExportModal(Model& model, Canvas& canvas) {
 }
 
 
-void Modals::RenderSettingsModal(Model& model, KeymapManager& keymap) {
+void Modals::RenderSettingsModal(App& app, Model& model, KeymapManager& keymap) {
     // Only call OpenPopup once when modal is first shown
     if (!settingsModalOpened) {
         ImGui::OpenPopup("Settings");
@@ -992,6 +992,81 @@ void Modals::RenderSettingsModal(Model& model, KeymapManager& keymap) {
                 
                 ImGui::Spacing();
                 
+                ImGui::EndTabItem();
+            }
+            
+            // ============================================================
+            // TAB 4: APPEARANCE
+            // ============================================================
+            if (ImGui::BeginTabItem("Appearance")) {
+                settingsModalSelectedTab = 3;
+                ImGui::Spacing();
+                ImGui::Spacing();
+                
+                ImGui::Text("Theme");
+                ImGui::Separator();
+                ImGui::Spacing();
+                
+                // Theme dropdown
+                const char* themeNames[] = { "Dark", "Print-Light" };
+                int currentTheme = 0;
+                if (model.theme.name == "Print-Light") {
+                    currentTheme = 1;
+                }
+                
+                ImGui::Text("Color Theme:");
+                ImGui::SameLine();
+                ImGui::SetNextItemWidth(200);
+                if (ImGui::Combo("##ThemeCombo", &currentTheme, 
+                                themeNames, IM_ARRAYSIZE(themeNames))) {
+                    std::string newThemeName = themeNames[currentTheme];
+                    if (newThemeName != model.theme.name) {
+                        model.InitDefaultTheme(newThemeName);
+                        app.ApplyTheme(model.theme);
+                        model.MarkDirty();
+                        m_ui.ShowToast(
+                            "Theme changed to " + newThemeName,
+                            Toast::Type::Success
+                        );
+                    }
+                }
+                
+                ImGui::Spacing();
+                ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f),
+                    "Dark: Best for extended editing sessions");
+                ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f),
+                    "Print-Light: Best for export/print preview");
+                
+                ImGui::Spacing();
+                ImGui::Separator();
+                ImGui::Spacing();
+                
+                // UI Scale
+                ImGui::Text("Display");
+                ImGui::Separator();
+                ImGui::Spacing();
+                
+                ImGui::Text("UI Scale:");
+                ImGui::SameLine();
+                ImGui::SetNextItemWidth(200);
+                float uiScale = model.theme.uiScale;
+                if (ImGui::SliderFloat("##UIScale", &uiScale, 0.8f, 1.5f, 
+                                       "%.1fx")) {
+                    model.theme.uiScale = uiScale;
+                    app.ApplyTheme(model.theme);
+                    model.MarkDirty();
+                }
+                ImGui::SameLine();
+                if (ImGui::SmallButton("Reset")) {
+                    model.theme.uiScale = 1.0f;
+                    app.ApplyTheme(model.theme);
+                }
+                
+                ImGui::Spacing();
+                ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f),
+                    "Adjust UI element sizes for different display densities");
+                
+                ImGui::Spacing();
                 ImGui::EndTabItem();
             }
             

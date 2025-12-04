@@ -2207,16 +2207,20 @@ void CanvasPanel::Render(
         float maxX = std::max(selectionStartX, selectionEndX);
         float maxY = std::max(selectionStartY, selectionEndY);
         
-        // Draw semi-transparent fill
-        ImU32 fillColor = ImGui::GetColorU32(ImVec4(0.3f, 0.6f, 1.0f, 0.2f));
+        // Draw semi-transparent fill (using theme colors)
+        ImU32 fillColor = ImGui::GetColorU32(
+            model.theme.selectionFill.ToImVec4()
+        );
         drawList->AddRectFilled(
             ImVec2(minX, minY),
             ImVec2(maxX, maxY),
             fillColor
         );
         
-        // Draw border (dashed effect via multiple segments)
-        ImU32 borderColor = ImGui::GetColorU32(ImVec4(0.3f, 0.6f, 1.0f, 0.8f));
+        // Draw border (using theme colors)
+        ImU32 borderColor = ImGui::GetColorU32(
+            model.theme.selectionBorder.ToImVec4()
+        );
         drawList->AddRect(
             ImVec2(minX, minY),
             ImVec2(maxX, maxY),
@@ -2229,18 +2233,20 @@ void CanvasPanel::Render(
     
     // Draw selection highlight for completed selection
     if (hasSelection && !currentSelection.IsEmpty()) {
-        // Selection colors
+        // Selection colors (using theme)
         ImU32 tileFillColor = ImGui::GetColorU32(
-            ImVec4(0.3f, 0.6f, 1.0f, 0.25f)
+            model.theme.selectionFill.ToImVec4()
         );
         ImU32 tileBorderColor = ImGui::GetColorU32(
-            ImVec4(0.4f, 0.7f, 1.0f, 0.9f)
+            model.theme.selectionBorder.ToImVec4()
         );
         ImU32 edgeColor = ImGui::GetColorU32(
-            ImVec4(0.2f, 0.8f, 1.0f, 0.9f)
+            ImVec4(model.theme.selectionBorder.r, 
+                   model.theme.selectionBorder.g + 0.2f,
+                   model.theme.selectionBorder.b, 0.9f)
         );
         ImU32 markerColor = ImGui::GetColorU32(
-            ImVec4(1.0f, 0.8f, 0.2f, 0.9f)
+            ImVec4(1.0f, 0.8f, 0.2f, 0.9f)  // Keep distinct marker highlight
         );
         
         float tileW = model.grid.tileWidth * canvas.zoom;
@@ -2387,15 +2393,17 @@ void CanvasPanel::Render(
     
     // Draw paste preview if in paste mode
     if (currentTool == Tool::Select && isPasteMode && !clipboard.IsEmpty()) {
-        // Paste preview colors
+        // Paste preview colors (using theme)
         ImU32 previewFillColor = ImGui::GetColorU32(
-            ImVec4(0.2f, 0.8f, 0.4f, 0.25f)
+            model.theme.pastePreviewFill.ToImVec4()
         );
         ImU32 previewBorderColor = ImGui::GetColorU32(
-            ImVec4(0.3f, 0.9f, 0.5f, 0.9f)
+            model.theme.pastePreviewBorder.ToImVec4()
         );
         ImU32 previewTileColor = ImGui::GetColorU32(
-            ImVec4(0.3f, 0.9f, 0.5f, 0.4f)
+            ImVec4(model.theme.pastePreviewBorder.r,
+                   model.theme.pastePreviewBorder.g,
+                   model.theme.pastePreviewBorder.b, 0.4f)
         );
         
         float tileW = model.grid.tileWidth * canvas.zoom;
@@ -2478,7 +2486,7 @@ void CanvasPanel::Render(
             ImGui::GetColorU32(ImVec4(0.0f, 0.0f, 0.0f, 0.8f))
         );
         drawList->AddText(textPos, 
-            ImGui::GetColorU32(ImVec4(0.3f, 0.9f, 0.5f, 1.0f)), 
+            ImGui::GetColorU32(model.theme.pastePreviewBorder.ToImVec4()), 
             pasteText);
     }
     

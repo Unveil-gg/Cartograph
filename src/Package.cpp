@@ -175,7 +175,7 @@ bool Package::Save(
         }
     }
     
-    // TODO: Add themes
+    // Note: Theme is persisted through project.json (name and uiScale)
     
     zipClose(zf, nullptr);
     return success;

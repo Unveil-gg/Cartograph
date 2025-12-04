@@ -145,13 +145,18 @@ public:
     // Window management
     void UpdateWindowTitle();
     
+    /**
+     * Apply theme to ImGui style.
+     * Call after changing model.theme to update UI appearance.
+     */
+    void ApplyTheme(const Theme& theme);
+    
 private:
     void Update(float deltaTime);
     void Render();
     
     void SetupImGui();
     void ShutdownImGui();
-    void ApplyTheme(const Theme& theme);
     
     void StartAutosave();
     void StopAutosave();
