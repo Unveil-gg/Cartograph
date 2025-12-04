@@ -1,11 +1,11 @@
-#include "NativeMenu_macos.h"
-#include "../App.h"
-#include "../Model.h"
-#include "../Canvas.h"
-#include "../History.h"
-#include "../Icons.h"
-#include "../Jobs.h"
-#include "System.h"
+#include "NativeMenu.h"
+#include "../../App.h"
+#include "../../Model.h"
+#include "../../Canvas.h"
+#include "../../History.h"
+#include "../../Icons.h"
+#include "../../Jobs.h"
+#include "../System.h"
 
 #import <Cocoa/Cocoa.h>
 

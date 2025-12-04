@@ -55,13 +55,14 @@ set(CARTOGRAPH_SOURCES
 # Platform-specific sources
 if(APPLE)
     list(APPEND CARTOGRAPH_SOURCES
-        src/platform/Fs_macos.mm
-        src/platform/NativeMenu_macos.mm
+        src/platform/macos/Fs.mm
+        src/platform/macos/NativeMenu.mm
     )
 endif()
 
 if(WIN32)
     list(APPEND CARTOGRAPH_SOURCES
+        src/platform/windows/Fs.cpp
         src/app.rc
     )
 endif()
@@ -92,8 +93,14 @@ set(CARTOGRAPH_HEADERS
     src/platform/System.h
     src/platform/NativeMenu.h
     src/platform/NativeMenu_imgui.h
-    src/platform/NativeMenu_macos.h
 )
+
+# Platform-specific headers
+if(APPLE)
+    list(APPEND CARTOGRAPH_HEADERS
+        src/platform/macos/NativeMenu.h
+    )
+endif()
 
 # Executable
 add_executable(Cartograph ${CARTOGRAPH_SOURCES} ${CARTOGRAPH_HEADERS})

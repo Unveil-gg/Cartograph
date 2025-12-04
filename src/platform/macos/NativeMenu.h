@@ -1,6 +1,6 @@
 #pragma once
 
-#include "NativeMenu.h"
+#include "../NativeMenu.h"
 #include <map>
 
 // Forward declare Objective-C classes

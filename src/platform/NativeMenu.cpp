@@ -1,7 +1,7 @@
 #include "NativeMenu.h"
 
 #ifdef __APPLE__
-#include "NativeMenu_macos.h"
+#include "macos/NativeMenu.h"
 #else
 #include "NativeMenu_imgui.h"
 #endif
