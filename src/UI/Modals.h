@@ -141,6 +141,7 @@ public:
     bool aboutModalOpened = false;
     bool saveBeforeActionModalOpened = false;
     bool fillConfirmationModalOpened = false;
+    bool whatsNewModalOpened = false;
     
     // Fill confirmation modal state
     enum class PendingFillType { None, Tile, Room };

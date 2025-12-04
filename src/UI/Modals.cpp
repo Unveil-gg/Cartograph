@@ -2007,8 +2007,7 @@ void Modals::RenderProjectBrowserModal(App& app,
     ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
     
     if (ImGui::BeginPopupModal("Recent Projects", &showProjectBrowserModal, 
-        ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | 
-        ImGuiWindowFlags_NoDocking)) {
+        ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove)) {
         
         ImGui::Text("All Recent Projects");
         ImGui::Separator();
@@ -2266,10 +2265,18 @@ void Modals::RenderProjectBrowserModal(App& app,
 
 
 void Modals::RenderWhatsNewPanel() {
+    // Only call OpenPopup once when modal is first shown
+    if (!whatsNewModalOpened) {
+        ImGui::OpenPopup("What's New in Cartograph");
+        whatsNewModalOpened = true;
+    }
+    
     ImGui::SetNextWindowSize(ImVec2(520, 480), ImGuiCond_FirstUseEver);
     
-    if (ImGui::Begin("What's New in Cartograph", &showWhatsNew, 
-        ImGuiWindowFlags_NoDocking)) {
+    ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    
+    if (ImGui::BeginPopupModal("What's New in Cartograph", &showWhatsNew)) {
         ImGui::TextColored(ImVec4(0.4f, 0.7f, 1.0f, 1.0f), 
             "Version 1.0.0");
         ImGui::Separator();
@@ -2332,9 +2339,15 @@ void Modals::RenderWhatsNewPanel() {
         
         if (ImGui::Button("Close", ImVec2(120, 0))) {
             showWhatsNew = false;
+            ImGui::CloseCurrentPopup();
         }
+        ImGui::EndPopup();
     }
-    ImGui::End();
+    
+    // Reset opened flag when modal closes
+    if (!showWhatsNew) {
+        whatsNewModalOpened = false;
+    }
 }
 
 
