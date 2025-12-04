@@ -2210,7 +2210,7 @@ void Modals::RenderAutosaveRecoveryModal(App& app, Model& model) {
         autosaveRecoveryModalOpened = true;
     }
     
-    ImGui::SetNextWindowSize(ImVec2(480, 200), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(480, 0), ImGuiCond_Appearing);
     
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
@@ -2356,7 +2356,7 @@ void Modals::RenderQuitConfirmationModal(App& app, Model& model) {
         quitConfirmationModalOpened = true;
     }
     
-    ImGui::SetNextWindowSize(ImVec2(450, 180), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(450, 0), ImGuiCond_Appearing);
     
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
@@ -2577,7 +2577,7 @@ void Modals::RenderSaveBeforeActionModal(App& app, Model& model) {
         saveBeforeActionModalOpened = true;
     }
     
-    ImGui::SetNextWindowSize(ImVec2(480, 200), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(480, 0), ImGuiCond_Appearing);
     
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
