@@ -1995,7 +1995,7 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
         }
     }
     
-    // TODO: Add layers toggles here
+    // Future: Add layers visibility toggles (grid, tiles, edges, markers)
     
     ImGui::End();
 }
@@ -2875,7 +2875,7 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
                                                  ImGuiSelectableFlags_None)) {
                                 m_canvasPanel.selectedRoomId = connectedId;
                                 m_canvasPanel.activeRoomId = connectedId;
-                                // TODO: Center camera on room
+                                // Future: Center camera on selected room
                             }
                             
                             // Show hand cursor on hover

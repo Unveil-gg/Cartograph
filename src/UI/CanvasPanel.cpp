@@ -2515,7 +2515,7 @@ void CanvasPanel::Render(
         float sh = model.grid.tileHeight * canvas.zoom;
         
         // Draw preview based on tool and state
-        // TODO: Make these colors customizable in theme/settings
+        // Note: Erase/paint preview colors could be theme-customizable later
         if (currentTool == Tool::Erase || 
             (currentTool == Tool::Paint && ImGui::IsKeyDown(ImGuiKey_E))) {
             // Erase preview (red fill + red outline)
@@ -2572,7 +2572,6 @@ void CanvasPanel::Render(
             }
             
             // Brighten color by 30% for visibility
-            // TODO: Make brightness boost customizable
             float brightenAmount = 0.3f;
             Color brightened;
             brightened.r = std::min(tileColor.r + brightenAmount, 1.0f);
@@ -2588,7 +2587,6 @@ void CanvasPanel::Render(
             );
             
             // Draw white border for visibility
-            // TODO: Make border color/thickness customizable
             ImU32 borderColor = ImGui::GetColorU32(
                 ImVec4(1.0f, 1.0f, 1.0f, 0.9f)
             );

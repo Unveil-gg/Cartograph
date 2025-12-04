@@ -1,6 +1,7 @@
 #include "ExportPng.h"
 #include "Model.h"
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 
 // stb_image_write for PNG export
@@ -312,8 +313,50 @@ bool ExportPng::Export(
         }
     }
     
-    // TODO: Render markers (if needed)
-    // For now, markers are skipped as they require icon rendering
+    // Render markers (simple colored circles for now)
+    if (options.layerMarkers) {
+        for (const auto& marker : model.markers) {
+            // Calculate marker position in pixels
+            int px = static_cast<int>(
+                (marker.x - bounds.minX) * model.grid.tileWidth * scale + 
+                options.padding * scale
+            );
+            int py = static_cast<int>(
+                (marker.y - bounds.minY) * model.grid.tileHeight * scale + 
+                options.padding * scale
+            );
+            
+            // Calculate marker size
+            int markerSize = static_cast<int>(
+                std::min(model.grid.tileWidth, model.grid.tileHeight) * 
+                marker.size * scale
+            );
+            int radius = markerSize / 2;
+            
+            // Draw filled circle for marker
+            for (int dy = -radius; dy <= radius; ++dy) {
+                for (int dx = -radius; dx <= radius; ++dx) {
+                    if (dx * dx + dy * dy <= radius * radius) {
+                        buffer.BlendPixel(px + dx, py + dy, marker.color);
+                    }
+                }
+            }
+            
+            // Draw border (slightly darker)
+            Color borderColor(
+                marker.color.r * 0.7f,
+                marker.color.g * 0.7f,
+                marker.color.b * 0.7f,
+                1.0f
+            );
+            for (int angle = 0; angle < 360; ++angle) {
+                float rad = angle * 3.14159f / 180.0f;
+                int bx = px + static_cast<int>(radius * std::cos(rad));
+                int by = py + static_cast<int>(radius * std::sin(rad));
+                buffer.SetPixel(bx, by, borderColor);
+            }
+        }
+    }
     
     // Write PNG
     int result = stbi_write_png(

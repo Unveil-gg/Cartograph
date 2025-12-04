@@ -145,7 +145,7 @@ void IconManager::BuildAtlas() {
     m_icons.clear();
     
     // Simple atlas packing: arrange icons in a grid
-    // TODO: For a production app, use a proper bin-packing algorithm
+    // Note: A bin-packing algorithm would be more space-efficient for varied sizes
     
     const int maxIconSize = 64;  // Max icon size
     const int iconsPerRow = 16;

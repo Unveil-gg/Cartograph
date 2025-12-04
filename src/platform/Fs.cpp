@@ -11,8 +11,9 @@ std::optional<std::string> ShowOpenFileDialog(
     const std::string& title,
     const std::vector<std::pair<std::string, std::string>>& filters
 ) {
-    // TODO: Implement native file dialogs using SDL3 or platform APIs
-    // For now, return nullopt (will need platform-specific implementation)
+    // Fallback stub - platform-specific implementations in:
+    // - platform/macos/Fs.mm (macOS)
+    // - platform/windows/Fs.cpp (Windows)
     return std::nullopt;
 }
 
@@ -21,7 +22,7 @@ std::optional<std::string> ShowSaveFileDialog(
     const std::string& defaultName,
     const std::vector<std::pair<std::string, std::string>>& filters
 ) {
-    // TODO: Implement native file dialogs
+    // Fallback stub - see platform-specific implementations
     return std::nullopt;
 }
 
