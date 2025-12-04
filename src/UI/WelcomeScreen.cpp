@@ -124,7 +124,9 @@ void WelcomeScreen::Render(
     // Calculate centering based on longest line
     float scrollWidth = ImGui::CalcTextSize(mapLine1).x;
     float scrollStartX = (windowSize.x - scrollWidth) * 0.5f;
-    float scrollStartY = (windowSize.y - contentHeight) * 0.2f;
+    // Center vertically when no projects, top-bias when projects exist below
+    float verticalFactor = recentProjects.empty() ? 0.5f : 0.2f;
+    float scrollStartY = (windowSize.y - contentHeight) * verticalFactor;
     
     ImGui::SetCursorPos(ImVec2(scrollStartX, scrollStartY));
     ImGui::BeginGroup();
