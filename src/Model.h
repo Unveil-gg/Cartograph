@@ -322,6 +322,46 @@ struct ContentBounds {
 };
 
 // ============================================================================
+// Selection data (for Select tool)
+// ============================================================================
+
+/**
+ * Holds selected canvas content for copy/paste/delete operations.
+ * Coordinates are stored as tile positions.
+ */
+struct SelectionData {
+    // Selected tiles: position -> tile ID
+    std::unordered_map<std::pair<int, int>, int, PairHash> tiles;
+    
+    // Selected edges: edge ID -> edge state
+    std::unordered_map<EdgeId, EdgeState, EdgeIdHash> edges;
+    
+    // Selected marker IDs
+    std::vector<std::string> markerIds;
+    
+    // Bounding box of selection (tile coordinates)
+    Rect bounds;
+    
+    // Check if selection is empty
+    bool IsEmpty() const {
+        return tiles.empty() && edges.empty() && markerIds.empty();
+    }
+    
+    // Clear all selection data
+    void Clear() {
+        tiles.clear();
+        edges.clear();
+        markerIds.clear();
+        bounds = {0, 0, 0, 0};
+    }
+    
+    // Get counts for status display
+    int TileCount() const { return static_cast<int>(tiles.size()); }
+    int EdgeCount() const { return static_cast<int>(edges.size()); }
+    int MarkerCount() const { return static_cast<int>(markerIds.size()); }
+};
+
+// ============================================================================
 // Model - Complete project state
 // ============================================================================
 

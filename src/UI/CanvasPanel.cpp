@@ -414,6 +414,8 @@ void CanvasPanel::Render(
         }
         
         // Tool switching shortcuts
+        Tool prevTool = currentTool;
+        
         if (keymap.IsActionTriggered("toolMove")) {
             currentTool = Tool::Move;
         }
@@ -437,6 +439,17 @@ void CanvasPanel::Render(
         }
         if (keymap.IsActionTriggered("toolMarker")) {
             currentTool = Tool::Marker;
+        }
+        
+        // Clear selection when switching away from Select tool
+        if (prevTool == Tool::Select && currentTool != Tool::Select) {
+            ClearSelection();
+        }
+        
+        // Escape clears selection when Select tool is active
+        if (currentTool == Tool::Select && 
+            ImGui::IsKeyPressed(ImGuiKey_Escape) && hasSelection) {
+            ClearSelection();
         }
     }
     
@@ -468,7 +481,8 @@ void CanvasPanel::Render(
         else if (currentTool == Tool::Select) {
             // Select tool: Left mouse drag to create selection rectangle
             if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-                // Start selection
+                // Start selection - clear any existing selection first
+                ClearSelection();
                 ImVec2 mousePos = ImGui::GetMousePos();
                 selectionStartX = mousePos.x;
                 selectionStartY = mousePos.y;
@@ -489,7 +503,10 @@ void CanvasPanel::Render(
                 ImVec2 mousePos = ImGui::GetMousePos();
                 selectionEndX = mousePos.x;
                 selectionEndY = mousePos.y;
-                // Note: Keep selection visible until a different action
+                isSelecting = false;
+                
+                // Populate selection with content from the rectangle
+                PopulateSelectionFromRect(model, canvas);
             }
         }
         else if (currentTool == Tool::Paint) {
@@ -2057,7 +2074,7 @@ void CanvasPanel::Render(
     // Note: Thumbnail capture moved to App::Render() after ImGui draw data
     // is rendered to ensure pixels are actually in the framebuffer
     
-    // Draw selection rectangle if Select tool is active
+    // Draw selection rectangle while dragging
     if (currentTool == Tool::Select && isSelecting) {
         // Calculate rectangle bounds
         float minX = std::min(selectionStartX, selectionEndX);
@@ -2073,7 +2090,7 @@ void CanvasPanel::Render(
             fillColor
         );
         
-        // Draw border
+        // Draw border (dashed effect via multiple segments)
         ImU32 borderColor = ImGui::GetColorU32(ImVec4(0.3f, 0.6f, 1.0f, 0.8f));
         drawList->AddRect(
             ImVec2(minX, minY),
@@ -2083,6 +2100,164 @@ void CanvasPanel::Render(
             0,
             2.0f
         );
+    }
+    
+    // Draw selection highlight for completed selection
+    if (hasSelection && !currentSelection.IsEmpty()) {
+        // Selection colors
+        ImU32 tileFillColor = ImGui::GetColorU32(
+            ImVec4(0.3f, 0.6f, 1.0f, 0.25f)
+        );
+        ImU32 tileBorderColor = ImGui::GetColorU32(
+            ImVec4(0.4f, 0.7f, 1.0f, 0.9f)
+        );
+        ImU32 edgeColor = ImGui::GetColorU32(
+            ImVec4(0.2f, 0.8f, 1.0f, 0.9f)
+        );
+        ImU32 markerColor = ImGui::GetColorU32(
+            ImVec4(1.0f, 0.8f, 0.2f, 0.9f)
+        );
+        
+        float tileW = model.grid.tileWidth * canvas.zoom;
+        float tileH = model.grid.tileHeight * canvas.zoom;
+        
+        // Draw selected tiles with highlight
+        for (const auto& tilePair : currentSelection.tiles) {
+            int tx = tilePair.first.first;
+            int ty = tilePair.first.second;
+            
+            // Convert tile to screen coordinates
+            float wx, wy;
+            canvas.TileToWorld(tx, ty, model.grid.tileWidth, 
+                              model.grid.tileHeight, &wx, &wy);
+            float sx, sy;
+            canvas.WorldToScreen(wx, wy, &sx, &sy);
+            
+            // Draw highlight overlay
+            drawList->AddRectFilled(
+                ImVec2(sx, sy),
+                ImVec2(sx + tileW, sy + tileH),
+                tileFillColor
+            );
+        }
+        
+        // Draw bounding box around entire selection
+        float bx, by;
+        canvas.TileToWorld(
+            currentSelection.bounds.x, 
+            currentSelection.bounds.y,
+            model.grid.tileWidth, model.grid.tileHeight, &bx, &by
+        );
+        float bsx, bsy;
+        canvas.WorldToScreen(bx, by, &bsx, &bsy);
+        
+        float boxW = currentSelection.bounds.w * tileW;
+        float boxH = currentSelection.bounds.h * tileH;
+        
+        // Draw marching ants border (alternating dash pattern)
+        float dashLen = 6.0f;
+        float time = static_cast<float>(ImGui::GetTime());
+        float offset = std::fmod(time * 20.0f, dashLen * 2.0f);
+        
+        // Draw dashed rectangle
+        auto drawDashedLine = [&](ImVec2 p1, ImVec2 p2) {
+            float dx = p2.x - p1.x;
+            float dy = p2.y - p1.y;
+            float len = std::sqrt(dx * dx + dy * dy);
+            if (len < 0.1f) return;
+            
+            float ux = dx / len;
+            float uy = dy / len;
+            
+            float pos = -offset;
+            while (pos < len) {
+                float start = std::max(0.0f, pos);
+                float end = std::min(len, pos + dashLen);
+                if (end > start) {
+                    drawList->AddLine(
+                        ImVec2(p1.x + ux * start, p1.y + uy * start),
+                        ImVec2(p1.x + ux * end, p1.y + uy * end),
+                        tileBorderColor,
+                        2.0f
+                    );
+                }
+                pos += dashLen * 2.0f;
+            }
+        };
+        
+        // Top, right, bottom, left edges
+        drawDashedLine(ImVec2(bsx, bsy), ImVec2(bsx + boxW, bsy));
+        drawDashedLine(ImVec2(bsx + boxW, bsy), ImVec2(bsx + boxW, bsy + boxH));
+        drawDashedLine(ImVec2(bsx + boxW, bsy + boxH), ImVec2(bsx, bsy + boxH));
+        drawDashedLine(ImVec2(bsx, bsy + boxH), ImVec2(bsx, bsy));
+        
+        // Draw selected edges with highlight
+        for (const auto& edgePair : currentSelection.edges) {
+            const EdgeId& edge = edgePair.first;
+            
+            // Calculate edge midpoint and draw highlight
+            float wx1, wy1, wx2, wy2;
+            canvas.TileToWorld(edge.x1, edge.y1, model.grid.tileWidth, 
+                              model.grid.tileHeight, &wx1, &wy1);
+            canvas.TileToWorld(edge.x2, edge.y2, model.grid.tileWidth, 
+                              model.grid.tileHeight, &wx2, &wy2);
+            
+            float sx1, sy1, sx2, sy2;
+            canvas.WorldToScreen(wx1, wy1, &sx1, &sy1);
+            canvas.WorldToScreen(wx2, wy2, &sx2, &sy2);
+            
+            // Center of each tile
+            sx1 += tileW / 2.0f;
+            sy1 += tileH / 2.0f;
+            sx2 += tileW / 2.0f;
+            sy2 += tileH / 2.0f;
+            
+            // Draw edge midpoint highlight
+            float midX = (sx1 + sx2) / 2.0f;
+            float midY = (sy1 + sy2) / 2.0f;
+            
+            drawList->AddCircleFilled(
+                ImVec2(midX, midY),
+                5.0f,
+                edgeColor,
+                8
+            );
+        }
+        
+        // Draw selected markers with highlight ring
+        for (const auto& markerId : currentSelection.markerIds) {
+            const Marker* marker = model.FindMarker(markerId);
+            if (!marker) continue;
+            
+            // Convert marker position to screen
+            float wx, wy;
+            canvas.TileToWorld(
+                static_cast<int>(marker->x), 
+                static_cast<int>(marker->y),
+                model.grid.tileWidth, model.grid.tileHeight, &wx, &wy
+            );
+            
+            // Add fractional offset
+            wx += (marker->x - std::floor(marker->x)) * model.grid.tileWidth;
+            wy += (marker->y - std::floor(marker->y)) * model.grid.tileHeight;
+            
+            float sx, sy;
+            canvas.WorldToScreen(wx, wy, &sx, &sy);
+            
+            // Draw selection ring around marker
+            float minDim = static_cast<float>(
+                std::min(model.grid.tileWidth, model.grid.tileHeight)
+            );
+            float markerSize = minDim * canvas.zoom * marker->size;
+            
+            drawList->AddCircle(
+                ImVec2(sx, sy),
+                markerSize / 2.0f + 4.0f,
+                markerColor,
+                16,
+                3.0f
+            );
+        }
     }
     
     // Draw paint cursor preview if Paint or Erase tool is active
@@ -2606,6 +2781,106 @@ void CanvasPanel::Render(
     drawList->PopClipRect();
     
     ImGui::End();
+}
+
+// ============================================================================
+// Selection methods
+// ============================================================================
+
+void CanvasPanel::ClearSelection() {
+    currentSelection.Clear();
+    hasSelection = false;
+    // Keep screen coordinates but mark selection as inactive
+    isSelecting = false;
+}
+
+void CanvasPanel::PopulateSelectionFromRect(
+    const Model& model,
+    const Canvas& canvas
+) {
+    // Clear previous selection
+    currentSelection.Clear();
+    
+    // Convert screen coordinates to tile coordinates
+    float minScreenX = std::min(selectionStartX, selectionEndX);
+    float minScreenY = std::min(selectionStartY, selectionEndY);
+    float maxScreenX = std::max(selectionStartX, selectionEndX);
+    float maxScreenY = std::max(selectionStartY, selectionEndY);
+    
+    // Convert corners to tile coordinates
+    int minTileX, minTileY, maxTileX, maxTileY;
+    canvas.ScreenToTile(
+        minScreenX, minScreenY,
+        model.grid.tileWidth, model.grid.tileHeight,
+        &minTileX, &minTileY
+    );
+    canvas.ScreenToTile(
+        maxScreenX, maxScreenY,
+        model.grid.tileWidth, model.grid.tileHeight,
+        &maxTileX, &maxTileY
+    );
+    
+    // Store bounding box
+    currentSelection.bounds.x = minTileX;
+    currentSelection.bounds.y = minTileY;
+    currentSelection.bounds.w = maxTileX - minTileX + 1;
+    currentSelection.bounds.h = maxTileY - minTileY + 1;
+    
+    // Global room ID for tile storage
+    const std::string globalRoomId = "";
+    
+    // Collect tiles if enabled
+    if (selectTiles) {
+        for (int ty = minTileY; ty <= maxTileY; ++ty) {
+            for (int tx = minTileX; tx <= maxTileX; ++tx) {
+                int tileId = model.GetTileAt(globalRoomId, tx, ty);
+                if (tileId != 0) {
+                    currentSelection.tiles[{tx, ty}] = tileId;
+                }
+            }
+        }
+    }
+    
+    // Collect edges if enabled
+    if (selectEdges) {
+        // Iterate through all tiles in selection and check their edges
+        for (int ty = minTileY; ty <= maxTileY + 1; ++ty) {
+            for (int tx = minTileX; tx <= maxTileX + 1; ++tx) {
+                // Check horizontal edge (between ty-1 and ty)
+                if (ty > minTileY) {
+                    EdgeId hEdge = MakeEdgeId(tx, ty - 1, EdgeSide::South);
+                    EdgeState state = model.GetEdgeState(hEdge);
+                    if (state != EdgeState::None) {
+                        currentSelection.edges[hEdge] = state;
+                    }
+                }
+                
+                // Check vertical edge (between tx-1 and tx)
+                if (tx > minTileX) {
+                    EdgeId vEdge = MakeEdgeId(tx - 1, ty, EdgeSide::East);
+                    EdgeState state = model.GetEdgeState(vEdge);
+                    if (state != EdgeState::None) {
+                        currentSelection.edges[vEdge] = state;
+                    }
+                }
+            }
+        }
+    }
+    
+    // Collect markers if enabled
+    if (selectMarkers) {
+        for (const auto& marker : model.markers) {
+            // Check if marker center is within selection bounds
+            // Marker coordinates are in tile space (can be fractional)
+            if (marker.x >= minTileX && marker.x <= maxTileX + 1 &&
+                marker.y >= minTileY && marker.y <= maxTileY + 1) {
+                currentSelection.markerIds.push_back(marker.id);
+            }
+        }
+    }
+    
+    // Mark selection as valid if we found anything
+    hasSelection = !currentSelection.IsEmpty();
 }
 
 } // namespace Cartograph

@@ -723,6 +723,11 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
         }
         
         if (clicked) {
+            // Clear selection when switching away from Select tool
+            if (m_canvasPanel.currentTool == CanvasPanel::Tool::Select && 
+                static_cast<CanvasPanel::Tool>(i) != CanvasPanel::Tool::Select) {
+                m_canvasPanel.ClearSelection();
+            }
             m_canvasPanel.currentTool = static_cast<CanvasPanel::Tool>(i);
         }
         
@@ -836,6 +841,10 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
         }
         
         if (clicked) {
+            // Clear selection when switching away from Select tool
+            if (m_canvasPanel.currentTool == CanvasPanel::Tool::Select) {
+                m_canvasPanel.ClearSelection();
+            }
             m_canvasPanel.currentTool = static_cast<CanvasPanel::Tool>(toolIdx);
         }
         
@@ -845,6 +854,50 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
         }
         
         ImGui::PopID();
+    }
+    
+    // Show tool options for Select tool
+    if (m_canvasPanel.currentTool == CanvasPanel::Tool::Select) {
+        ImGui::Spacing();
+        ImGui::Text("Select Layers");
+        ImGui::Separator();
+        
+        ImGui::Checkbox("Tiles", &m_canvasPanel.selectTiles);
+        ImGui::Checkbox("Walls/Doors", &m_canvasPanel.selectEdges);
+        ImGui::Checkbox("Markers", &m_canvasPanel.selectMarkers);
+        
+        ImGui::Spacing();
+        ImGui::Separator();
+        
+        // Selection info
+        if (m_canvasPanel.hasSelection && 
+            !m_canvasPanel.currentSelection.IsEmpty()) {
+            ImGui::TextColored(
+                ImVec4(0.4f, 0.7f, 1.0f, 1.0f),
+                "Selection:"
+            );
+            if (m_canvasPanel.currentSelection.TileCount() > 0) {
+                ImGui::Text("  %d tiles", 
+                    m_canvasPanel.currentSelection.TileCount());
+            }
+            if (m_canvasPanel.currentSelection.EdgeCount() > 0) {
+                ImGui::Text("  %d edges", 
+                    m_canvasPanel.currentSelection.EdgeCount());
+            }
+            if (m_canvasPanel.currentSelection.MarkerCount() > 0) {
+                ImGui::Text("  %d markers", 
+                    m_canvasPanel.currentSelection.MarkerCount());
+            }
+            
+            ImGui::Spacing();
+            
+            // Deselect button
+            if (ImGui::Button("Deselect", ImVec2(-1, 0))) {
+                m_canvasPanel.ClearSelection();
+            }
+        } else {
+            ImGui::TextDisabled("Drag to select content");
+        }
     }
     
     // Show tool options for Zoom tool
@@ -3212,6 +3265,43 @@ void UI::RenderStatusBar(Model& model, Canvas& canvas) {
         // Display zoom relative to default (2.5 internal = 100% display)
         float displayZoom = (canvas.zoom / Canvas::DEFAULT_ZOOM) * 100.0f;
         ImGui::Text("Zoom: %.0f%%", displayZoom);
+        
+        // Selection info (if there's an active selection)
+        if (m_canvasPanel.hasSelection && 
+            !m_canvasPanel.currentSelection.IsEmpty()) {
+            ImGui::SameLine(0, 20);
+            ImGui::TextDisabled("|");
+            ImGui::SameLine(0, 10);
+            
+            int tileCount = m_canvasPanel.currentSelection.TileCount();
+            int edgeCount = m_canvasPanel.currentSelection.EdgeCount();
+            int markerCount = m_canvasPanel.currentSelection.MarkerCount();
+            
+            // Build selection summary string
+            std::string selInfo = "Selected: ";
+            bool first = true;
+            if (tileCount > 0) {
+                selInfo += std::to_string(tileCount) + " tile";
+                if (tileCount != 1) selInfo += "s";
+                first = false;
+            }
+            if (edgeCount > 0) {
+                if (!first) selInfo += ", ";
+                selInfo += std::to_string(edgeCount) + " edge";
+                if (edgeCount != 1) selInfo += "s";
+                first = false;
+            }
+            if (markerCount > 0) {
+                if (!first) selInfo += ", ";
+                selInfo += std::to_string(markerCount) + " marker";
+                if (markerCount != 1) selInfo += "s";
+            }
+            
+            ImGui::TextColored(
+                ImVec4(0.4f, 0.7f, 1.0f, 1.0f), 
+                "%s", selInfo.c_str()
+            );
+        }
         
         // Separator
         ImGui::SameLine(0, 20);

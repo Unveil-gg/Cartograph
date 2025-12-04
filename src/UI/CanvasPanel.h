@@ -63,11 +63,20 @@ public:
     Tool currentTool = Tool::Move;
     
     // Selection state (for Select tool)
-    bool isSelecting = false;
-    float selectionStartX = 0.0f;
+    bool isSelecting = false;           // Currently dragging selection rect
+    float selectionStartX = 0.0f;       // Screen coords of selection start
     float selectionStartY = 0.0f;
-    float selectionEndX = 0.0f;
+    float selectionEndX = 0.0f;         // Screen coords of selection end
     float selectionEndY = 0.0f;
+    
+    // Selection layer filters (what to include in selection)
+    bool selectTiles = true;            // Include tiles in selection
+    bool selectEdges = true;            // Include walls/doors in selection
+    bool selectMarkers = true;          // Include markers in selection
+    
+    // Current selection content (populated after selection completes)
+    SelectionData currentSelection;
+    bool hasSelection = false;          // True if currentSelection is valid
     
     // Paint state (for Paint/Erase tools)
     bool isPainting = false;
@@ -155,6 +164,22 @@ public:
      * Called each frame during Render.
      */
     void UpdateCursor();
+    
+    /**
+     * Clear current selection.
+     */
+    void ClearSelection();
+    
+    /**
+     * Populate selection from screen rectangle.
+     * Converts screen coords to tile coords and collects selected content.
+     * @param model Model to query for content
+     * @param canvas Canvas for coordinate conversion
+     */
+    void PopulateSelectionFromRect(
+        const Model& model,
+        const Canvas& canvas
+    );
     
 private:
     /**
