@@ -2057,7 +2057,8 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
                                History& history, Canvas& canvas) {
     ImGuiWindowFlags flags = 
         ImGuiWindowFlags_NoMove | 
-        ImGuiWindowFlags_NoCollapse;
+        ImGuiWindowFlags_NoCollapse |
+        ImGuiWindowFlags_NoResize;
     
     ImGui::Begin("Cartograph/Hierarchy", nullptr, flags);
     
