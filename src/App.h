@@ -117,6 +117,14 @@ public:
     }
     
     /**
+     * Set current file path (used during autosave recovery).
+     */
+    void SetCurrentFilePath(const std::string& path) {
+        m_currentFilePath = path;
+        UpdateWindowTitle();
+    }
+    
+    /**
      * Check if a file is currently being dragged over the window.
      */
     bool IsDragging() const { return m_isDragging; }

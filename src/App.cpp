@@ -796,31 +796,33 @@ void App::UpdateWindowTitle() {
     
     std::string title;
     
-    // Get filename from path, or "Untitled" if no file
-    std::string filename;
-    if (m_currentFilePath.empty()) {
-        filename = "Untitled";
-    } else {
-        // Extract filename from path
+    // Get project name: prefer meta.title, fall back to filename, then "Untitled"
+    std::string projectName;
+    if (!m_model.meta.title.empty()) {
+        projectName = m_model.meta.title;
+    } else if (!m_currentFilePath.empty()) {
+        // Extract filename from path as fallback
         size_t lastSlash = m_currentFilePath.find_last_of("/\\");
         if (lastSlash != std::string::npos) {
-            filename = m_currentFilePath.substr(lastSlash + 1);
+            projectName = m_currentFilePath.substr(lastSlash + 1);
         } else {
-            filename = m_currentFilePath;
+            projectName = m_currentFilePath;
         }
+    } else {
+        projectName = "Untitled";
     }
     
     // Add modified indicator using platform convention
     if (m_model.dirty) {
 #ifdef __APPLE__
-        // macOS uses bullet before filename
-        title = "• " + filename + " - Cartograph";
+        // macOS uses bullet before project name
+        title = "• " + projectName + " - Cartograph";
 #else
-        // Windows/Linux use asterisk after filename
-        title = "*" + filename + " - Cartograph";
+        // Windows/Linux use asterisk after project name
+        title = "*" + projectName + " - Cartograph";
 #endif
     } else {
-        title = filename + " - Cartograph";
+        title = projectName + " - Cartograph";
     }
     
     SDL_SetWindowTitle(m_window.get(), title.c_str());

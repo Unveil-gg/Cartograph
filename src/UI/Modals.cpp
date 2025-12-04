@@ -9,10 +9,12 @@
 #include "../IOJson.h"
 #include <imgui.h>
 #include <filesystem>
+#include <fstream>
 #include <algorithm>
 #include <SDL3/SDL.h>
 #include <stb/stb_image.h>
 #include <cstring>  // For strcasecmp
+#include <nlohmann/json.hpp>
 
 #ifdef __APPLE__
 #include <OpenGL/gl.h>
@@ -2239,11 +2241,29 @@ void Modals::RenderAutosaveRecoveryModal(App& app, Model& model) {
         
         if (ImGui::Button("Recover", ImVec2(buttonWidth, 0))) {
             // Load autosave
-            std::string autosavePath = Platform::GetAutosaveDir() + "autosave.json";
+            std::string autosaveDir = Platform::GetAutosaveDir();
+            std::string autosavePath = autosaveDir + "autosave.json";
+            std::string metadataPath = autosaveDir + "metadata.json";
+            
             Model recoveredModel;
             if (IOJson::LoadFromFile(autosavePath, recoveredModel)) {
                 model = recoveredModel;
                 model.MarkDirty();  // Mark as dirty so user must save
+                
+                // Restore project path from metadata if available
+                std::ifstream metaFile(metadataPath);
+                if (metaFile.is_open()) {
+                    try {
+                        nlohmann::json meta = nlohmann::json::parse(metaFile);
+                        std::string projectPath = meta.value("projectPath", "");
+                        if (!projectPath.empty()) {
+                            app.SetCurrentFilePath(projectPath);
+                        }
+                    } catch (...) {
+                        // Metadata parse error - continue without path
+                    }
+                }
+                
                 m_ui.ShowToast("Recovered from autosave", Toast::Type::Success);
                 app.ShowEditor();
             } else {
