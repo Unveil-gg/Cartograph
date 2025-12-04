@@ -180,6 +180,7 @@ private:
     const double AUTOSAVE_DEBOUNCE = 5.0;   // 5 seconds after edit
     const double AUTOSAVE_INTERVAL = 30.0;  // Or every 30 seconds
     bool m_hasAutosaveRecovery;            // Autosave available for recovery
+    bool m_autosaveEnabled;                // Disabled during shutdown
     
     // Frame timing
     double m_lastFrameTime;

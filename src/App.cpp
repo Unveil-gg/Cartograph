@@ -40,6 +40,7 @@ App::App()
     , m_hasDroppedFile(false)
     , m_isDragging(false)
     , m_hasAutosaveRecovery(false)
+    , m_autosaveEnabled(true)
     , m_lastDirtyState(false)
 {
 }
@@ -200,8 +201,17 @@ SDL_AppResult App::HandleEvent(SDL_Event* event) {
 void App::Shutdown() {
     if (!m_window) return;
     
-    // Mark clean shutdown in autosave metadata
-    SaveAutosaveMetadata();
+    // Disable autosave to prevent race condition with cleanup
+    m_autosaveEnabled = false;
+    
+    // Handle autosave files based on shutdown state
+    if (m_model.dirty) {
+        // Unclean shutdown - save metadata so recovery modal shows on restart
+        SaveAutosaveMetadata();
+    } else {
+        // Clean shutdown - user saved, ensure autosave files are removed
+        CleanupAutosave();
+    }
     
     m_jobs.Stop();
     
@@ -373,7 +383,7 @@ void App::ApplyTheme(const Theme& theme) {
 }
 
 void App::DoAutosave() {
-    if (!m_model.dirty) return;
+    if (!m_autosaveEnabled || !m_model.dirty) return;
     
     double now = Platform::GetTime();
     double timeSinceEdit = now - m_lastEditTime;
