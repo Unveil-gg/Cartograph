@@ -1234,8 +1234,6 @@ void CanvasPanel::Render(
                         }
                     }
                     
-                    // TODO: Re-enable toast: ShowToast("Picked: " + colorName, Toast::Type::Success, 1.5f);
-                    
                     // Auto-switch to Paint tool if toggle is enabled
                     if (eyedropperAutoSwitchToPaint) {
                         currentTool = Tool::Paint;

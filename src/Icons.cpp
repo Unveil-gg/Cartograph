@@ -129,12 +129,6 @@ bool IconManager::LoadPng(const std::string& path, IconData& out) {
     return true;
 }
 
-bool IconManager::LoadSvg(const std::string& path, IconData& out) {
-    // TODO: Implement SVG loading with NanoSVG
-    // For now, return false
-    return false;
-}
-
 void IconManager::BuildAtlas() {
     if (!m_atlasDirty || m_iconData.empty()) {
         return;

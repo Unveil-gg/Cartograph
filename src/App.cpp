@@ -420,7 +420,6 @@ void App::DoAutosave() {
 }
 
 void App::NewProject(const std::string& savePath) {
-    // TODO: Check for unsaved changes
     m_model = Model();
     m_model.InitDefaults();
     m_history.Clear();

@@ -224,7 +224,6 @@ private:
     };
     
     bool LoadPng(const std::string& path, IconData& out);
-    bool LoadSvg(const std::string& path, IconData& out);
     bool LoadIcon(const std::string& path, const std::string& name, 
                   const std::string& category);
     
