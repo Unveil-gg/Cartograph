@@ -72,8 +72,7 @@ void NativeMenuImGui::Update(
     };
     
     m_callbacks["assets.import_icon"] = [this]() {
-        // This needs access to UI::ImportIcon
-        // Will be handled through external callback
+        // Placeholder - actual callback set via SetCallback() in UI.cpp
     };
 }
 
