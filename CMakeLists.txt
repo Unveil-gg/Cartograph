@@ -156,6 +156,18 @@ endif()
 
 # macOS app bundle
 if(APPLE)
+    # Code signing options (set via cmake -D or environment)
+    # For development: use ad-hoc signing (default)
+    # For distribution: set CODESIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)"
+    if(NOT DEFINED CODESIGN_IDENTITY)
+        set(CODESIGN_IDENTITY "-" CACHE STRING "Code signing identity")
+    endif()
+    
+    # Team ID for notarization (required for distribution)
+    if(NOT DEFINED DEVELOPMENT_TEAM)
+        set(DEVELOPMENT_TEAM "" CACHE STRING "Apple Developer Team ID")
+    endif()
+    
     set_target_properties(Cartograph PROPERTIES
         MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_BUNDLE_NAME "Cartograph"
@@ -164,7 +176,13 @@ if(APPLE)
         MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
         MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
         MACOSX_BUNDLE_ICON_FILE "cartograph.icns"
-        XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "-"
+        MACOSX_BUNDLE_COPYRIGHT "Copyright © 2025 Unveil. MIT License."
+        # Signing attributes
+        XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "${CODESIGN_IDENTITY}"
+        XCODE_ATTRIBUTE_DEVELOPMENT_TEAM "${DEVELOPMENT_TEAM}"
+        XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS "${CMAKE_SOURCE_DIR}/Cartograph.entitlements"
+        XCODE_ATTRIBUTE_ENABLE_HARDENED_RUNTIME YES
+        XCODE_ATTRIBUTE_CODE_SIGN_INJECT_BASE_ENTITLEMENTS NO
     )
     
     # Copy icon into bundle Resources

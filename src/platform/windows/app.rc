@@ -1,2 +1,51 @@
-// Windows resource file for Cartograph icon
-IDI_ICON1 ICON "..\\assets\\project\\cartograph.ico"
+// Windows resource file for Cartograph
+// Includes application icon and version information
+
+#include <windows.h>
+
+// Version information - synced with CMakeLists.txt PROJECT_VERSION
+#define VER_MAJOR 1
+#define VER_MINOR 0
+#define VER_PATCH 0
+#define VER_BUILD 0
+
+#define STRINGIFY2(x) #x
+#define STRINGIFY(x) STRINGIFY2(x)
+#define VER_FILE_STR STRINGIFY(VER_MAJOR) "." STRINGIFY(VER_MINOR) "." STRINGIFY(VER_PATCH) "." STRINGIFY(VER_BUILD)
+#define VER_PROD_STR STRINGIFY(VER_MAJOR) "." STRINGIFY(VER_MINOR) "." STRINGIFY(VER_PATCH)
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION     VER_MAJOR, VER_MINOR, VER_PATCH, VER_BUILD
+PRODUCTVERSION  VER_MAJOR, VER_MINOR, VER_PATCH, 0
+FILEFLAGSMASK   VS_FFI_FILEFLAGSMASK
+#ifdef _DEBUG
+FILEFLAGS       VS_FF_DEBUG
+#else
+FILEFLAGS       0
+#endif
+FILEOS          VOS_NT_WINDOWS32
+FILETYPE        VFT_APP
+FILESUBTYPE     VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904E4"  // English (US), Unicode
+        BEGIN
+            VALUE "CompanyName",      "Unveil"
+            VALUE "FileDescription",  "Cartograph - Metroidvania Map Editor"
+            VALUE "FileVersion",      VER_FILE_STR
+            VALUE "InternalName",     "Cartograph"
+            VALUE "LegalCopyright",   "Copyright (c) 2025 Unveil. MIT License."
+            VALUE "OriginalFilename", "Cartograph.exe"
+            VALUE "ProductName",      "Unveil Cartograph"
+            VALUE "ProductVersion",   VER_PROD_STR
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1252  // English (US), Windows Multilingual
+    END
+END
+
+// Application icon
+IDI_ICON1 ICON "..\\..\\assets\\project\\cartograph.ico"
