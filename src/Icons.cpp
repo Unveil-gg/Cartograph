@@ -1,8 +1,10 @@
 #include "Icons.h"
-#include "render/GpuTexture.h"
 #include "platform/Fs.h"
 #include <filesystem>
 #include <algorithm>
+
+// GLAD - cross-platform OpenGL loader
+#include <glad/gl.h>
 
 // stb_image for PNG loading
 #define STB_IMAGE_IMPLEMENTATION
@@ -21,7 +23,6 @@ IconManager::IconManager()
     , m_atlasWidth(0)
     , m_atlasHeight(0)
     , m_atlasDirty(false)
-    , m_gpuDevice(nullptr)
 {
 }
 
@@ -140,8 +141,9 @@ void IconManager::BuildAtlas() {
     }
     
     // Delete old texture if it exists
-    if (m_atlasTexture != 0 && m_gpuDevice) {
-        GpuTexture::ReleaseFromImTextureID(m_gpuDevice, m_atlasTexture);
+    if (m_atlasTexture != 0) {
+        GLuint texId = (GLuint)(intptr_t)m_atlasTexture;
+        glDeleteTextures(1, &texId);
         m_atlasTexture = 0;
     }
     
@@ -179,7 +181,7 @@ void IconManager::BuildAtlas() {
                 int srcIdx = (y * iconData.width + x) * 4;
                 int dstIdx = ((atlasY + y) * m_atlasWidth + (atlasX + x)) * 4;
                 
-                if (dstIdx + 3 < static_cast<int>(atlasPixels.size())) {
+                if (dstIdx + 3 < atlasPixels.size()) {
                     atlasPixels[dstIdx + 0] = iconData.pixels[srcIdx + 0];
                     atlasPixels[dstIdx + 1] = iconData.pixels[srcIdx + 1];
                     atlasPixels[dstIdx + 2] = iconData.pixels[srcIdx + 2];
@@ -206,16 +208,33 @@ void IconManager::BuildAtlas() {
     }
     
     // Upload new atlas texture to GPU
-    if (m_gpuDevice) {
-        SDL_GPUTexture* texture = GpuTexture::CreateFromPixels(
-            m_gpuDevice,
-            atlasPixels.data(),
-            m_atlasWidth,
-            m_atlasHeight
-        );
-        m_atlasTexture = GpuTexture::ToImTextureID(texture);
-    }
+    GLuint texId;
+    glGenTextures(1, &texId);
+    glBindTexture(GL_TEXTURE_2D, texId);
     
+    // Set texture parameters
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    
+    // Upload pixel data
+    glTexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        GL_RGBA,
+        m_atlasWidth,
+        m_atlasHeight,
+        0,
+        GL_RGBA,
+        GL_UNSIGNED_BYTE,
+        atlasPixels.data()
+    );
+    
+    // Unbind
+    glBindTexture(GL_TEXTURE_2D, 0);
+    
+    m_atlasTexture = (ImTextureID)(intptr_t)texId;
     m_atlasDirty = false;
 }
 
@@ -253,9 +272,10 @@ void IconManager::Clear() {
     m_icons.clear();
     m_iconData.clear();
     
-    // Properly destroy GPU texture before clearing texture ID
-    if (m_atlasTexture != 0 && m_gpuDevice) {
-        GpuTexture::ReleaseFromImTextureID(m_gpuDevice, m_atlasTexture);
+    // Properly destroy GL texture before clearing texture ID
+    if (m_atlasTexture != 0) {
+        GLuint texId = (GLuint)(intptr_t)m_atlasTexture;
+        glDeleteTextures(1, &texId);
         m_atlasTexture = 0;
     }
     
@@ -541,3 +561,4 @@ bool IconManager::GetIconData(
 }
 
 } // namespace Cartograph
+

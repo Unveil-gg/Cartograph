@@ -33,6 +33,9 @@
 #include <chrono>
 #include <ctime>
 
+// GLAD - cross-platform OpenGL loader
+#include <glad/gl.h>
+
 // SDL_CursorDeleter implementation (outside namespace)
 void SDL_CursorDeleter::operator()(SDL_Cursor* cursor) const {
     if (cursor) {
@@ -1651,7 +1654,7 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
                         bool success, const std::string& error) {
                         isImportingIcon = false;
                         if (success) {
-                            // Build atlas on main thread (GPU required)
+                            // Build atlas on main thread (OpenGL required)
                             icons.BuildAtlas();
                             
                             ShowToast("Icon imported: " + capturedIconName, 

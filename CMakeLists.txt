@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(Cartograph VERSION 1.0.0 LANGUAGES CXX)
+project(Cartograph VERSION 1.0.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -43,8 +43,7 @@ set(CARTOGRAPH_SOURCES
     src/Keymap.cpp
     src/Jobs.cpp
     src/Preferences.cpp
-    src/render/SdlGpuRenderer.cpp
-    src/render/GpuTexture.cpp
+    src/render/GlRenderer.cpp
     src/platform/Fs.cpp
     src/platform/Paths.cpp
     src/platform/Time.cpp
@@ -86,8 +85,7 @@ set(CARTOGRAPH_HEADERS
     src/Jobs.h
     src/Preferences.h
     src/render/Renderer.h
-    src/render/SdlGpuRenderer.h
-    src/render/GpuTexture.h
+    src/render/GlRenderer.h
     src/platform/Fs.h
     src/platform/Paths.h
     src/platform/Time.h
@@ -109,6 +107,7 @@ target_include_directories(Cartograph PRIVATE
 # Link libraries
 target_link_libraries(Cartograph PRIVATE
     imgui
+    glad
     nlohmann_json::nlohmann_json
     SDL3-static
 )
@@ -131,14 +130,18 @@ endif()
 # Platform-specific linking
 if(APPLE)
     target_link_libraries(Cartograph PRIVATE
+        "-framework OpenGL"
         "-framework Cocoa"
         "-framework IOKit"
         "-framework CoreVideo"
-        "-framework Metal"
-        "-framework QuartzCore"
     )
-elseif(UNIX AND NOT WIN32)
+elseif(WIN32)
     target_link_libraries(Cartograph PRIVATE
+        opengl32
+    )
+elseif(UNIX)
+    target_link_libraries(Cartograph PRIVATE
+        GL
         dl
         pthread
     )

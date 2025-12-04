@@ -13,24 +13,27 @@
 // SDL includes for callback types
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_init.h>
-#include <SDL3/SDL_gpu.h>
 
 // Forward declarations
 struct SDL_Window;
+
+// SDL_GLContext is defined by SDL3, just forward declare the struct
+struct SDL_GLContextState;
+typedef struct SDL_GLContextState* SDL_GLContext;
 
 // Custom deleters for SDL resources (RAII)
 struct SDL_WindowDeleter {
     void operator()(SDL_Window* window) const;
 };
 
-struct SDL_GPUDeviceDeleter {
-    void operator()(SDL_GPUDevice* device) const;
+struct SDL_GLContextDeleter {
+    void operator()(SDL_GLContextState* context) const;
 };
 
 namespace Cartograph {
 
 class IRenderer;
-class SdlGpuRenderer;
+class GlRenderer;
 
 /**
  * Application state.
@@ -126,11 +129,6 @@ public:
      */
     bool IsDragging() const { return m_isDragging; }
     
-    /**
-     * Get the GPU device for texture creation.
-     */
-    SDL_GPUDevice* GetGPUDevice() const { return m_gpuDevice.get(); }
-    
     // File operations
     void NewProject(const std::string& savePath = "");
     void OpenProject(const std::string& path);
@@ -164,12 +162,12 @@ private:
     void SaveAutosaveMetadata();
     void CleanupAutosave();
     
-    // SDL window and GPU device (owned via RAII smart pointers)
+    // SDL window and OpenGL context (owned via RAII smart pointers)
     std::unique_ptr<SDL_Window, SDL_WindowDeleter> m_window;
-    std::unique_ptr<SDL_GPUDevice, SDL_GPUDeviceDeleter> m_gpuDevice;
+    std::unique_ptr<SDL_GLContextState, SDL_GLContextDeleter> m_glContext;
     
     // Core systems
-    std::unique_ptr<SdlGpuRenderer> m_renderer;
+    std::unique_ptr<GlRenderer> m_renderer;
     Model m_model;
     Canvas m_canvas;
     UI m_ui;
@@ -202,3 +200,4 @@ private:
 };
 
 } // namespace Cartograph
+

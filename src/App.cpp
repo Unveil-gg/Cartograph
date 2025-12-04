@@ -1,5 +1,5 @@
 #include "App.h"
-#include "render/SdlGpuRenderer.h"
+#include "render/GlRenderer.h"
 #include "platform/Paths.h"
 #include "platform/Fs.h"
 #include "platform/Time.h"
@@ -9,10 +9,11 @@
 #include "ExportPng.h"
 #include "Thumbnail.h"
 #include "Preferences.h"
+#include <glad/gl.h>
 #include <SDL3/SDL.h>
 #include <imgui.h>
 #include <imgui_impl_sdl3.h>
-#include <imgui_impl_sdlgpu3.h>
+#include <imgui_impl_opengl3.h>
 #include <nlohmann/json.hpp>
 #include <filesystem>
 
@@ -23,9 +24,9 @@ void SDL_WindowDeleter::operator()(SDL_Window* window) const {
     }
 }
 
-void SDL_GPUDeviceDeleter::operator()(SDL_GPUDevice* device) const {
-    if (device) {
-        SDL_DestroyGPUDevice(device);
+void SDL_GLContextDeleter::operator()(SDL_GLContextState* context) const {
+    if (context) {
+        SDL_GL_DestroyContext(context);
     }
 }
 
@@ -55,34 +56,25 @@ bool App::Init(const std::string& title, int width, int height) {
         return false;
     }
     
-    // Create GPU device (auto-selects best backend: Metal/Vulkan/D3D12)
-    // Note: Debug mode disabled as it can cause issues on older hardware
-    m_gpuDevice.reset(SDL_CreateGPUDevice(
-        SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_MSL | 
-        SDL_GPU_SHADERFORMAT_DXBC,
-        false,  // Debug mode off for compatibility
-        nullptr  // No specific device preference
-    ));
+    // OpenGL 3.3 Core Profile
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, 
+        SDL_GL_CONTEXT_PROFILE_CORE);
     
-    if (!m_gpuDevice) {
-        SDL_Log("Failed to create GPU device: %s", SDL_GetError());
-        return false;
-    }
+    // HiDPI support
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+    SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
     
-    // Create window (no OpenGL flag needed)
+    // Create window
     m_window.reset(SDL_CreateWindow(
         title.c_str(),
         width, height,
-        SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY
+        SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY
     ));
     
     if (!m_window) {
-        return false;
-    }
-    
-    // Claim window for GPU rendering
-    if (!SDL_ClaimWindowForGPUDevice(m_gpuDevice.get(), m_window.get())) {
-        SDL_Log("Failed to claim window for GPU: %s", SDL_GetError());
         return false;
     }
     
@@ -93,10 +85,24 @@ bool App::Init(const std::string& title, int width, int height) {
     // Minimum size to prevent unusably small UI (maintains 16:9)
     SDL_SetWindowMinimumSize(m_window.get(), 1152, 648);
     
-    // Initialize renderer
-    m_renderer = std::make_unique<SdlGpuRenderer>(
-        m_window.get(), m_gpuDevice.get()
-    );
+    // Create OpenGL context
+    m_glContext.reset(SDL_GL_CreateContext(m_window.get()));
+    if (!m_glContext) {
+        return false;
+    }
+    
+    SDL_GL_MakeCurrent(m_window.get(), m_glContext.get());
+    SDL_GL_SetSwapInterval(1);  // Enable VSync
+    
+    // Initialize GLAD (cross-platform OpenGL loader)
+    int gladVersion = gladLoadGL((GLADloadfunc)SDL_GL_GetProcAddress);
+    if (gladVersion == 0) {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to initialize GLAD");
+        return false;
+    }
+    
+    // Initialize renderer (passes non-owning pointer)
+    m_renderer = std::make_unique<GlRenderer>(m_window.get());
     
     // Initialize ImGui
     SetupImGui();
@@ -104,16 +110,11 @@ bool App::Init(const std::string& title, int width, int height) {
     // Initialize minimal theme for welcome screen
     m_model.InitDefaultTheme("Dark");
     
-    // Load icons from assets (now uses SDL_GPU for textures)
+    // Load icons from assets
     std::string assetsDir = Platform::GetAssetsDir();
-    m_icons.SetGPUDevice(m_gpuDevice.get());
     m_icons.LoadFromDirectory(assetsDir + "icons/", "marker", true);
     m_icons.LoadFromDirectory(assetsDir + "tools/", "tool", false);
     m_icons.BuildAtlas();
-    
-    // Set GPU device for UI components that create textures
-    m_ui.m_welcomeScreen.SetGPUDevice(m_gpuDevice.get());
-    m_ui.m_modals.SetGPUDevice(m_gpuDevice.get());
     
     // Setup UI (dockspace will be set up when entering editor)
     m_ui.SetupDockspace();
@@ -222,26 +223,15 @@ void App::Shutdown() {
     
     m_jobs.Stop();
     
-    // Clean up IconManager before ImGui/GPU shutdown to prevent
-    // issues from destroying GPU device with live texture references
+    // Clean up IconManager before ImGui/GL shutdown to prevent memory
+    // corruption from destroying GL context with live texture references
     m_icons.Clear();
-    
-    // Clean up welcome screen textures
-    m_ui.m_welcomeScreen.UnloadThumbnailTextures();
-    m_ui.m_modals.CleanupTextures(m_gpuDevice.get());
     
     ShutdownImGui();
     
-    // Renderer must be destroyed before GPU device
-    m_renderer.reset();
-    
-    // Release window from GPU device before destroying either
-    if (m_gpuDevice && m_window) {
-        SDL_ReleaseWindowFromGPUDevice(m_gpuDevice.get(), m_window.get());
-    }
-    
     // SDL resources automatically cleaned up by unique_ptr deleters
-    m_gpuDevice.reset();
+    // in proper order: context destroyed before window
+    m_glContext.reset();
     m_window.reset();
     
     SDL_Quit();
@@ -310,11 +300,8 @@ void App::Update(float deltaTime) {
 }
 
 void App::Render() {
-    // Begin GPU frame
-    m_renderer->BeginFrame();
-    
     // Start ImGui frame
-    ImGui_ImplSDLGPU3_NewFrame();
+    ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
     
@@ -337,53 +324,18 @@ void App::Render() {
     
     // Render UI based on state
     if (m_appState == AppState::Welcome) {
-        m_ui.m_welcomeScreen.Render(
-            *this, m_model, m_canvas, m_history, m_jobs, m_icons, m_keymap
-        );
+        m_ui.m_welcomeScreen.Render(*this, m_model, m_canvas, m_history, m_jobs, m_icons, m_keymap);
     } else {
         m_ui.Render(*this, *m_renderer, m_model, m_canvas, m_history, 
                     m_icons, m_jobs, m_keymap, 0.016f);
     }
     
-    // Finalize ImGui
+    // Render ImGui
     ImGui::Render();
-    ImDrawData* drawData = ImGui::GetDrawData();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     
-    // Get command buffer and render ImGui
-    SDL_GPUCommandBuffer* cmdBuf = m_renderer->GetCommandBuffer();
-    if (cmdBuf && drawData->TotalVtxCount > 0) {
-        // Prepare ImGui draw data (uploads vertex/index buffers)
-        ImGui_ImplSDLGPU3_PrepareDrawData(drawData, cmdBuf);
-        
-        // Begin render pass to swapchain
-        SDL_GPUTexture* swapchainTex = nullptr;
-        if (SDL_WaitAndAcquireGPUSwapchainTexture(
-                cmdBuf, m_window.get(), &swapchainTex, nullptr, nullptr)) {
-            
-            SDL_GPUColorTargetInfo colorTarget = {};
-            colorTarget.texture = swapchainTex;
-            colorTarget.clear_color.r = bgColor.r;
-            colorTarget.clear_color.g = bgColor.g;
-            colorTarget.clear_color.b = bgColor.b;
-            colorTarget.clear_color.a = bgColor.a;
-            colorTarget.load_op = SDL_GPU_LOADOP_CLEAR;
-            colorTarget.store_op = SDL_GPU_STOREOP_STORE;
-            
-            SDL_GPURenderPass* renderPass = SDL_BeginGPURenderPass(
-                cmdBuf, &colorTarget, 1, nullptr
-            );
-            
-            if (renderPass) {
-                ImGui_ImplSDLGPU3_RenderDrawData(drawData, cmdBuf, renderPass);
-                SDL_EndGPURenderPass(renderPass);
-            }
-        }
-    }
-    
-    // End GPU frame (submits command buffer)
-    m_renderer->EndFrame();
-    
-    // Capture thumbnail (uses previous frame's pixels - 16ms delay imperceptible)
+    // Capture thumbnail AFTER ImGui has rendered to framebuffer
+    // (uses previous frame's pixels - 16ms delay is imperceptible)
     // Skip capture when modals are visible to avoid capturing UI overlays
     bool modalVisible = m_ui.m_modals.showQuitConfirmationModal ||
                         m_ui.m_modals.showSaveBeforeActionModal ||
@@ -403,6 +355,9 @@ void App::Render() {
             lastThumbnailCapture = now;
         }
     }
+    
+    // Swap buffers
+    SDL_GL_SwapWindow(m_window.get());
 }
 
 void App::SetupImGui() {
@@ -413,22 +368,16 @@ void App::SetupImGui() {
     // Enable docking (but we'll lock the layout)
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     
-    // Setup platform backend
-    ImGui_ImplSDL3_InitForOther(m_window.get());
-    
-    // Setup SDL_GPU renderer backend
-    ImGui_ImplSDLGPU3_InitInfo gpuInfo = {};
-    gpuInfo.Device = m_gpuDevice.get();
-    gpuInfo.ColorTargetFormat = m_renderer->GetSwapchainFormat();
-    gpuInfo.MSAASamples = SDL_GPU_SAMPLECOUNT_1;
-    ImGui_ImplSDLGPU3_Init(&gpuInfo);
+    // Setup platform/renderer backends
+    ImGui_ImplSDL3_InitForOpenGL(m_window.get(), m_glContext.get());
+    ImGui_ImplOpenGL3_Init("#version 330");
     
     // Apply theme
     ApplyTheme(m_model.theme);
 }
 
 void App::ShutdownImGui() {
-    ImGui_ImplSDLGPU3_Shutdown();
+    ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplSDL3_Shutdown();
     ImGui::DestroyContext();
 }
@@ -529,7 +478,7 @@ void App::OpenProject(const std::string& path) {
         UpdateWindowTitle();
         m_ui.m_welcomeScreen.AddRecentProject(path);
         
-        // Rebuild icon atlas (must be on main thread for GPU)
+        // Rebuild icon atlas (must be on main thread for OpenGL)
         m_icons.BuildAtlas();
         
         // Load keymap bindings into keymap manager
@@ -841,6 +790,7 @@ void App::CleanupAutosave() {
     std::string metadataPath = autosaveDir + "metadata.json";
     
     // Delete autosave files
+    // Note: Platform::DeleteFile doesn't exist yet, so we'll use filesystem
     try {
         std::filesystem::remove(autosavePath);
         std::filesystem::remove(metadataPath);

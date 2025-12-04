@@ -14,7 +14,27 @@ else()
     message(FATAL_ERROR "SDL not found. Run ./setup_deps.sh to download it.")
 endif()
 
-# Dear ImGui with SDL_GPU backend
+# GLAD (OpenGL loader for cross-platform GL 3.3 Core)
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/glad/build/src/gl.c)
+    add_library(glad STATIC
+        glad/build/src/gl.c
+    )
+    target_include_directories(glad PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/glad/build/include
+    )
+    # Link OpenGL framework/library (for context creation, not function loading)
+    if(APPLE)
+        target_link_libraries(glad PUBLIC "-framework OpenGL")
+    elseif(WIN32)
+        target_link_libraries(glad PUBLIC opengl32)
+    elseif(UNIX)
+        target_link_libraries(glad PUBLIC GL dl)
+    endif()
+else()
+    message(FATAL_ERROR "GLAD not found. Run ./setup_deps.sh to generate it.")
+endif()
+
+# Dear ImGui
 add_library(imgui STATIC
     imgui/imgui.cpp
     imgui/imgui_demo.cpp
@@ -22,7 +42,7 @@ add_library(imgui STATIC
     imgui/imgui_tables.cpp
     imgui/imgui_widgets.cpp
     imgui/backends/imgui_impl_sdl3.cpp
-    imgui/backends/imgui_impl_sdlgpu3.cpp
+    imgui/backends/imgui_impl_opengl3.cpp
 )
 
 target_include_directories(imgui PUBLIC
@@ -30,8 +50,12 @@ target_include_directories(imgui PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/imgui/backends
 )
 
-# Link to vendored SDL3-static (not SDL3::SDL3)
-target_link_libraries(imgui PUBLIC SDL3-static)
+# Tell ImGui to use GLAD as its OpenGL loader
+# When IMGUI_IMPL_OPENGL_LOADER_CUSTOM is defined, imgui expects gl.h types to be available
+target_compile_definitions(imgui PUBLIC IMGUI_IMPL_OPENGL_LOADER_GLAD2)
+
+# Link to vendored SDL3-static and GLAD (GLAD provides include dirs)
+target_link_libraries(imgui PUBLIC SDL3-static glad)
 
 # nlohmann/json (header-only)
 add_library(nlohmann_json INTERFACE)

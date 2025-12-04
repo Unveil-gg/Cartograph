@@ -9,9 +9,6 @@
 // ImGui defines it as ImU64 (unsigned long long)
 using ImTextureID = unsigned long long;
 
-// Forward declaration for SDL_GPU
-struct SDL_GPUDevice;
-
 namespace Cartograph {
 
 /**
@@ -34,13 +31,6 @@ class IconManager {
 public:
     IconManager();
     ~IconManager();
-    
-    /**
-     * Set the GPU device for texture creation.
-     * Must be called before BuildAtlas().
-     * @param device SDL_GPU device pointer
-     */
-    void SetGPUDevice(SDL_GPUDevice* device) { m_gpuDevice = device; }
     
     /**
      * Load icons from a directory.
@@ -243,7 +233,6 @@ private:
     ImTextureID m_atlasTexture;
     int m_atlasWidth, m_atlasHeight;
     bool m_atlasDirty;
-    SDL_GPUDevice* m_gpuDevice;  // Non-owning pointer to GPU device
 };
 
 } // namespace Cartograph

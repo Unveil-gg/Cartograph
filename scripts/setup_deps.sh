@@ -66,6 +66,18 @@ else
     echo "NanoSVG already exists, skipping..."
 fi
 
+# GLAD (OpenGL loader for cross-platform GL 3.3 Core)
+if [ ! -d "glad" ]; then
+    echo "Cloning GLAD..."
+    git clone --depth 1 https://github.com/Dav1dde/glad.git glad
+    echo "Generating GLAD for OpenGL 3.3 Core..."
+    cd glad
+    python3 -m glad --api gl:core=3.3 --out-path build c
+    cd ..
+else
+    echo "GLAD already exists, skipping..."
+fi
+
 cd ..
 
 echo ""
