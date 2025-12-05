@@ -115,8 +115,8 @@ public:
     std::string markerLabel = "";
     Color markerColor = Color(0.3f, 0.8f, 0.3f, 1.0f);  // Green
     char markerColorHex[16] = "#4dcc4d";  // Hex representation
-    Marker* selectedMarker = nullptr;  // For editing existing markers
-    Marker* hoveredMarker = nullptr;   // For hover feedback
+    std::string selectedMarkerId = "";  // ID of selected marker (safe across vector realloc)
+    std::string hoveredMarkerId = "";   // ID of hovered marker (safe across vector realloc)
     
     // Marker drag state
     bool isDraggingMarker = false;

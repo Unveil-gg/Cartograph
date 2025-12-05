@@ -399,7 +399,7 @@ void WelcomeScreen::Render(
     m_ui.m_modals.RenderAll(
         app, model, canvas, history, icons, jobs, keymap,
         m_ui.m_canvasPanel.selectedIconName,
-        m_ui.m_canvasPanel.selectedMarker,
+        m_ui.m_canvasPanel.selectedMarkerId,
         m_ui.m_canvasPanel.selectedTileId
     );
     

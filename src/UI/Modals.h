@@ -73,7 +73,7 @@ public:
      * @param jobs Job queue
      * @param keymap Keymap manager
      * @param selectedIconName Reference to canvas panel's selected icon
-     * @param selectedMarker Reference to canvas panel's selected marker
+     * @param selectedMarkerId Reference to canvas panel's selected marker ID
      * @param selectedTileId Reference to canvas panel's selected tile ID
      */
     void RenderAll(
@@ -85,7 +85,7 @@ public:
         JobQueue& jobs,
         KeymapManager& keymap,
         std::string& selectedIconName,
-        Marker*& selectedMarker,
+        std::string& selectedMarkerId,
         int& selectedTileId
     );
     
@@ -222,7 +222,7 @@ private:
                                std::string& selectedIconName);
     void RenderDeleteIconModal(Model& model, IconManager& icons, 
                                History& history, std::string& selectedIconName,
-                               Marker*& selectedMarker);
+                               std::string& selectedMarkerId);
     void RenderRebindModal(Model& model, KeymapManager& keymap);
     void RenderColorPickerModal(Model& model, History& history,
                                 int& selectedTileId);

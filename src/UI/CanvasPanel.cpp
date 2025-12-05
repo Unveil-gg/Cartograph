@@ -1401,10 +1401,10 @@ void CanvasPanel::Render(
                     );
                     history.AddCommand(std::move(cmd), model);
                     
-                    selectedMarker = nullptr;  // Clear selection
+                    selectedMarkerId.clear();  // Clear selection
                 } else if (clickedMarker) {
                     // Click existing marker: Select and start drag
-                    selectedMarker = clickedMarker;
+                    selectedMarkerId = clickedMarker->id;
                     isDraggingMarker = true;
                     dragStartX = clickedMarker->x;
                     dragStartY = clickedMarker->y;
@@ -1464,13 +1464,14 @@ void CanvasPanel::Render(
                     history.AddCommand(std::move(cmd), model);
                     
                     // Clear selection if we deleted the selected marker
-                    if (selectedMarker && selectedMarker->id == clickedMarker->id) {
-                        selectedMarker = nullptr;
+                    if (selectedMarkerId == clickedMarker->id) {
+                        selectedMarkerId.clear();
                     }
                 }
             }
             
             // Handle marker dragging
+            Marker* selectedMarker = model.FindMarker(selectedMarkerId);
             if (isDraggingMarker && selectedMarker) {
                 if (ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
                     // Update marker position while dragging
@@ -2075,9 +2076,10 @@ void CanvasPanel::Render(
         else {
             // Copy selected marker
             if (keymap.IsActionTriggered("copy")) {
-                if (selectedMarker) {
+                Marker* selMarker = model.FindMarker(selectedMarkerId);
+                if (selMarker) {
                     copiedMarkers.clear();
-                    copiedMarkers.push_back(*selectedMarker);
+                    copiedMarkers.push_back(*selMarker);
                 }
             }
             
@@ -2131,14 +2133,14 @@ void CanvasPanel::Render(
             }
             
             // Delete selected marker
-            if (selectedMarker && 
+            if (!selectedMarkerId.empty() && 
                 (keymap.IsActionTriggered("delete") || 
                  keymap.IsActionTriggered("deleteAlt"))) {
                 auto cmd = std::make_unique<DeleteMarkerCommand>(
-                    selectedMarker->id
+                    selectedMarkerId
                 );
                 history.AddCommand(std::move(cmd), model);   
-                selectedMarker = nullptr;
+                selectedMarkerId.clear();
             }
         }
     }
@@ -2186,26 +2188,30 @@ void CanvasPanel::Render(
         float tileX = wx / model.grid.tileWidth;
         float tileY = wy / model.grid.tileHeight;
         
-        hoveredMarker = model.FindMarkerNear(tileX, tileY, 0.5f);
+        Marker* hovered = model.FindMarkerNear(tileX, tileY, 0.5f);
+        hoveredMarkerId = hovered ? hovered->id : "";
         
         // Show tooltip for hovered marker
-        if (hoveredMarker && !isDraggingMarker) {
+        if (hovered && !isDraggingMarker) {
             ImGui::BeginTooltip();
-            ImGui::Text("Marker: %s", hoveredMarker->label.empty() ? 
-                       "(no label)" : hoveredMarker->label.c_str());
-            ImGui::TextDisabled("Icon: %s", hoveredMarker->icon.c_str());
+            ImGui::Text("Marker: %s", hovered->label.empty() ? 
+                       "(no label)" : hovered->label.c_str());
+            ImGui::TextDisabled("Icon: %s", hovered->icon.c_str());
             ImGui::TextDisabled("Position: (%.1f, %.1f)", 
-                               hoveredMarker->x, hoveredMarker->y);
+                               hovered->x, hovered->y);
             ImGui::Separator();
             ImGui::TextDisabled("Click: Select/Move");
             ImGui::TextDisabled("Shift+Click: Delete");
             ImGui::EndTooltip();
         }
     } else {
-        hoveredMarker = nullptr;
+        hoveredMarkerId.clear();
     }
     
     // Render the actual canvas content (grid, tiles, rooms, doors, markers, overlays)
+    // Look up markers by ID for safe pointer access during render
+    const Marker* selMarkerPtr = model.FindMarker(selectedMarkerId);
+    const Marker* hovMarkerPtr = model.FindMarker(hoveredMarkerId);
     canvas.Render(
         renderer,
         model,
@@ -2216,8 +2222,8 @@ void CanvasPanel::Render(
         static_cast<int>(canvasSize.y),
         isHoveringEdge ? &hoveredEdge : nullptr,
         showRoomOverlays,  // Pass room overlay toggle state
-        selectedMarker,    // Pass selected marker for highlight
-        hoveredMarker      // Pass hovered marker for highlight
+        selMarkerPtr,      // Pass selected marker for highlight
+        hovMarkerPtr       // Pass hovered marker for highlight
     );
     
     // Note: Thumbnail capture moved to App::Render() after ImGui draw data

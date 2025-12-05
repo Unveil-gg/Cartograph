@@ -46,13 +46,13 @@ void Modals::RenderAll(
     JobQueue& jobs,
     KeymapManager& keymap,
     std::string& selectedIconName,
-    Marker*& selectedMarker,
+    std::string& selectedMarkerId,
     int& selectedTileId
 ) {
     if (showExportModal) RenderExportModal(model, canvas);
     if (showSettingsModal) RenderSettingsModal(app, model, keymap);
     if (showRenameIconModal) RenderRenameIconModal(model, icons, selectedIconName);
-    if (showDeleteIconModal) RenderDeleteIconModal(model, icons, history, selectedIconName, selectedMarker);
+    if (showDeleteIconModal) RenderDeleteIconModal(model, icons, history, selectedIconName, selectedMarkerId);
     if (showRebindModal) RenderRebindModal(model, keymap);
     if (showColorPickerModal) RenderColorPickerModal(model, history, selectedTileId);
     if (showNewProjectModal) RenderNewProjectModal(app, model);
@@ -1179,7 +1179,7 @@ void Modals::RenderRenameIconModal(Model& model, IconManager& icons,
 
 void Modals::RenderDeleteIconModal(Model& model, IconManager& icons, 
                                    History& history, std::string& selectedIconName,
-                                   Marker*& selectedMarker) {
+                                   std::string& selectedMarkerId) {
     // Only call OpenPopup once when modal is first shown
     if (!deleteIconModalOpened) {
         ImGui::OpenPopup("Delete Icon");
@@ -1323,8 +1323,9 @@ void Modals::RenderDeleteIconModal(Model& model, IconManager& icons,
                 }
                 
                 // Deselect marker if it was using this icon
-                if (selectedMarker && selectedMarker->icon == deleteIconName) {
-                    selectedMarker = nullptr;
+                Marker* selMarker = model.FindMarker(selectedMarkerId);
+                if (selMarker && selMarker->icon == deleteIconName) {
+                    selectedMarkerId.clear();
                 }
                 
                 showDeleteIconModal = false;
