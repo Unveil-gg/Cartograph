@@ -2633,7 +2633,9 @@ void Modals::RenderQuitConfirmationModal(App& app, Model& model) {
         
         // Don't Save button
         if (ImGui::Button("Don't Save", ImVec2(buttonWidth, 0))) {
-            // Quit without saving
+            // Quit without saving - clean up autosave since user explicitly
+            // chose to discard changes (recovery is for unexpected quits only)
+            app.CleanupAutosave();
             showQuitConfirmationModal = false;
             quitConfirmationModalOpened = false;
             ImGui::CloseCurrentPopup();

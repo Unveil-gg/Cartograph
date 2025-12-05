@@ -151,6 +151,12 @@ public:
      */
     void ApplyTheme(const Theme& theme);
     
+    /**
+     * Clean up autosave files.
+     * Call when user explicitly discards changes (e.g. "Don't Save").
+     */
+    void CleanupAutosave();
+    
 private:
     void Update(float deltaTime);
     void Render();
@@ -165,7 +171,6 @@ private:
     // Autosave recovery
     void CheckAutosaveRecovery();
     void SaveAutosaveMetadata();
-    void CleanupAutosave();
     
     // SDL window and OpenGL context (owned via RAII smart pointers)
     std::unique_ptr<SDL_Window, SDL_WindowDeleter> m_window;
