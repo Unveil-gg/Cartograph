@@ -6,33 +6,10 @@
 #include <unordered_set>
 #include <cstdint>
 
-// Forward declarations
-struct ImVec4;
+#include "Color.h"
+#include "Theme/Themes.h"
 
 namespace Cartograph {
-
-// ============================================================================
-// Color utilities
-// ============================================================================
-
-struct Color {
-    float r, g, b, a;
-    
-    Color() : r(0), g(0), b(0), a(1) {}
-    Color(float r, float g, float b, float a = 1.0f) 
-        : r(r), g(g), b(b), a(a) {}
-    
-    // Parse from hex string "#RRGGBB" or "#RRGGBBAA"
-    static Color FromHex(const std::string& hex);
-    
-    // Convert to hex string
-    std::string ToHex(bool includeAlpha = true) const;
-    
-    // Convert to ImVec4
-    ImVec4 ToImVec4() const;
-    
-    uint32_t ToU32() const;
-};
 
 // ============================================================================
 // Grid configuration
@@ -282,39 +259,6 @@ struct KeyBinding {
 };
 
 using Keymap = std::unordered_map<std::string, std::string>;
-
-// ============================================================================
-// Theme
-// ============================================================================
-
-struct Theme {
-    std::string name;
-    float uiScale = 1.0f;
-    std::unordered_map<std::string, Color> mapColors;  // Override defaults
-    
-    // Predefined theme colors (set by ApplyTheme)
-    Color background;
-    Color gridLine;
-    Color roomOutline;
-    Color roomFill;
-    Color wallColor;       // Solid wall lines
-    Color doorColor;       // Door (dashed) lines
-    Color edgeHoverColor;  // Edge hover highlight
-    Color markerColor;
-    Color textColor;
-    
-    // Selection tool colors
-    Color selectionFill;       // Selection rectangle fill
-    Color selectionBorder;     // Selection rectangle border
-    
-    // Tool preview colors
-    Color tilePreviewBorder;   // Paint tool cursor outline
-    float tilePreviewBrightness = 1.3f;  // Brightness boost for preview
-    
-    // Paste preview colors
-    Color pastePreviewFill;    // Paste ghost fill
-    Color pastePreviewBorder;  // Paste ghost border
-};
 
 // ============================================================================
 // Metadata

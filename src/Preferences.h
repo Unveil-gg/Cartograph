@@ -6,6 +6,9 @@
 
 namespace Cartograph {
 
+// Default theme name constant
+static const std::string kDefaultThemeName = "Dark";
+
 /**
  * Entry in the recently opened projects list.
  * Stored in recent_projects.json.
@@ -36,6 +39,8 @@ public:
     
     // Preference values
     static ProjectSortOrder projectBrowserSortOrder;
+    static std::string themeName;  // Active theme name
+    static float uiScale;          // UI scale factor
 };
 
 /**

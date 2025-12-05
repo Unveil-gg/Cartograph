@@ -7,6 +7,7 @@
 #include "../platform/Paths.h"
 #include "../platform/System.h"
 #include "../IOJson.h"
+#include "../Theme/Themes.h"
 #include <imgui.h>
 #include <filesystem>
 #include <fstream>
@@ -1007,23 +1008,36 @@ void Modals::RenderSettingsModal(App& app, Model& model, KeymapManager& keymap) 
                 ImGui::Separator();
                 ImGui::Spacing();
                 
-                // Theme dropdown
-                const char* themeNames[] = { "Dark", "Print-Light" };
+                // Theme dropdown - use theme registry
+                auto themes = GetAvailableThemes();
                 int currentTheme = 0;
-                if (model.theme.name == "Print-Light") {
-                    currentTheme = 1;
+                for (size_t i = 0; i < themes.size(); ++i) {
+                    if (model.theme.name == themes[i]) {
+                        currentTheme = static_cast<int>(i);
+                        break;
+                    }
                 }
                 
                 ImGui::Text("Color Theme:");
                 ImGui::SameLine();
                 ImGui::SetNextItemWidth(200);
+                
+                // Build combo items string
+                std::string comboItems;
+                for (const auto& t : themes) {
+                    comboItems += t + '\0';
+                }
+                comboItems += '\0';
+                
                 if (ImGui::Combo("##ThemeCombo", &currentTheme, 
-                                themeNames, IM_ARRAYSIZE(themeNames))) {
-                    std::string newThemeName = themeNames[currentTheme];
+                                comboItems.c_str())) {
+                    std::string newThemeName = themes[currentTheme];
                     if (newThemeName != model.theme.name) {
                         model.InitDefaultTheme(newThemeName);
                         app.ApplyTheme(model.theme);
-                        model.MarkDirty();
+                        // Save to global preferences (not project)
+                        Preferences::themeName = newThemeName;
+                        Preferences::Save();
                         m_ui.ShowToast(
                             "Theme changed to " + newThemeName,
                             Toast::Type::Success
@@ -1031,11 +1045,13 @@ void Modals::RenderSettingsModal(App& app, Model& model, KeymapManager& keymap) 
                     }
                 }
                 
+                // Show description for selected theme
                 ImGui::Spacing();
-                ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f),
-                    "Dark: Best for extended editing sessions");
-                ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f),
-                    "Print-Light: Best for export/print preview");
+                std::string desc = GetThemeDescription(model.theme.name);
+                if (!desc.empty()) {
+                    ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f),
+                        "%s", desc.c_str());
+                }
                 
                 ImGui::Spacing();
                 ImGui::Separator();
@@ -1054,12 +1070,16 @@ void Modals::RenderSettingsModal(App& app, Model& model, KeymapManager& keymap) 
                                        "%.1fx")) {
                     model.theme.uiScale = uiScale;
                     app.ApplyTheme(model.theme);
-                    model.MarkDirty();
+                    // Save to global preferences (not project)
+                    Preferences::uiScale = uiScale;
+                    Preferences::Save();
                 }
                 ImGui::SameLine();
                 if (ImGui::SmallButton("Reset")) {
                     model.theme.uiScale = 1.0f;
                     app.ApplyTheme(model.theme);
+                    Preferences::uiScale = 1.0f;
+                    Preferences::Save();
                 }
                 
                 ImGui::Spacing();

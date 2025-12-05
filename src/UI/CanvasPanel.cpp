@@ -1266,11 +1266,27 @@ void CanvasPanel::Render(
                         change.newTileId = selectedTileId;
                         fillChanges.push_back(change);
                         
-                        // Add neighbors to visit (4-way connectivity)
-                        toVisit.push_back({x + 1, y});
-                        toVisit.push_back({x - 1, y});
-                        toVisit.push_back({x, y + 1});
-                        toVisit.push_back({x, y - 1});
+                        // Add neighbors - only cross if no wall or door
+                        EdgeSide sides[] = {
+                            EdgeSide::East, EdgeSide::West,
+                            EdgeSide::South, EdgeSide::North
+                        };
+                        int dx[] = {1, -1, 0, 0};
+                        int dy[] = {0, 0, 1, -1};
+                        
+                        for (int i = 0; i < 4; ++i) {
+                            EdgeId edgeId = MakeEdgeId(x, y, sides[i]);
+                            EdgeState edgeState = model.GetEdgeState(edgeId);
+                            
+                            // Only cross if edge is None (walls/doors block)
+                            if (edgeState == EdgeState::None) {
+                                int nx = x + dx[i];
+                                int ny = y + dy[i];
+                                if (!visited.count({nx, ny})) {
+                                    toVisit.push_back({nx, ny});
+                                }
+                            }
+                        }
                     }
                     
                     // Handle fill based on size
@@ -1904,7 +1920,7 @@ void CanvasPanel::Render(
                             assignment.newRoomId = activeRoomId;
                             fillAssignments.push_back(assignment);
                             
-                            // Check all 4 neighbors - only cross if no wall
+                            // Check all 4 neighbors - only cross if no edge
                             EdgeSide sides[] = {
                                 EdgeSide::North, EdgeSide::South,
                                 EdgeSide::East, EdgeSide::West
@@ -1916,9 +1932,8 @@ void CanvasPanel::Render(
                                 EdgeId edgeId = MakeEdgeId(x, y, sides[i]);
                                 EdgeState edgeState = model.GetEdgeState(edgeId);
                                 
-                                // Can only cross if edge is None or Door
-                                if (edgeState == EdgeState::None || 
-                                    edgeState == EdgeState::Door) {
+                                // Only cross if edge is None (walls/doors block)
+                                if (edgeState == EdgeState::None) {
                                     int nx = x + dx[i];
                                     int ny = y + dy[i];
                                     

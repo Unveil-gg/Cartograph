@@ -890,55 +890,8 @@ void Model::InitDefaultKeymap() {
 }
 
 void Model::InitDefaultTheme(const std::string& name) {
-    theme.name = name;
-    theme.uiScale = 1.0f;
-    theme.mapColors.clear();
-    
-    if (name == "Dark") {
-        theme.background = Color(0.1f, 0.1f, 0.1f, 1.0f);
-        theme.gridLine = Color(0.2f, 0.2f, 0.2f, 1.0f);
-        theme.roomOutline = Color(0.8f, 0.8f, 0.8f, 1.0f);
-        theme.roomFill = Color(0.15f, 0.15f, 0.15f, 0.8f);
-        theme.wallColor = Color(0.0f, 0.0f, 0.0f, 1.0f);
-        theme.doorColor = Color(0.4f, 0.4f, 0.4f, 1.0f);
-        theme.edgeHoverColor = Color(0.0f, 1.0f, 0.0f, 0.6f);
-        theme.markerColor = Color(0.3f, 0.8f, 0.3f, 1.0f);
-        theme.textColor = Color(1.0f, 1.0f, 1.0f, 1.0f);
-        
-        // Selection colors (blue tint)
-        theme.selectionFill = Color(0.3f, 0.6f, 1.0f, 0.25f);
-        theme.selectionBorder = Color(0.4f, 0.7f, 1.0f, 0.9f);
-        
-        // Tool preview colors
-        theme.tilePreviewBorder = Color(1.0f, 1.0f, 1.0f, 0.8f);
-        theme.tilePreviewBrightness = 1.3f;
-        
-        // Paste preview colors (green tint)
-        theme.pastePreviewFill = Color(0.2f, 0.8f, 0.4f, 0.25f);
-        theme.pastePreviewBorder = Color(0.3f, 0.9f, 0.5f, 0.9f);
-    } else if (name == "Print-Light") {
-        theme.background = Color(1.0f, 1.0f, 1.0f, 1.0f);
-        theme.gridLine = Color(0.85f, 0.85f, 0.85f, 1.0f);
-        theme.roomOutline = Color(0.2f, 0.2f, 0.2f, 1.0f);
-        theme.roomFill = Color(0.95f, 0.95f, 0.95f, 0.5f);
-        theme.wallColor = Color(0.0f, 0.0f, 0.0f, 1.0f);
-        theme.doorColor = Color(0.6f, 0.6f, 0.6f, 1.0f);
-        theme.edgeHoverColor = Color(0.0f, 0.8f, 0.0f, 0.6f);
-        theme.markerColor = Color(0.2f, 0.6f, 0.2f, 1.0f);
-        theme.textColor = Color(0.0f, 0.0f, 0.0f, 1.0f);
-        
-        // Selection colors (darker blue for light theme)
-        theme.selectionFill = Color(0.2f, 0.4f, 0.8f, 0.2f);
-        theme.selectionBorder = Color(0.2f, 0.5f, 0.9f, 0.9f);
-        
-        // Tool preview colors
-        theme.tilePreviewBorder = Color(0.0f, 0.0f, 0.0f, 0.6f);
-        theme.tilePreviewBrightness = 1.2f;
-        
-        // Paste preview colors (darker green for light theme)
-        theme.pastePreviewFill = Color(0.1f, 0.6f, 0.3f, 0.2f);
-        theme.pastePreviewBorder = Color(0.2f, 0.7f, 0.4f, 0.9f);
-    }
+    // Delegate to centralized theme initialization
+    InitTheme(theme, name);
 }
 
 // ============================================================================

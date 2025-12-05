@@ -107,8 +107,7 @@ bool App::Init(const std::string& title, int width, int height) {
     // Initialize ImGui
     SetupImGui();
     
-    // Initialize minimal theme for welcome screen
-    m_model.InitDefaultTheme("Dark");
+    // Theme will be initialized after preferences are loaded
     
     // Load icons from assets
     std::string assetsDir = Platform::GetAssetsDir();
@@ -138,6 +137,11 @@ bool App::Init(const std::string& title, int width, int height) {
     
     // Load user preferences
     Preferences::Load();
+    
+    // Initialize theme from preferences
+    m_model.InitDefaultTheme(Preferences::themeName);
+    m_model.theme.uiScale = Preferences::uiScale;
+    ApplyTheme(m_model.theme);
     
     // Load recent projects for welcome screen
     m_ui.m_welcomeScreen.LoadRecentProjects();
@@ -385,10 +389,110 @@ void App::ShutdownImGui() {
 void App::ApplyTheme(const Theme& theme) {
     ImGuiStyle& style = ImGui::GetStyle();
     
-    if (theme.name == "Dark") {
-        ImGui::StyleColorsDark();
-    } else if (theme.name == "Print-Light") {
+    // Apply base ImGui theme based on brightness
+    if (theme.name == "Print-Light") {
         ImGui::StyleColorsLight();
+    } else {
+        // Dark, Loud-Yellow, and Unveil all use dark base
+        ImGui::StyleColorsDark();
+    }
+    
+    // Apply custom accent colors for themed variants
+    if (theme.name == "Loud-Yellow") {
+        // Yellow accent colors for UI elements
+        style.Colors[ImGuiCol_Header] = ImVec4(0.75f, 0.60f, 0.15f, 0.6f);
+        style.Colors[ImGuiCol_HeaderHovered] = ImVec4(0.85f, 0.70f, 0.20f, 0.8f);
+        style.Colors[ImGuiCol_HeaderActive] = ImVec4(1.0f, 0.80f, 0.25f, 1.0f);
+        style.Colors[ImGuiCol_Button] = ImVec4(0.55f, 0.45f, 0.12f, 0.6f);
+        style.Colors[ImGuiCol_ButtonHovered] = ImVec4(0.75f, 0.60f, 0.15f, 0.8f);
+        style.Colors[ImGuiCol_ButtonActive] = ImVec4(1.0f, 0.80f, 0.20f, 1.0f);
+        style.Colors[ImGuiCol_FrameBg] = ImVec4(0.18f, 0.16f, 0.08f, 0.8f);
+        style.Colors[ImGuiCol_FrameBgHovered] = ImVec4(0.28f, 0.24f, 0.10f, 0.9f);
+        style.Colors[ImGuiCol_FrameBgActive] = ImVec4(0.38f, 0.32f, 0.12f, 1.0f);
+        style.Colors[ImGuiCol_TitleBg] = ImVec4(0.12f, 0.10f, 0.05f, 1.0f);
+        style.Colors[ImGuiCol_TitleBgActive] = ImVec4(0.28f, 0.24f, 0.10f, 1.0f);
+        style.Colors[ImGuiCol_Tab] = ImVec4(0.35f, 0.28f, 0.10f, 0.8f);
+        style.Colors[ImGuiCol_TabHovered] = ImVec4(0.75f, 0.60f, 0.15f, 0.9f);
+        style.Colors[ImGuiCol_TabSelected] = ImVec4(0.55f, 0.45f, 0.12f, 1.0f);
+        style.Colors[ImGuiCol_CheckMark] = ImVec4(1.0f, 0.92f, 0.0f, 1.0f);
+        style.Colors[ImGuiCol_SliderGrab] = ImVec4(0.85f, 0.70f, 0.15f, 1.0f);
+        style.Colors[ImGuiCol_SliderGrabActive] = ImVec4(1.0f, 0.85f, 0.20f, 1.0f);
+    } else if (theme.name == "Unveil") {
+        // Purple accent colors for UI elements
+        style.Colors[ImGuiCol_Header] = ImVec4(0.42f, 0.32f, 0.52f, 0.6f);
+        style.Colors[ImGuiCol_HeaderHovered] = ImVec4(0.55f, 0.40f, 0.70f, 0.8f);
+        style.Colors[ImGuiCol_HeaderActive] = ImVec4(0.68f, 0.50f, 0.88f, 1.0f);
+        style.Colors[ImGuiCol_Button] = ImVec4(0.32f, 0.22f, 0.42f, 0.6f);
+        style.Colors[ImGuiCol_ButtonHovered] = ImVec4(0.45f, 0.32f, 0.58f, 0.8f);
+        style.Colors[ImGuiCol_ButtonActive] = ImVec4(0.60f, 0.40f, 0.78f, 1.0f);
+        style.Colors[ImGuiCol_FrameBg] = ImVec4(0.12f, 0.08f, 0.16f, 0.8f);
+        style.Colors[ImGuiCol_FrameBgHovered] = ImVec4(0.18f, 0.12f, 0.24f, 0.9f);
+        style.Colors[ImGuiCol_FrameBgActive] = ImVec4(0.24f, 0.16f, 0.32f, 1.0f);
+        style.Colors[ImGuiCol_TitleBg] = ImVec4(0.08f, 0.05f, 0.12f, 1.0f);
+        style.Colors[ImGuiCol_TitleBgActive] = ImVec4(0.16f, 0.10f, 0.22f, 1.0f);
+        style.Colors[ImGuiCol_Tab] = ImVec4(0.22f, 0.15f, 0.30f, 0.8f);
+        style.Colors[ImGuiCol_TabHovered] = ImVec4(0.50f, 0.35f, 0.65f, 0.9f);
+        style.Colors[ImGuiCol_TabSelected] = ImVec4(0.38f, 0.25f, 0.50f, 1.0f);
+        style.Colors[ImGuiCol_CheckMark] = ImVec4(0.35f, 0.80f, 0.90f, 1.0f);
+        style.Colors[ImGuiCol_SliderGrab] = ImVec4(0.55f, 0.40f, 0.72f, 1.0f);
+        style.Colors[ImGuiCol_SliderGrabActive] = ImVec4(0.70f, 0.50f, 0.90f, 1.0f);
+    } else if (theme.name == "Aeterna") {
+        // Violet/gold accent colors (Aeterna Noctis inspired)
+        style.Colors[ImGuiCol_Header] = ImVec4(0.35f, 0.18f, 0.55f, 0.6f);
+        style.Colors[ImGuiCol_HeaderHovered] = ImVec4(0.48f, 0.25f, 0.75f, 0.8f);
+        style.Colors[ImGuiCol_HeaderActive] = ImVec4(0.61f, 0.30f, 1.0f, 1.0f);
+        style.Colors[ImGuiCol_Button] = ImVec4(0.28f, 0.14f, 0.45f, 0.6f);
+        style.Colors[ImGuiCol_ButtonHovered] = ImVec4(0.42f, 0.22f, 0.65f, 0.8f);
+        style.Colors[ImGuiCol_ButtonActive] = ImVec4(0.55f, 0.28f, 0.85f, 1.0f);
+        style.Colors[ImGuiCol_FrameBg] = ImVec4(0.08f, 0.05f, 0.12f, 0.8f);
+        style.Colors[ImGuiCol_FrameBgHovered] = ImVec4(0.14f, 0.08f, 0.20f, 0.9f);
+        style.Colors[ImGuiCol_FrameBgActive] = ImVec4(0.20f, 0.12f, 0.30f, 1.0f);
+        style.Colors[ImGuiCol_TitleBg] = ImVec4(0.05f, 0.03f, 0.08f, 1.0f);
+        style.Colors[ImGuiCol_TitleBgActive] = ImVec4(0.12f, 0.07f, 0.18f, 1.0f);
+        style.Colors[ImGuiCol_Tab] = ImVec4(0.20f, 0.10f, 0.32f, 0.8f);
+        style.Colors[ImGuiCol_TabHovered] = ImVec4(0.45f, 0.22f, 0.70f, 0.9f);
+        style.Colors[ImGuiCol_TabSelected] = ImVec4(0.32f, 0.16f, 0.50f, 1.0f);
+        style.Colors[ImGuiCol_CheckMark] = ImVec4(1.0f, 0.84f, 0.0f, 1.0f);
+        style.Colors[ImGuiCol_SliderGrab] = ImVec4(0.85f, 0.70f, 0.0f, 1.0f);
+        style.Colors[ImGuiCol_SliderGrabActive] = ImVec4(1.0f, 0.84f, 0.0f, 1.0f);
+    } else if (theme.name == "Hornet") {
+        // Crimson/bone accent colors (Hollow Knight: Silksong inspired)
+        style.Colors[ImGuiCol_Header] = ImVec4(0.55f, 0.12f, 0.12f, 0.6f);
+        style.Colors[ImGuiCol_HeaderHovered] = ImVec4(0.72f, 0.16f, 0.16f, 0.8f);
+        style.Colors[ImGuiCol_HeaderActive] = ImVec4(0.91f, 0.19f, 0.19f, 1.0f);
+        style.Colors[ImGuiCol_Button] = ImVec4(0.45f, 0.10f, 0.10f, 0.6f);
+        style.Colors[ImGuiCol_ButtonHovered] = ImVec4(0.62f, 0.14f, 0.14f, 0.8f);
+        style.Colors[ImGuiCol_ButtonActive] = ImVec4(0.80f, 0.18f, 0.18f, 1.0f);
+        style.Colors[ImGuiCol_FrameBg] = ImVec4(0.12f, 0.10f, 0.10f, 0.8f);
+        style.Colors[ImGuiCol_FrameBgHovered] = ImVec4(0.20f, 0.14f, 0.14f, 0.9f);
+        style.Colors[ImGuiCol_FrameBgActive] = ImVec4(0.28f, 0.18f, 0.18f, 1.0f);
+        style.Colors[ImGuiCol_TitleBg] = ImVec4(0.08f, 0.06f, 0.06f, 1.0f);
+        style.Colors[ImGuiCol_TitleBgActive] = ImVec4(0.18f, 0.10f, 0.10f, 1.0f);
+        style.Colors[ImGuiCol_Tab] = ImVec4(0.32f, 0.10f, 0.10f, 0.8f);
+        style.Colors[ImGuiCol_TabHovered] = ImVec4(0.65f, 0.15f, 0.15f, 0.9f);
+        style.Colors[ImGuiCol_TabSelected] = ImVec4(0.48f, 0.12f, 0.12f, 1.0f);
+        style.Colors[ImGuiCol_CheckMark] = ImVec4(0.94f, 0.93f, 0.91f, 1.0f);
+        style.Colors[ImGuiCol_SliderGrab] = ImVec4(0.78f, 0.13f, 0.13f, 1.0f);
+        style.Colors[ImGuiCol_SliderGrabActive] = ImVec4(0.91f, 0.19f, 0.19f, 1.0f);
+    } else if (theme.name == "Soma") {
+        // Steel blue/silver accent colors (Castlevania: Aria of Sorrow inspired)
+        style.Colors[ImGuiCol_Header] = ImVec4(0.28f, 0.35f, 0.48f, 0.6f);
+        style.Colors[ImGuiCol_HeaderHovered] = ImVec4(0.35f, 0.45f, 0.60f, 0.8f);
+        style.Colors[ImGuiCol_HeaderActive] = ImVec4(0.40f, 0.52f, 0.72f, 1.0f);
+        style.Colors[ImGuiCol_Button] = ImVec4(0.22f, 0.28f, 0.38f, 0.6f);
+        style.Colors[ImGuiCol_ButtonHovered] = ImVec4(0.30f, 0.38f, 0.52f, 0.8f);
+        style.Colors[ImGuiCol_ButtonActive] = ImVec4(0.38f, 0.48f, 0.65f, 1.0f);
+        style.Colors[ImGuiCol_FrameBg] = ImVec4(0.12f, 0.13f, 0.16f, 0.8f);
+        style.Colors[ImGuiCol_FrameBgHovered] = ImVec4(0.18f, 0.20f, 0.25f, 0.9f);
+        style.Colors[ImGuiCol_FrameBgActive] = ImVec4(0.24f, 0.27f, 0.34f, 1.0f);
+        style.Colors[ImGuiCol_TitleBg] = ImVec4(0.10f, 0.10f, 0.13f, 1.0f);
+        style.Colors[ImGuiCol_TitleBgActive] = ImVec4(0.16f, 0.18f, 0.24f, 1.0f);
+        style.Colors[ImGuiCol_Tab] = ImVec4(0.20f, 0.24f, 0.32f, 0.8f);
+        style.Colors[ImGuiCol_TabHovered] = ImVec4(0.32f, 0.42f, 0.58f, 0.9f);
+        style.Colors[ImGuiCol_TabSelected] = ImVec4(0.26f, 0.34f, 0.46f, 1.0f);
+        style.Colors[ImGuiCol_CheckMark] = ImVec4(0.45f, 0.60f, 0.85f, 1.0f);
+        style.Colors[ImGuiCol_SliderGrab] = ImVec4(0.35f, 0.48f, 0.70f, 1.0f);
+        style.Colors[ImGuiCol_SliderGrabActive] = ImVec4(0.45f, 0.60f, 0.85f, 1.0f);
     }
     
     // Apply UI scale
@@ -476,6 +580,11 @@ void App::OpenProject(const std::string& path) {
         m_history.Clear();
         UpdateWindowTitle();
         m_ui.m_welcomeScreen.AddRecentProject(path);
+        
+        // Apply global theme preferences (theme is global, not per-project)
+        m_model.InitDefaultTheme(Preferences::themeName);
+        m_model.theme.uiScale = Preferences::uiScale;
+        ApplyTheme(m_model.theme);
         
         // Rebuild icon atlas (must be on main thread for OpenGL)
         m_icons.BuildAtlas();

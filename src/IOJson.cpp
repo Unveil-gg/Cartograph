@@ -226,12 +226,7 @@ std::string IOJson::SaveToString(const Model& model) {
     // Keymap
     j["keymap"] = model.keymap;
     
-    // Theme
-    j["theme"] = {
-        {"name", model.theme.name},
-        {"uiScale", model.theme.uiScale},
-        {"mapColors", json::object()}
-    };
+    // Theme is global preference, not saved per-project
     
     // Metadata
     j["meta"] = {
@@ -538,13 +533,8 @@ bool IOJson::LoadFromString(const std::string& jsonStr, Model& outModel) {
             outModel.keymap = j["keymap"].get<std::unordered_map<std::string, std::string>>();
         }
         
-        // Theme
-        if (j.contains("theme")) {
-            const auto& theme = j["theme"];
-            outModel.theme.name = theme.value("name", "Dark");
-            outModel.theme.uiScale = theme.value("uiScale", 1.0f);
-            outModel.InitDefaultTheme(outModel.theme.name);
-        }
+        // Theme is global preference, applied after load in App::OpenProject
+        // Old project files may contain theme data - it will be ignored
         
         // Metadata
         if (j.contains("meta")) {

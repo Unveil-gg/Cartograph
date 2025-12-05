@@ -13,6 +13,8 @@ namespace Cartograph {
 
 // Initialize static members with defaults
 ProjectSortOrder Preferences::projectBrowserSortOrder = ProjectSortOrder::MostRecent;
+std::string Preferences::themeName = kDefaultThemeName;
+float Preferences::uiScale = 1.0f;
 
 // RecentProjects static members
 std::vector<RecentProjectEntry> RecentProjects::s_entries;
@@ -45,6 +47,17 @@ void Preferences::Load() {
                 projectBrowserSortOrder = ProjectSortOrder::MostRecent;
             }
         }
+        
+        // Theme preferences
+        if (j.contains("themeName")) {
+            themeName = j["themeName"].get<std::string>();
+        }
+        if (j.contains("uiScale")) {
+            uiScale = j["uiScale"].get<float>();
+            // Clamp to valid range
+            if (uiScale < 0.5f) uiScale = 0.5f;
+            if (uiScale > 2.0f) uiScale = 2.0f;
+        }
     } catch (...) {
         // Parse error - use defaults
     }
@@ -69,6 +82,10 @@ void Preferences::Save() {
             break;
     }
     j["projectBrowserSortOrder"] = sortStr;
+    
+    // Theme preferences
+    j["themeName"] = themeName;
+    j["uiScale"] = uiScale;
     
     // Ensure directory exists
     std::string dir = Platform::GetUserDataDir();
