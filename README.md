@@ -1,8 +1,10 @@
-# Unveil Cartograph
+# Cartograph
 
 A lightweight cross-platform tool for designing Metroidvania-style maps.
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
+
+![Example Map](assets/repo/example-map.png)
 
 ## Features
 
