@@ -173,17 +173,17 @@ void Canvas::RenderGrid(IRenderer& renderer, const GridConfig& grid) {
     const int tileHeight = grid.tileHeight;
     const Color gridColor(0.2f, 0.2f, 0.2f, 0.5f);
     
-    // Calculate visible tile range from viewport
+    // Calculate visible tile range from viewport (infinite grid - no clamping)
     int minTx, minTy, maxTx, maxTy;
     ScreenToTile(m_vpX, m_vpY, tileWidth, tileHeight, &minTx, &minTy);
     ScreenToTile(m_vpX + m_vpW, m_vpY + m_vpH, tileWidth, tileHeight, 
                  &maxTx, &maxTy);
     
-    // Clamp to grid bounds (supports negative minCol/minRow)
-    minTx = std::max(grid.minCol, minTx - 1);
-    minTy = std::max(grid.minRow, minTy - 1);
-    maxTx = std::min(grid.cols, maxTx + 1);
-    maxTy = std::min(grid.rows, maxTy + 1);
+    // Add padding for edge visibility
+    minTx -= 1;
+    minTy -= 1;
+    maxTx += 1;
+    maxTy += 1;
     
     // Draw vertical lines
     for (int tx = minTx; tx <= maxTx; ++tx) {

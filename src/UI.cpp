@@ -142,11 +142,11 @@ void UI::UpdateMenu(
     
     // Set selection operation callbacks (need model/history/canvasPanel)
     m_nativeMenu->SetCallback("edit.cut", 
-        [this, &model]() {
+        [this, &model, &history]() {
             if (m_canvasPanel.hasSelection && 
                 !m_canvasPanel.currentSelection.IsEmpty()) {
                 m_canvasPanel.CopySelection(model);
-                m_canvasPanel.EnterFloatingMode();
+                m_canvasPanel.DeleteSelection(model, history);
             }
         }
     );
@@ -159,11 +159,8 @@ void UI::UpdateMenu(
         }
     );
     m_nativeMenu->SetCallback("edit.paste", 
-        [this, &model, &history]() {
+        [this]() {
             if (!m_canvasPanel.clipboard.IsEmpty()) {
-                if (m_canvasPanel.isFloatingSelection) {
-                    m_canvasPanel.CommitFloatingSelection(model, history);
-                }
                 m_canvasPanel.currentTool = CanvasPanel::Tool::Select;
                 m_canvasPanel.EnterPasteMode();
             }
@@ -173,20 +170,12 @@ void UI::UpdateMenu(
         [this, &model, &history]() {
             if (m_canvasPanel.hasSelection && 
                 !m_canvasPanel.currentSelection.IsEmpty()) {
-                if (m_canvasPanel.isFloatingSelection) {
-                    m_canvasPanel.CancelFloatingSelection();
-                    m_canvasPanel.ClearSelection();
-                } else {
-                    m_canvasPanel.DeleteSelection(model, history);
-                }
+                m_canvasPanel.DeleteSelection(model, history);
             }
         }
     );
     m_nativeMenu->SetCallback("edit.selectAll", 
-        [this, &model, &history]() {
-            if (m_canvasPanel.isFloatingSelection) {
-                m_canvasPanel.CommitFloatingSelection(model, history);
-            }
+        [this, &model]() {
             m_canvasPanel.currentTool = CanvasPanel::Tool::Select;
             m_canvasPanel.SelectAll(model);
         }
@@ -525,7 +514,7 @@ void UI::RenderMenuBar(
             if (ImGui::MenuItem("Cut", cutShortcut.c_str(), 
                                false, hasSelection)) {
                 m_canvasPanel.CopySelection(model);
-                m_canvasPanel.EnterFloatingMode();
+                m_canvasPanel.DeleteSelection(model, history);
             }
             
             std::string copyShortcut = Platform::FormatShortcut("C");
@@ -537,10 +526,6 @@ void UI::RenderMenuBar(
             std::string pasteShortcut = Platform::FormatShortcut("V");
             if (ImGui::MenuItem("Paste", pasteShortcut.c_str(), 
                                false, hasClipboard)) {
-                // Commit any floating selection first
-                if (m_canvasPanel.isFloatingSelection) {
-                    m_canvasPanel.CommitFloatingSelection(model, history);
-                }
                 m_canvasPanel.currentTool = CanvasPanel::Tool::Select;
                 m_canvasPanel.EnterPasteMode();
             }
@@ -548,22 +533,13 @@ void UI::RenderMenuBar(
             std::string deleteShortcut = Platform::FormatShortcut("Delete");
             if (ImGui::MenuItem("Delete", deleteShortcut.c_str(), 
                                false, hasSelection)) {
-                if (m_canvasPanel.isFloatingSelection) {
-                    m_canvasPanel.CancelFloatingSelection();
-                    m_canvasPanel.ClearSelection();
-                } else {
-                    m_canvasPanel.DeleteSelection(model, history);
-                }
+                m_canvasPanel.DeleteSelection(model, history);
             }
             
             ImGui::Separator();
             
             std::string selectAllShortcut = Platform::FormatShortcut("A");
             if (ImGui::MenuItem("Select All", selectAllShortcut.c_str())) {
-                // Commit any floating selection first
-                if (m_canvasPanel.isFloatingSelection) {
-                    m_canvasPanel.CommitFloatingSelection(model, history);
-                }
                 m_canvasPanel.currentTool = CanvasPanel::Tool::Select;
                 m_canvasPanel.SelectAll(model);
             }
@@ -1005,11 +981,11 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
             float halfWidth = (buttonWidth - ImGui::GetStyle().ItemSpacing.x) 
                               * 0.5f;
             
-            // Cut button
+            // Cut button (copy + delete)
             std::string cutLabel = "Cut (" + Platform::FormatShortcut("X") + ")";
             if (ImGui::Button(cutLabel.c_str(), ImVec2(halfWidth, 0))) {
                 m_canvasPanel.CopySelection(model);
-                m_canvasPanel.EnterFloatingMode();
+                m_canvasPanel.DeleteSelection(model, history);
             }
             
             ImGui::SameLine();
@@ -1027,9 +1003,6 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
                                      + ")";
             if (!hasClipboard) ImGui::BeginDisabled();
             if (ImGui::Button(pasteLabel.c_str(), ImVec2(halfWidth, 0))) {
-                if (m_canvasPanel.isFloatingSelection) {
-                    m_canvasPanel.CommitFloatingSelection(model, history);
-                }
                 m_canvasPanel.EnterPasteMode();
             }
             if (!hasClipboard) ImGui::EndDisabled();
@@ -1039,21 +1012,13 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
             // Delete button
             std::string deleteLabel = "Delete";
             if (ImGui::Button(deleteLabel.c_str(), ImVec2(halfWidth, 0))) {
-                if (m_canvasPanel.isFloatingSelection) {
-                    m_canvasPanel.CancelFloatingSelection();
-                    m_canvasPanel.ClearSelection();
-                } else {
-                    m_canvasPanel.DeleteSelection(model, history);
-                }
+                m_canvasPanel.DeleteSelection(model, history);
             }
             
             ImGui::Spacing();
             
             // Deselect button
             if (ImGui::Button("Deselect", ImVec2(-1, 0))) {
-                if (m_canvasPanel.isFloatingSelection) {
-                    m_canvasPanel.CancelFloatingSelection();
-                }
                 m_canvasPanel.ClearSelection();
             }
         } else {
@@ -1067,9 +1032,6 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
         std::string selectAllLabel = "Select All (" 
                                      + Platform::FormatShortcut("A") + ")";
         if (ImGui::Button(selectAllLabel.c_str(), ImVec2(-1, 0))) {
-            if (m_canvasPanel.isFloatingSelection) {
-                m_canvasPanel.CommitFloatingSelection(model, history);
-            }
             m_canvasPanel.SelectAll(model);
         }
     }

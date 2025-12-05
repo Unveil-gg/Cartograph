@@ -496,7 +496,8 @@ void CanvasPanel::Render(
                     ExitPasteMode();
                 }
             }
-            // Check if clicking inside existing selection (for drag)
+            // Check if clicking inside existing selection (keep selection active)
+            // or outside (start new selection)
             else if (hasSelection && 
                      ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
                 int clickTileX, clickTileY;
@@ -506,30 +507,12 @@ void CanvasPanel::Render(
                     &clickTileX, &clickTileY
                 );
                 
-                // Check if click is inside selection bounds (accounting for
-                // floating offset)
-                int boundsX = currentSelection.bounds.x + dragOffsetX;
-                int boundsY = currentSelection.bounds.y + dragOffsetY;
+                // Check if click is inside selection bounds
                 bool insideBounds = 
-                    clickTileX >= boundsX &&
-                    clickTileX < boundsX + currentSelection.bounds.w &&
-                    clickTileY >= boundsY &&
-                    clickTileY < boundsY + currentSelection.bounds.h;
+                    currentSelection.bounds.Contains(clickTileX, clickTileY);
                 
-                if (insideBounds) {
-                    // Enter floating mode on first drag (if not already)
-                    if (!isFloatingSelection) {
-                        EnterFloatingMode();
-                    }
-                    // Start dragging
-                    isDraggingSelection = true;
-                    dragSelectionStartX = boundsX;
-                    dragSelectionStartY = boundsY;
-                } else {
-                    // Clicking outside: commit if floating, then start new
-                    if (isFloatingSelection) {
-                        CommitFloatingSelection(model, history);
-                    }
+                if (!insideBounds) {
+                    // Clicking outside: clear selection and start new
                     ClearSelection();
                     selectionStartX = mousePos.x;
                     selectionStartY = mousePos.y;
@@ -537,6 +520,8 @@ void CanvasPanel::Render(
                     selectionEndY = mousePos.y;
                     isSelecting = true;
                 }
+                // Clicking inside: do nothing, keep selection active
+                // (use Cut/Copy/Paste to move content)
             }
             // Start new selection (no existing selection)
             else if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
@@ -546,27 +531,6 @@ void CanvasPanel::Render(
                 selectionEndX = mousePos.x;
                 selectionEndY = mousePos.y;
                 isSelecting = true;
-            }
-            
-            // Handle selection dragging (floating mode - visual only)
-            if (isDraggingSelection && 
-                ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
-                int currentTileX, currentTileY;
-                canvas.ScreenToTile(
-                    mousePos.x, mousePos.y,
-                    model.grid.tileWidth, model.grid.tileHeight,
-                    &currentTileX, &currentTileY
-                );
-                
-                // Update visual offset only (no model changes)
-                dragOffsetX = currentTileX - dragSelectionStartX;
-                dragOffsetY = currentTileY - dragSelectionStartY;
-            }
-            
-            // Finish drag (selection stays floating until commit/cancel)
-            if (isDraggingSelection && 
-                ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
-                isDraggingSelection = false;
             }
             
             // Update selection rectangle while dragging
@@ -587,7 +551,7 @@ void CanvasPanel::Render(
             
             // Right-click context menu for selection operations
             if (ImGui::IsMouseClicked(ImGuiMouseButton_Right) && 
-                !isSelecting && !isDraggingSelection && !isPasteMode) {
+                !isSelecting && !isPasteMode) {
                 ImGui::OpenPopup("SelectionContextMenu");
             }
             
@@ -596,11 +560,11 @@ void CanvasPanel::Render(
                                        !currentSelection.IsEmpty();
                 bool clipboardHasContent = !clipboard.IsEmpty();
                 
-                // Cut
+                // Cut (copy + delete)
                 if (ImGui::MenuItem("Cut", Platform::FormatShortcut("X").c_str(),
                                    false, selectionActive)) {
                     CopySelection(model);
-                    EnterFloatingMode();
+                    DeleteSelection(model, history);
                 }
                 
                 // Copy
@@ -613,9 +577,6 @@ void CanvasPanel::Render(
                 if (ImGui::MenuItem("Paste", 
                                    Platform::FormatShortcut("V").c_str(),
                                    false, clipboardHasContent)) {
-                    if (isFloatingSelection) {
-                        CommitFloatingSelection(model, history);
-                    }
                     EnterPasteMode();
                 }
                 
@@ -623,12 +584,7 @@ void CanvasPanel::Render(
                 
                 // Delete
                 if (ImGui::MenuItem("Delete", "Del", false, selectionActive)) {
-                    if (isFloatingSelection) {
-                        CancelFloatingSelection();
-                        ClearSelection();
-                    } else {
-                        DeleteSelection(model, history);
-                    }
+                    DeleteSelection(model, history);
                 }
                 
                 ImGui::Separator();
@@ -636,17 +592,11 @@ void CanvasPanel::Render(
                 // Select All
                 if (ImGui::MenuItem("Select All", 
                                    Platform::FormatShortcut("A").c_str())) {
-                    if (isFloatingSelection) {
-                        CommitFloatingSelection(model, history);
-                    }
                     SelectAll(model);
                 }
                 
                 // Deselect
                 if (ImGui::MenuItem("Deselect", "Esc", false, selectionActive)) {
-                    if (isFloatingSelection) {
-                        CancelFloatingSelection();
-                    }
                     ClearSelection();
                 }
                 
@@ -2071,29 +2021,19 @@ void CanvasPanel::Render(
     if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)) {
         // Selection operations take priority when Select tool is active
         if (currentTool == Tool::Select) {
-            // Enter commits floating selection
-            if (ImGui::IsKeyPressed(ImGuiKey_Enter) && isFloatingSelection) {
-                CommitFloatingSelection(model, history);
-            }
-            
             // Copy selection (Ctrl+C)
             if (keymap.IsActionTriggered("copy") && hasSelection) {
                 CopySelection(model);
             }
             
-            // Cut selection (Ctrl+X) - enter floating mode (visual cut)
-            if (keymap.IsActionTriggered("cut") && hasSelection && 
-                !isFloatingSelection) {
+            // Cut selection (Ctrl+X) - copy to clipboard + delete immediately
+            if (keymap.IsActionTriggered("cut") && hasSelection) {
                 CopySelection(model);
-                EnterFloatingMode();
+                DeleteSelection(model, history);
             }
             
             // Paste (Ctrl+V) - enter paste mode if clipboard has content
             if (keymap.IsActionTriggered("paste") && !clipboard.IsEmpty()) {
-                // Commit any floating selection first
-                if (isFloatingSelection) {
-                    CommitFloatingSelection(model, history);
-                }
                 EnterPasteMode();
             }
             
@@ -2101,35 +2041,20 @@ void CanvasPanel::Render(
             if (hasSelection && 
                 (keymap.IsActionTriggered("delete") || 
                  keymap.IsActionTriggered("deleteAlt"))) {
-                if (isFloatingSelection) {
-                    // Just cancel floating - content already visually removed
-                    CancelFloatingSelection();
-                    ClearSelection();
-                } else {
-                    DeleteSelection(model, history);
-                }
+                DeleteSelection(model, history);
             }
             
-            // Escape cancels paste mode, floating selection, or clears selection
+            // Escape cancels paste mode or clears selection
             if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
                 if (isPasteMode) {
                     ExitPasteMode();
-                } else if (isFloatingSelection) {
-                    CancelFloatingSelection();
                 } else if (hasSelection) {
                     ClearSelection();
                 }
             }
             
-            // Arrow keys nudge floating selection (visual offset only)
-            if (hasSelection && !isPasteMode && isFloatingSelection) {
-                if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow)) dragOffsetX -= 1;
-                if (ImGui::IsKeyPressed(ImGuiKey_RightArrow)) dragOffsetX += 1;
-                if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) dragOffsetY -= 1;
-                if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) dragOffsetY += 1;
-            }
-            // Arrow keys also enter floating mode if not already floating
-            else if (hasSelection && !isPasteMode && !isFloatingSelection) {
+            // Arrow keys nudge selection (moves content immediately)
+            if (hasSelection && !isPasteMode) {
                 int nudgeX = 0, nudgeY = 0;
                 if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow)) nudgeX = -1;
                 if (ImGui::IsKeyPressed(ImGuiKey_RightArrow)) nudgeX = 1;
@@ -2137,18 +2062,12 @@ void CanvasPanel::Render(
                 if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) nudgeY = 1;
                 
                 if (nudgeX != 0 || nudgeY != 0) {
-                    EnterFloatingMode();
-                    dragOffsetX = nudgeX;
-                    dragOffsetY = nudgeY;
+                    MoveSelection(model, history, nudgeX, nudgeY);
                 }
             }
             
             // Select All (Ctrl+A)
             if (keymap.IsActionTriggered("selectAll")) {
-                // Commit any floating selection first
-                if (isFloatingSelection) {
-                    CommitFloatingSelection(model, history);
-                }
                 SelectAll(model);
             }
         }
@@ -2357,66 +2276,29 @@ void CanvasPanel::Render(
         float tileW = model.grid.tileWidth * canvas.zoom;
         float tileH = model.grid.tileHeight * canvas.zoom;
         
-        // When floating, render actual tile colors with transparency
-        if (isFloatingSelection) {
-            for (const auto& tilePair : floatingContent.tiles) {
-                int tx = tilePair.first.first + dragOffsetX;
-                int ty = tilePair.first.second + dragOffsetY;
-                int tileId = tilePair.second;
-                
-                // Find tile color in palette
-                Color tileColor(0.5f, 0.5f, 0.5f, 0.7f);  // Default gray
-                for (const auto& paletteTile : model.palette) {
-                    if (paletteTile.id == tileId) {
-                        tileColor = paletteTile.color;
-                        tileColor.a = 0.7f;  // Semi-transparent
-                        break;
-                    }
-                }
-                
-                // Convert tile to screen coordinates
-                float wx, wy;
-                canvas.TileToWorld(tx, ty, model.grid.tileWidth, 
-                                  model.grid.tileHeight, &wx, &wy);
-                float sx, sy;
-                canvas.WorldToScreen(wx, wy, &sx, &sy);
-                
-                // Draw tile with its color
-                drawList->AddRectFilled(
-                    ImVec2(sx, sy),
-                    ImVec2(sx + tileW, sy + tileH),
-                    tileColor.ToU32()
-                );
-            }
-        } else {
-            // Non-floating: draw highlight overlay only
-            for (const auto& tilePair : currentSelection.tiles) {
-                int tx = tilePair.first.first;
-                int ty = tilePair.first.second;
-                
-                // Convert tile to screen coordinates
-                float wx, wy;
-                canvas.TileToWorld(tx, ty, model.grid.tileWidth, 
-                                  model.grid.tileHeight, &wx, &wy);
-                float sx, sy;
-                canvas.WorldToScreen(wx, wy, &sx, &sy);
-                
-                // Draw highlight overlay
-                drawList->AddRectFilled(
-                    ImVec2(sx, sy),
-                    ImVec2(sx + tileW, sy + tileH),
-                    tileFillColor
-                );
-            }
+        // Draw highlight overlay for selected tiles
+        for (const auto& tilePair : currentSelection.tiles) {
+            int tx = tilePair.first.first;
+            int ty = tilePair.first.second;
+            
+            // Convert tile to screen coordinates
+            float wx, wy;
+            canvas.TileToWorld(tx, ty, model.grid.tileWidth, 
+                              model.grid.tileHeight, &wx, &wy);
+            float sx, sy;
+            canvas.WorldToScreen(wx, wy, &sx, &sy);
+            
+            // Draw highlight overlay
+            drawList->AddRectFilled(
+                ImVec2(sx, sy),
+                ImVec2(sx + tileW, sy + tileH),
+                tileFillColor
+            );
         }
         
-        // Draw bounding box around entire selection (with offset if floating)
+        // Draw bounding box around entire selection
         int boundsX = currentSelection.bounds.x;
         int boundsY = currentSelection.bounds.y;
-        if (isFloatingSelection) {
-            boundsX = floatingOriginX + dragOffsetX;
-            boundsY = floatingOriginY + dragOffsetY;
-        }
         
         float bx, by;
         canvas.TileToWorld(
@@ -2466,19 +2348,15 @@ void CanvasPanel::Render(
         drawDashedLine(ImVec2(bsx + boxW, bsy + boxH), ImVec2(bsx, bsy + boxH));
         drawDashedLine(ImVec2(bsx, bsy + boxH), ImVec2(bsx, bsy));
         
-        // Draw selected edges with highlight (with offset if floating)
-        const auto& edgesToDraw = isFloatingSelection ? 
-            floatingContent.edges : currentSelection.edges;
-        for (const auto& edgePair : edgesToDraw) {
+        // Draw selected edges with highlight
+        for (const auto& edgePair : currentSelection.edges) {
             const EdgeId& edge = edgePair.first;
-            int ox = isFloatingSelection ? dragOffsetX : 0;
-            int oy = isFloatingSelection ? dragOffsetY : 0;
             
             // Calculate edge midpoint and draw highlight
             float wx1, wy1, wx2, wy2;
-            canvas.TileToWorld(edge.x1 + ox, edge.y1 + oy, model.grid.tileWidth, 
+            canvas.TileToWorld(edge.x1, edge.y1, model.grid.tileWidth, 
                               model.grid.tileHeight, &wx1, &wy1);
-            canvas.TileToWorld(edge.x2 + ox, edge.y2 + oy, model.grid.tileWidth, 
+            canvas.TileToWorld(edge.x2, edge.y2, model.grid.tileWidth, 
                               model.grid.tileHeight, &wx2, &wy2);
             
             float sx1, sy1, sx2, sy2;
@@ -2503,31 +2381,22 @@ void CanvasPanel::Render(
             );
         }
         
-        // Draw selected markers with highlight ring (with offset if floating)
-        const auto& markerIdsToDraw = isFloatingSelection ? 
-            floatingContent.markerIds : currentSelection.markerIds;
-        for (const auto& markerId : markerIdsToDraw) {
+        // Draw selected markers with highlight ring
+        for (const auto& markerId : currentSelection.markerIds) {
             const Marker* marker = model.FindMarker(markerId);
             if (!marker) continue;
-            
-            float markerX = marker->x;
-            float markerY = marker->y;
-            if (isFloatingSelection) {
-                markerX += dragOffsetX;
-                markerY += dragOffsetY;
-            }
             
             // Convert marker position to screen
             float wx, wy;
             canvas.TileToWorld(
-                static_cast<int>(markerX), 
-                static_cast<int>(markerY),
+                static_cast<int>(marker->x), 
+                static_cast<int>(marker->y),
                 model.grid.tileWidth, model.grid.tileHeight, &wx, &wy
             );
             
             // Add fractional offset
-            wx += (markerX - std::floor(markerX)) * model.grid.tileWidth;
-            wy += (markerY - std::floor(markerY)) * model.grid.tileHeight;
+            wx += (marker->x - std::floor(marker->x)) * model.grid.tileWidth;
+            wy += (marker->y - std::floor(marker->y)) * model.grid.tileHeight;
             
             float sx, sy;
             canvas.WorldToScreen(wx, wy, &sx, &sy);
@@ -3177,10 +3046,6 @@ void CanvasPanel::ClearSelection() {
     hasSelection = false;
     // Keep screen coordinates but mark selection as inactive
     isSelecting = false;
-    // Clean up floating state if any
-    if (isFloatingSelection) {
-        CancelFloatingSelection();
-    }
 }
 
 void CanvasPanel::SelectAll(const Model& model) {
