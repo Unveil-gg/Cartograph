@@ -41,6 +41,9 @@ struct ExportOptions {
     bool layerTiles = true;
     bool layerDoors = true;
     bool layerMarkers = true;
+    
+    // Marker rendering style
+    bool useSimpleMarkers = false;  // false = render icons, true = simple dots
 };
 
 /**

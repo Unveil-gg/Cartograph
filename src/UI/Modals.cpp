@@ -592,6 +592,13 @@ void Modals::RenderExportModal(Model& model, Canvas& canvas) {
         ImGui::SameLine();
         ImGui::Checkbox("Markers", &exportOptions.layerMarkers);
         
+        // Show marker style option when markers are enabled
+        if (exportOptions.layerMarkers) {
+            ImGui::Indent(20.0f);
+            ImGui::Checkbox("Use Simple Icons", &exportOptions.useSimpleMarkers);
+            ImGui::Unindent(20.0f);
+        }
+        
         ImGui::Separator();
         
         // Export button - triggers file dialog

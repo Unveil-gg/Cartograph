@@ -1,5 +1,6 @@
 #include "ExportPng.h"
 #include "Model.h"
+#include "Icons.h"
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -110,6 +111,52 @@ public:
         int endY = std::min(m_height - 1, std::max(y1, y2));
         for (int y = startY; y <= endY; ++y) {
             BlendPixel(x, y, color);
+        }
+    }
+    
+    // Blit scaled icon with color tinting
+    // iconData is RGBA8 format, destSize is the target size in pixels
+    void BlitIconScaled(
+        int destX, int destY, int destSize,
+        const uint8_t* iconData, int iconW, int iconH,
+        const Color& tint
+    ) {
+        int halfSize = destSize / 2;
+        int startX = destX - halfSize;
+        int startY = destY - halfSize;
+        
+        for (int dy = 0; dy < destSize; ++dy) {
+            for (int dx = 0; dx < destSize; ++dx) {
+                // Sample from source icon using nearest-neighbor
+                int srcX = (dx * iconW) / destSize;
+                int srcY = (dy * iconH) / destSize;
+                
+                // Clamp source coordinates
+                srcX = std::max(0, std::min(srcX, iconW - 1));
+                srcY = std::max(0, std::min(srcY, iconH - 1));
+                
+                int srcIdx = (srcY * iconW + srcX) * 4;
+                
+                // Get source pixel
+                float srcR = iconData[srcIdx + 0] / 255.0f;
+                float srcG = iconData[srcIdx + 1] / 255.0f;
+                float srcB = iconData[srcIdx + 2] / 255.0f;
+                float srcA = iconData[srcIdx + 3] / 255.0f;
+                
+                // Apply color tint (multiply blend)
+                // If tint alpha is 0, use white (no tint)
+                Color finalColor;
+                if (tint.a > 0.0f) {
+                    finalColor.r = srcR * tint.r;
+                    finalColor.g = srcG * tint.g;
+                    finalColor.b = srcB * tint.b;
+                    finalColor.a = srcA;
+                } else {
+                    finalColor = Color(srcR, srcG, srcB, srcA);
+                }
+                
+                BlendPixel(startX + dx, startY + dy, finalColor);
+            }
         }
     }
     
@@ -313,7 +360,7 @@ bool ExportPng::Export(
         }
     }
     
-    // Render markers (simple colored circles for now)
+    // Render markers
     if (options.layerMarkers) {
         for (const auto& marker : model.markers) {
             // Calculate marker position in pixels
@@ -331,29 +378,51 @@ bool ExportPng::Export(
                 std::min(model.grid.tileWidth, model.grid.tileHeight) * 
                 marker.size * scale
             );
-            int radius = markerSize / 2;
             
-            // Draw filled circle for marker
-            for (int dy = -radius; dy <= radius; ++dy) {
-                for (int dx = -radius; dx <= radius; ++dx) {
-                    if (dx * dx + dy * dy <= radius * radius) {
-                        buffer.BlendPixel(px + dx, py + dy, marker.color);
-                    }
+            // Try to render icon if not using simple markers
+            bool iconRendered = false;
+            if (!options.useSimpleMarkers && icons && !marker.icon.empty()) {
+                std::vector<uint8_t> iconPixels;
+                int iconW, iconH;
+                std::string iconCategory;
+                
+                if (icons->GetIconData(marker.icon, iconPixels, 
+                                        iconW, iconH, iconCategory)) {
+                    buffer.BlitIconScaled(
+                        px, py, markerSize,
+                        iconPixels.data(), iconW, iconH,
+                        marker.color
+                    );
+                    iconRendered = true;
                 }
             }
             
-            // Draw border (slightly darker)
-            Color borderColor(
-                marker.color.r * 0.7f,
-                marker.color.g * 0.7f,
-                marker.color.b * 0.7f,
-                1.0f
-            );
-            for (int angle = 0; angle < 360; ++angle) {
-                float rad = angle * 3.14159f / 180.0f;
-                int bx = px + static_cast<int>(radius * std::cos(rad));
-                int by = py + static_cast<int>(radius * std::sin(rad));
-                buffer.SetPixel(bx, by, borderColor);
+            // Fallback to simple circle if icon not rendered
+            if (!iconRendered) {
+                int radius = markerSize / 2;
+                
+                // Draw filled circle for marker
+                for (int dy = -radius; dy <= radius; ++dy) {
+                    for (int dx = -radius; dx <= radius; ++dx) {
+                        if (dx * dx + dy * dy <= radius * radius) {
+                            buffer.BlendPixel(px + dx, py + dy, marker.color);
+                        }
+                    }
+                }
+                
+                // Draw border (slightly darker)
+                Color borderColor(
+                    marker.color.r * 0.7f,
+                    marker.color.g * 0.7f,
+                    marker.color.b * 0.7f,
+                    1.0f
+                );
+                for (int angle = 0; angle < 360; ++angle) {
+                    float rad = angle * 3.14159f / 180.0f;
+                    int bx = px + static_cast<int>(radius * std::cos(rad));
+                    int by = py + static_cast<int>(radius * std::sin(rad));
+                    buffer.SetPixel(bx, by, borderColor);
+                }
             }
         }
     }
