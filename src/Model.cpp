@@ -352,25 +352,42 @@ void Model::ExpandGridIfNeeded(int cellX, int cellY) {
         return;
     }
     
-    // Check if we're near any boundary
-    bool needsExpansion = false;
     int threshold = grid.expansionThreshold;
+    bool needsExpansion = false;
     
-    if (cellX < threshold || cellX >= grid.cols - threshold ||
-        cellY < threshold || cellY >= grid.rows - threshold) {
+    // Check positive boundaries (max)
+    if (cellX >= grid.cols - threshold) {
+        int newCols = static_cast<int>(grid.cols * grid.expansionFactor);
+        if (newCols <= grid.cols) newCols = grid.cols + 64;
+        grid.cols = newCols;
+        needsExpansion = true;
+    }
+    if (cellY >= grid.rows - threshold) {
+        int newRows = static_cast<int>(grid.rows * grid.expansionFactor);
+        if (newRows <= grid.rows) newRows = grid.rows + 64;
+        grid.rows = newRows;
+        needsExpansion = true;
+    }
+    
+    // Check negative boundaries (min)
+    if (cellX < grid.minCol + threshold) {
+        int expansion = static_cast<int>(
+            (grid.cols - grid.minCol) * (grid.expansionFactor - 1.0f)
+        );
+        if (expansion < 64) expansion = 64;
+        grid.minCol -= expansion;
+        needsExpansion = true;
+    }
+    if (cellY < grid.minRow + threshold) {
+        int expansion = static_cast<int>(
+            (grid.rows - grid.minRow) * (grid.expansionFactor - 1.0f)
+        );
+        if (expansion < 64) expansion = 64;
+        grid.minRow -= expansion;
         needsExpansion = true;
     }
     
     if (needsExpansion) {
-        int newCols = static_cast<int>(grid.cols * grid.expansionFactor);
-        int newRows = static_cast<int>(grid.rows * grid.expansionFactor);
-        
-        // Ensure minimum expansion
-        if (newCols <= grid.cols) newCols = grid.cols + 64;
-        if (newRows <= grid.rows) newRows = grid.rows + 64;
-        
-        grid.cols = newCols;
-        grid.rows = newRows;
         MarkDirty();
     }
 }

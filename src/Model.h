@@ -48,8 +48,10 @@ struct GridConfig {
     GridPreset preset = GridPreset::Square;  // Cell type preset
     int tileWidth = 16;   // pixels per tile width at 1:1 zoom (derived from preset)
     int tileHeight = 16;  // pixels per tile height at 1:1 zoom (derived from preset)
-    int cols = 256;       // grid width in tiles
-    int rows = 256;       // grid height in tiles
+    int cols = 256;       // grid width in tiles (max X bound)
+    int rows = 256;       // grid height in tiles (max Y bound)
+    int minCol = 0;       // min X bound (can be negative)
+    int minRow = 0;       // min Y bound (can be negative)
     bool locked = false;  // Prevent preset changes after markers placed
     
     // Edge configuration

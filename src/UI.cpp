@@ -1055,7 +1055,7 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
         std::string hoverName = "No tile";
         bool isHoveringTile = false;
         
-        if (m_canvasPanel.isHoveringCanvas && m_canvasPanel.hoveredTileX >= 0 && m_canvasPanel.hoveredTileY >= 0) {
+        if (m_canvasPanel.isHoveringCanvas) {
             const std::string globalRoomId = "";
             int hoveredTileId = model.GetTileAt(
                 globalRoomId, m_canvasPanel.hoveredTileX, m_canvasPanel.hoveredTileY
@@ -3261,8 +3261,9 @@ void UI::RenderStatusBar(Model& model, Canvas& canvas) {
         ImGui::Begin("Cartograph/Console", nullptr, flags);
         
         // Left section: Tile coordinates (if hovering canvas)
-        if (m_canvasPanel.isHoveringCanvas && m_canvasPanel.hoveredTileX >= 0 && m_canvasPanel.hoveredTileY >= 0) {
-            ImGui::Text("Tile: %d, %d", m_canvasPanel.hoveredTileX, m_canvasPanel.hoveredTileY);
+        if (m_canvasPanel.isHoveringCanvas) {
+            ImGui::Text("Tile: %d, %d", m_canvasPanel.hoveredTileX, 
+                       m_canvasPanel.hoveredTileY);
         } else {
             ImGui::TextDisabled("Tile: --, --");
         }

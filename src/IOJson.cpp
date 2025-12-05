@@ -73,6 +73,8 @@ std::string IOJson::SaveToString(const Model& model) {
         {"tileHeight", model.grid.tileHeight},
         {"cols", model.grid.cols},
         {"rows", model.grid.rows},
+        {"minCol", model.grid.minCol},
+        {"minRow", model.grid.minRow},
         {"locked", model.grid.locked},
         {"autoExpandGrid", model.grid.autoExpandGrid},
         {"expansionThreshold", model.grid.expansionThreshold},
@@ -305,6 +307,13 @@ bool IOJson::LoadFromString(const std::string& jsonStr, Model& outModel) {
             outModel.grid.rows = std::clamp(
                 grid.value("rows", 256),
                 Limits::MIN_GRID_DIMENSION, Limits::MAX_GRID_DIMENSION);
+            // Load negative bounds (default 0 for backward compatibility)
+            outModel.grid.minCol = std::clamp(
+                grid.value("minCol", 0),
+                -Limits::MAX_GRID_DIMENSION, 0);
+            outModel.grid.minRow = std::clamp(
+                grid.value("minRow", 0),
+                -Limits::MAX_GRID_DIMENSION, 0);
             outModel.grid.locked = grid.value("locked", false);
             
             // Edge configuration (optional, with defaults)
