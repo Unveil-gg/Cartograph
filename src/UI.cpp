@@ -972,50 +972,6 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
             }
             
             ImGui::Spacing();
-            ImGui::Separator();
-            ImGui::Text("Actions");
-            ImGui::Spacing();
-            
-            // Action buttons with shortcut hints
-            float buttonWidth = ImGui::GetContentRegionAvail().x;
-            float halfWidth = (buttonWidth - ImGui::GetStyle().ItemSpacing.x) 
-                              * 0.5f;
-            
-            // Cut button (copy + delete)
-            std::string cutLabel = "Cut (" + Platform::FormatShortcut("X") + ")";
-            if (ImGui::Button(cutLabel.c_str(), ImVec2(halfWidth, 0))) {
-                m_canvasPanel.CopySelection(model);
-                m_canvasPanel.DeleteSelection(model, history);
-            }
-            
-            ImGui::SameLine();
-            
-            // Copy button
-            std::string copyLabel = "Copy (" + Platform::FormatShortcut("C") 
-                                    + ")";
-            if (ImGui::Button(copyLabel.c_str(), ImVec2(halfWidth, 0))) {
-                m_canvasPanel.CopySelection(model);
-            }
-            
-            // Paste button (enabled if clipboard has content)
-            bool hasClipboard = !m_canvasPanel.clipboard.IsEmpty();
-            std::string pasteLabel = "Paste (" + Platform::FormatShortcut("V") 
-                                     + ")";
-            if (!hasClipboard) ImGui::BeginDisabled();
-            if (ImGui::Button(pasteLabel.c_str(), ImVec2(halfWidth, 0))) {
-                m_canvasPanel.EnterPasteMode();
-            }
-            if (!hasClipboard) ImGui::EndDisabled();
-            
-            ImGui::SameLine();
-            
-            // Delete button
-            std::string deleteLabel = "Delete";
-            if (ImGui::Button(deleteLabel.c_str(), ImVec2(halfWidth, 0))) {
-                m_canvasPanel.DeleteSelection(model, history);
-            }
-            
-            ImGui::Spacing();
             
             // Deselect button
             if (ImGui::Button("Deselect", ImVec2(-1, 0))) {
@@ -1034,6 +990,10 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
         if (ImGui::Button(selectAllLabel.c_str(), ImVec2(-1, 0))) {
             m_canvasPanel.SelectAll(model);
         }
+        
+        // Hint about Edit menu / right-click
+        ImGui::Spacing();
+        ImGui::TextDisabled("Right-click for Cut/Copy/Paste");
     }
     
     // Show tool options for Zoom tool
