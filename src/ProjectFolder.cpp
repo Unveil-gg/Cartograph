@@ -148,6 +148,28 @@ bool ProjectFolder::IsProjectFolder(const std::string& path) {
     return fs::exists(projectPath) && fs::is_regular_file(projectPath);
 }
 
+std::string ProjectFolder::SanitizeProjectName(const std::string& name) {
+    std::string sanitized = name;
+    
+    // Replace invalid filesystem characters with underscores
+    for (char& c : sanitized) {
+        if (c == '/' || c == '\\' || c == ':' || c == '*' || 
+            c == '?' || c == '"' || c == '<' || c == '>' || c == '|') {
+            c = '_';
+        }
+    }
+    
+    // Trim leading/trailing whitespace
+    size_t start = sanitized.find_first_not_of(" \t\n\r");
+    size_t end = sanitized.find_last_not_of(" \t\n\r");
+    
+    if (start == std::string::npos) {
+        return "";  // All whitespace
+    }
+    
+    return sanitized.substr(start, end - start + 1);
+}
+
 std::vector<std::pair<std::string, std::string>>
 ProjectFolder::GetIconList(IconManager* icons) {
     std::vector<std::pair<std::string, std::string>> result;

@@ -57,6 +57,14 @@ public:
      */
     static bool IsProjectFolder(const std::string& path);
     
+    /**
+     * Sanitize a project name for use as a folder name.
+     * Replaces invalid filesystem characters with underscores.
+     * @param name Raw project name
+     * @return Sanitized name safe for filesystem use
+     */
+    static std::string SanitizeProjectName(const std::string& name);
+    
 private:
     /**
      * Get list of custom icon files to save.

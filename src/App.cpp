@@ -800,6 +800,90 @@ void App::SaveProjectFolder(const std::string& folderPath) {
     }
 }
 
+bool App::RenameProjectFolder(const std::string& newTitle) {
+    namespace fs = std::filesystem;
+    
+    // Must have a current file path (project folder)
+    if (m_currentFilePath.empty()) {
+        m_ui.ShowToast("No project folder to rename", Toast::Type::Error);
+        return false;
+    }
+    
+    // Only works for project folders, not .cart files
+    if (m_currentFilePath.size() >= 5 && 
+        m_currentFilePath.substr(m_currentFilePath.size() - 5) == ".cart") {
+        m_ui.ShowToast("Cannot rename .cart files this way", 
+                      Toast::Type::Error);
+        return false;
+    }
+    
+    // Sanitize the new title for filesystem use
+    std::string sanitizedName = ProjectFolder::SanitizeProjectName(newTitle);
+    
+    if (sanitizedName.empty()) {
+        m_ui.ShowToast("Project name cannot be empty", Toast::Type::Error);
+        return false;
+    }
+    
+    // Get current folder path and parent directory
+    fs::path currentPath(m_currentFilePath);
+    fs::path parentDir = currentPath.parent_path();
+    fs::path newPath = parentDir / sanitizedName;
+    
+    // Normalize paths for comparison (remove trailing slashes)
+    std::string currentNorm = currentPath.lexically_normal().string();
+    std::string newNorm = newPath.lexically_normal().string();
+    
+    // Check if the name is actually different
+    if (currentNorm == newNorm) {
+        // Same path - nothing to do
+        return true;
+    }
+    
+    // Check if target folder already exists
+    if (fs::exists(newPath)) {
+        m_ui.ShowToast("A folder named \"" + sanitizedName + 
+                      "\" already exists", Toast::Type::Error);
+        return false;
+    }
+    
+    // Store old path for recent projects update
+    std::string oldPath = m_currentFilePath;
+    
+    // Perform the rename
+    std::error_code ec;
+    fs::rename(currentPath, newPath, ec);
+    
+    if (ec) {
+        m_ui.ShowToast("Failed to rename folder: " + ec.message(), 
+                      Toast::Type::Error);
+        return false;
+    }
+    
+    // Update current file path (ensure trailing slash for folders)
+    std::string newPathStr = newPath.string();
+    if (newPathStr.back() != '/' && newPathStr.back() != '\\') {
+#ifdef _WIN32
+        newPathStr += '\\';
+#else
+        newPathStr += '/';
+#endif
+    }
+    m_currentFilePath = newPathStr;
+    
+    // Update recent projects list
+    RecentProjects::Remove(oldPath);
+    RecentProjects::Add(m_currentFilePath);
+    
+    // Update window title
+    UpdateWindowTitle();
+    
+    m_ui.ShowToast("Project folder renamed to \"" + sanitizedName + "\"", 
+                  Toast::Type::Success);
+    
+    return true;
+}
+
 void App::ExportPackage(const std::string& cartPath) {
     // Use cached thumbnail from last render (simpler and more reliable)
     std::vector<uint8_t> thumbnailPixels;

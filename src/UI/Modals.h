@@ -154,6 +154,7 @@ public:
     
     // Settings modal state
     int settingsModalSelectedTab = 1;  // 0=Project, 1=Grid&Canvas, 2=Keybindings
+    std::string settingsOriginalFolderName;  // Folder name when modal opened
     
     // Icon rename modal state
     std::string renameIconOldName;

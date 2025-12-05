@@ -138,6 +138,15 @@ public:
     void ExportPackage(const std::string& cartPath);
     void ExportPng(const std::string& path);
     
+    /**
+     * Rename the project folder to match a new project title.
+     * Validates that the new name doesn't conflict with existing folders.
+     * Updates m_currentFilePath and recent projects list on success.
+     * @param newTitle New project title (will be sanitized for filesystem)
+     * @return true on success, false on failure (shows toast with error)
+     */
+    bool RenameProjectFolder(const std::string& newTitle);
+    
     // File dialogs
     void ShowNewProjectDialog();
     void ShowOpenProjectDialog();

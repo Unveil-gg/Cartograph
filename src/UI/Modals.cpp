@@ -4,6 +4,7 @@
 #include "../Canvas.h"
 #include "../Jobs.h"
 #include "../Preferences.h"
+#include "../ProjectFolder.h"
 #include "../platform/Paths.h"
 #include "../platform/System.h"
 #include "../IOJson.h"
@@ -633,6 +634,21 @@ void Modals::RenderSettingsModal(App& app, Model& model, KeymapManager& keymap) 
     if (!settingsModalOpened) {
         ImGui::OpenPopup("Settings");
         settingsModalOpened = true;
+        
+        // Capture original folder name for rename detection
+        const std::string& currentPath = app.GetCurrentFilePath();
+        if (!currentPath.empty()) {
+            namespace fs = std::filesystem;
+            settingsOriginalFolderName = fs::path(currentPath)
+                .lexically_normal().filename().string();
+            // Handle case where path ends with / (folder becomes empty)
+            if (settingsOriginalFolderName.empty()) {
+                settingsOriginalFolderName = fs::path(currentPath)
+                    .lexically_normal().parent_path().filename().string();
+            }
+        } else {
+            settingsOriginalFolderName.clear();
+        }
     }
     
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
@@ -677,6 +693,32 @@ void Modals::RenderSettingsModal(App& app, Model& model, KeymapManager& keymap) 
         if (ImGui::InputText("Title", titleBuf, sizeof(titleBuf))) {
             model.meta.title = titleBuf;
             model.MarkDirty();
+        }
+        
+        // Show "Rename Folder" button if title differs from folder name
+        const std::string& currentPath = app.GetCurrentFilePath();
+        bool isProjectFolder = !currentPath.empty() && 
+            !(currentPath.size() >= 5 && 
+              currentPath.substr(currentPath.size() - 5) == ".cart");
+        
+        if (isProjectFolder && !settingsOriginalFolderName.empty()) {
+            std::string sanitizedTitle = ProjectFolder::SanitizeProjectName(
+                model.meta.title);
+            
+            if (!sanitizedTitle.empty() && 
+                sanitizedTitle != settingsOriginalFolderName) {
+                ImGui::SameLine();
+                if (ImGui::Button("Rename Folder")) {
+                    if (app.RenameProjectFolder(model.meta.title)) {
+                        // Update tracked folder name on success
+                        settingsOriginalFolderName = sanitizedTitle;
+                    }
+                }
+                if (ImGui::IsItemHovered()) {
+                    ImGui::SetTooltip("Rename project folder to \"%s\"", 
+                                     sanitizedTitle.c_str());
+                }
+            }
         }
         
         char authorBuf[256];
@@ -2739,16 +2781,9 @@ void Modals::ApplyTemplate(ProjectTemplate tmpl) {
 
 
 void Modals::UpdateNewProjectPath() {
-    // Sanitize project name for filesystem
-    std::string sanitized = newProjectConfig.projectName;
-    
-    // Replace invalid characters with underscores
-    for (char& c : sanitized) {
-        if (c == '/' || c == '\\' || c == ':' || c == '*' || 
-            c == '?' || c == '"' || c == '<' || c == '>' || c == '|') {
-            c = '_';
-        }
-    }
+    // Use centralized sanitization helper
+    std::string sanitized = ProjectFolder::SanitizeProjectName(
+        newProjectConfig.projectName);
     
     // Build full path
     if (!newProjectConfig.saveDirectory.empty()) {
