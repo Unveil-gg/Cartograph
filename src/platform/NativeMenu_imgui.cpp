@@ -189,6 +189,40 @@ void NativeMenuImGui::RenderMenuBar() {
             
             ImGui::Separator();
             
+            // Selection operations
+            std::string cutShortcut = Platform::FormatShortcut("X");
+            if (ImGui::MenuItem("Cut", cutShortcut.c_str())) {
+                auto it = m_callbacks.find("edit.cut");
+                if (it != m_callbacks.end()) it->second();
+            }
+            
+            std::string copyShortcut = Platform::FormatShortcut("C");
+            if (ImGui::MenuItem("Copy", copyShortcut.c_str())) {
+                auto it = m_callbacks.find("edit.copy");
+                if (it != m_callbacks.end()) it->second();
+            }
+            
+            std::string pasteShortcut = Platform::FormatShortcut("V");
+            if (ImGui::MenuItem("Paste", pasteShortcut.c_str())) {
+                auto it = m_callbacks.find("edit.paste");
+                if (it != m_callbacks.end()) it->second();
+            }
+            
+            if (ImGui::MenuItem("Delete", "Del")) {
+                auto it = m_callbacks.find("edit.delete");
+                if (it != m_callbacks.end()) it->second();
+            }
+            
+            ImGui::Separator();
+            
+            std::string selectAllShortcut = Platform::FormatShortcut("A");
+            if (ImGui::MenuItem("Select All", selectAllShortcut.c_str())) {
+                auto it = m_callbacks.find("edit.selectAll");
+                if (it != m_callbacks.end()) it->second();
+            }
+            
+            ImGui::Separator();
+            
             std::string settingsShortcut = Platform::FormatShortcut(",");
             if (ImGui::MenuItem("Settings...", settingsShortcut.c_str())) {
                 auto it = m_callbacks.find("edit.settings");

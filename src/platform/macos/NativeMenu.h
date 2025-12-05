@@ -74,6 +74,11 @@ private:
     NSMenuItem* m_settingsItem;
     NSMenuItem* m_undoItem;
     NSMenuItem* m_redoItem;
+    NSMenuItem* m_cutItem;
+    NSMenuItem* m_copyItem;
+    NSMenuItem* m_pasteItem;
+    NSMenuItem* m_deleteItem;
+    NSMenuItem* m_selectAllItem;
     NSMenuItem* m_viewMenu;
     NSMenuItem* m_assetsMenu;
     NSMenuItem* m_propertiesPanelItem;

@@ -41,6 +41,11 @@ NativeMenuMacOS::NativeMenuMacOS()
     , m_settingsItem(nullptr)
     , m_undoItem(nullptr)
     , m_redoItem(nullptr)
+    , m_cutItem(nullptr)
+    , m_copyItem(nullptr)
+    , m_pasteItem(nullptr)
+    , m_deleteItem(nullptr)
+    , m_selectAllItem(nullptr)
     , m_viewMenu(nullptr)
     , m_assetsMenu(nullptr)
     , m_propertiesPanelItem(nullptr)
@@ -126,6 +131,25 @@ void NativeMenuMacOS::Update(
     }
     if (m_redoItem) {
         [m_redoItem setEnabled:(isEditor && history.CanRedo()) ? YES : NO];
+    }
+    
+    // Update Edit menu - Selection operations only in Editor
+    // Note: Fine-grained enable based on selection state is handled by 
+    // callbacks checking state at trigger time
+    if (m_cutItem) {
+        [m_cutItem setEnabled:isEditor ? YES : NO];
+    }
+    if (m_copyItem) {
+        [m_copyItem setEnabled:isEditor ? YES : NO];
+    }
+    if (m_pasteItem) {
+        [m_pasteItem setEnabled:isEditor ? YES : NO];
+    }
+    if (m_deleteItem) {
+        [m_deleteItem setEnabled:isEditor ? YES : NO];
+    }
+    if (m_selectAllItem) {
+        [m_selectAllItem setEnabled:isEditor ? YES : NO];
     }
     
     // View and Assets menus - entire menus only in Editor
@@ -337,6 +361,32 @@ void NativeMenuMacOS::BuildEditMenu(NSMenu* menuBar) {
     m_redoItem = CreateMenuItem(editMenu, "Redo", "edit.redo", "y",
                                 NSEventModifierFlagCommand);
     [m_redoItem retain];
+    
+    CreateSeparator(editMenu);
+    
+    m_cutItem = CreateMenuItem(editMenu, "Cut", "edit.cut", "x",
+                               NSEventModifierFlagCommand);
+    [m_cutItem retain];
+    
+    m_copyItem = CreateMenuItem(editMenu, "Copy", "edit.copy", "c",
+                                NSEventModifierFlagCommand);
+    [m_copyItem retain];
+    
+    m_pasteItem = CreateMenuItem(editMenu, "Paste", "edit.paste", "v",
+                                 NSEventModifierFlagCommand);
+    [m_pasteItem retain];
+    
+    m_deleteItem = CreateMenuItem(editMenu, "Delete", "edit.delete", "", 0);
+    [m_deleteItem setKeyEquivalentModifierMask:0];
+    [m_deleteItem setKeyEquivalent:[NSString stringWithFormat:@"%C", 
+                                   (unichar)NSDeleteCharacter]];
+    [m_deleteItem retain];
+    
+    CreateSeparator(editMenu);
+    
+    m_selectAllItem = CreateMenuItem(editMenu, "Select All", "edit.selectAll", 
+                                     "a", NSEventModifierFlagCommand);
+    [m_selectAllItem retain];
     
     // Note: Settings moved to application menu (standard macOS pattern)
     

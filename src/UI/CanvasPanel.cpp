@@ -2,6 +2,7 @@
 #include "Modals.h"
 #include "../App.h"
 #include "../platform/Paths.h"
+#include "../platform/System.h"
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <SDL3/SDL.h>
@@ -582,6 +583,74 @@ void CanvasPanel::Render(
                 
                 // Populate selection with content from the rectangle
                 PopulateSelectionFromRect(model, canvas);
+            }
+            
+            // Right-click context menu for selection operations
+            if (ImGui::IsMouseClicked(ImGuiMouseButton_Right) && 
+                !isSelecting && !isDraggingSelection && !isPasteMode) {
+                ImGui::OpenPopup("SelectionContextMenu");
+            }
+            
+            if (ImGui::BeginPopup("SelectionContextMenu")) {
+                bool selectionActive = hasSelection && 
+                                       !currentSelection.IsEmpty();
+                bool clipboardHasContent = !clipboard.IsEmpty();
+                
+                // Cut
+                if (ImGui::MenuItem("Cut", Platform::FormatShortcut("X").c_str(),
+                                   false, selectionActive)) {
+                    CopySelection(model);
+                    EnterFloatingMode();
+                }
+                
+                // Copy
+                if (ImGui::MenuItem("Copy", Platform::FormatShortcut("C").c_str(),
+                                   false, selectionActive)) {
+                    CopySelection(model);
+                }
+                
+                // Paste
+                if (ImGui::MenuItem("Paste", 
+                                   Platform::FormatShortcut("V").c_str(),
+                                   false, clipboardHasContent)) {
+                    if (isFloatingSelection) {
+                        CommitFloatingSelection(model, history);
+                    }
+                    EnterPasteMode();
+                }
+                
+                ImGui::Separator();
+                
+                // Delete
+                if (ImGui::MenuItem("Delete", "Del", false, selectionActive)) {
+                    if (isFloatingSelection) {
+                        CancelFloatingSelection();
+                        ClearSelection();
+                    } else {
+                        DeleteSelection(model, history);
+                    }
+                }
+                
+                ImGui::Separator();
+                
+                // Select All
+                if (ImGui::MenuItem("Select All", 
+                                   Platform::FormatShortcut("A").c_str())) {
+                    if (isFloatingSelection) {
+                        CommitFloatingSelection(model, history);
+                    }
+                    SelectAll(model);
+                }
+                
+                // Deselect
+                if (ImGui::MenuItem("Deselect", "Esc", false, selectionActive)) {
+                    if (isFloatingSelection) {
+                        CancelFloatingSelection();
+                    }
+                    ClearSelection();
+                }
+                
+                ImGui::EndPopup();
             }
         }
         else if (currentTool == Tool::Paint) {
