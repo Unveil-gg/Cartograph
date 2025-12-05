@@ -505,16 +505,30 @@ void CanvasPanel::Render(
                     &clickTileX, &clickTileY
                 );
                 
-                // Check if click is inside selection bounds
-                if (currentSelection.bounds.Contains(clickTileX, clickTileY)) {
-                    // Start dragging selection
+                // Check if click is inside selection bounds (accounting for
+                // floating offset)
+                int boundsX = currentSelection.bounds.x + dragOffsetX;
+                int boundsY = currentSelection.bounds.y + dragOffsetY;
+                bool insideBounds = 
+                    clickTileX >= boundsX &&
+                    clickTileX < boundsX + currentSelection.bounds.w &&
+                    clickTileY >= boundsY &&
+                    clickTileY < boundsY + currentSelection.bounds.h;
+                
+                if (insideBounds) {
+                    // Enter floating mode on first drag (if not already)
+                    if (!isFloatingSelection) {
+                        EnterFloatingMode();
+                    }
+                    // Start dragging
                     isDraggingSelection = true;
-                    dragSelectionStartX = currentSelection.bounds.x;
-                    dragSelectionStartY = currentSelection.bounds.y;
-                    dragOffsetX = 0;
-                    dragOffsetY = 0;
+                    dragSelectionStartX = boundsX;
+                    dragSelectionStartY = boundsY;
                 } else {
-                    // Start new selection
+                    // Clicking outside: commit if floating, then start new
+                    if (isFloatingSelection) {
+                        CommitFloatingSelection(model, history);
+                    }
                     ClearSelection();
                     selectionStartX = mousePos.x;
                     selectionStartY = mousePos.y;
@@ -533,7 +547,7 @@ void CanvasPanel::Render(
                 isSelecting = true;
             }
             
-            // Handle selection dragging
+            // Handle selection dragging (floating mode - visual only)
             if (isDraggingSelection && 
                 ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
                 int currentTileX, currentTileY;
@@ -543,21 +557,12 @@ void CanvasPanel::Render(
                     &currentTileX, &currentTileY
                 );
                 
-                // Calculate drag offset from start
-                int newOffsetX = currentTileX - dragSelectionStartX;
-                int newOffsetY = currentTileY - dragSelectionStartY;
-                
-                // Only move if offset changed
-                if (newOffsetX != dragOffsetX || newOffsetY != dragOffsetY) {
-                    int dx = newOffsetX - dragOffsetX;
-                    int dy = newOffsetY - dragOffsetY;
-                    MoveSelection(model, history, dx, dy);
-                    dragOffsetX = newOffsetX;
-                    dragOffsetY = newOffsetY;
-                }
+                // Update visual offset only (no model changes)
+                dragOffsetX = currentTileX - dragSelectionStartX;
+                dragOffsetY = currentTileY - dragSelectionStartY;
             }
             
-            // Finish drag
+            // Finish drag (selection stays floating until commit/cancel)
             if (isDraggingSelection && 
                 ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
                 isDraggingSelection = false;
@@ -1997,19 +2002,29 @@ void CanvasPanel::Render(
     if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)) {
         // Selection operations take priority when Select tool is active
         if (currentTool == Tool::Select) {
+            // Enter commits floating selection
+            if (ImGui::IsKeyPressed(ImGuiKey_Enter) && isFloatingSelection) {
+                CommitFloatingSelection(model, history);
+            }
+            
             // Copy selection (Ctrl+C)
             if (keymap.IsActionTriggered("copy") && hasSelection) {
                 CopySelection(model);
             }
             
-            // Cut selection (Ctrl+X)
-            if (keymap.IsActionTriggered("cut") && hasSelection) {
+            // Cut selection (Ctrl+X) - enter floating mode (visual cut)
+            if (keymap.IsActionTriggered("cut") && hasSelection && 
+                !isFloatingSelection) {
                 CopySelection(model);
-                DeleteSelection(model, history);
+                EnterFloatingMode();
             }
             
             // Paste (Ctrl+V) - enter paste mode if clipboard has content
             if (keymap.IsActionTriggered("paste") && !clipboard.IsEmpty()) {
+                // Commit any floating selection first
+                if (isFloatingSelection) {
+                    CommitFloatingSelection(model, history);
+                }
                 EnterPasteMode();
             }
             
@@ -2017,20 +2032,35 @@ void CanvasPanel::Render(
             if (hasSelection && 
                 (keymap.IsActionTriggered("delete") || 
                  keymap.IsActionTriggered("deleteAlt"))) {
-                DeleteSelection(model, history);
+                if (isFloatingSelection) {
+                    // Just cancel floating - content already visually removed
+                    CancelFloatingSelection();
+                    ClearSelection();
+                } else {
+                    DeleteSelection(model, history);
+                }
             }
             
-            // Escape cancels paste mode or clears selection
+            // Escape cancels paste mode, floating selection, or clears selection
             if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
                 if (isPasteMode) {
                     ExitPasteMode();
+                } else if (isFloatingSelection) {
+                    CancelFloatingSelection();
                 } else if (hasSelection) {
                     ClearSelection();
                 }
             }
             
-            // Arrow keys nudge selection
-            if (hasSelection && !isPasteMode) {
+            // Arrow keys nudge floating selection (visual offset only)
+            if (hasSelection && !isPasteMode && isFloatingSelection) {
+                if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow)) dragOffsetX -= 1;
+                if (ImGui::IsKeyPressed(ImGuiKey_RightArrow)) dragOffsetX += 1;
+                if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) dragOffsetY -= 1;
+                if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) dragOffsetY += 1;
+            }
+            // Arrow keys also enter floating mode if not already floating
+            else if (hasSelection && !isPasteMode && !isFloatingSelection) {
                 int nudgeX = 0, nudgeY = 0;
                 if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow)) nudgeX = -1;
                 if (ImGui::IsKeyPressed(ImGuiKey_RightArrow)) nudgeX = 1;
@@ -2038,12 +2068,18 @@ void CanvasPanel::Render(
                 if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) nudgeY = 1;
                 
                 if (nudgeX != 0 || nudgeY != 0) {
-                    MoveSelection(model, history, nudgeX, nudgeY);
+                    EnterFloatingMode();
+                    dragOffsetX = nudgeX;
+                    dragOffsetY = nudgeY;
                 }
             }
             
             // Select All (Ctrl+A)
             if (keymap.IsActionTriggered("selectAll")) {
+                // Commit any floating selection first
+                if (isFloatingSelection) {
+                    CommitFloatingSelection(model, history);
+                }
                 SelectAll(model);
             }
         }
@@ -2252,31 +2288,70 @@ void CanvasPanel::Render(
         float tileW = model.grid.tileWidth * canvas.zoom;
         float tileH = model.grid.tileHeight * canvas.zoom;
         
-        // Draw selected tiles with highlight
-        for (const auto& tilePair : currentSelection.tiles) {
-            int tx = tilePair.first.first;
-            int ty = tilePair.first.second;
-            
-            // Convert tile to screen coordinates
-            float wx, wy;
-            canvas.TileToWorld(tx, ty, model.grid.tileWidth, 
-                              model.grid.tileHeight, &wx, &wy);
-            float sx, sy;
-            canvas.WorldToScreen(wx, wy, &sx, &sy);
-            
-            // Draw highlight overlay
-            drawList->AddRectFilled(
-                ImVec2(sx, sy),
-                ImVec2(sx + tileW, sy + tileH),
-                tileFillColor
-            );
+        // When floating, render actual tile colors with transparency
+        if (isFloatingSelection) {
+            for (const auto& tilePair : floatingContent.tiles) {
+                int tx = tilePair.first.first + dragOffsetX;
+                int ty = tilePair.first.second + dragOffsetY;
+                int tileId = tilePair.second;
+                
+                // Find tile color in palette
+                Color tileColor(0.5f, 0.5f, 0.5f, 0.7f);  // Default gray
+                for (const auto& paletteTile : model.palette) {
+                    if (paletteTile.id == tileId) {
+                        tileColor = paletteTile.color;
+                        tileColor.a = 0.7f;  // Semi-transparent
+                        break;
+                    }
+                }
+                
+                // Convert tile to screen coordinates
+                float wx, wy;
+                canvas.TileToWorld(tx, ty, model.grid.tileWidth, 
+                                  model.grid.tileHeight, &wx, &wy);
+                float sx, sy;
+                canvas.WorldToScreen(wx, wy, &sx, &sy);
+                
+                // Draw tile with its color
+                drawList->AddRectFilled(
+                    ImVec2(sx, sy),
+                    ImVec2(sx + tileW, sy + tileH),
+                    tileColor.ToU32()
+                );
+            }
+        } else {
+            // Non-floating: draw highlight overlay only
+            for (const auto& tilePair : currentSelection.tiles) {
+                int tx = tilePair.first.first;
+                int ty = tilePair.first.second;
+                
+                // Convert tile to screen coordinates
+                float wx, wy;
+                canvas.TileToWorld(tx, ty, model.grid.tileWidth, 
+                                  model.grid.tileHeight, &wx, &wy);
+                float sx, sy;
+                canvas.WorldToScreen(wx, wy, &sx, &sy);
+                
+                // Draw highlight overlay
+                drawList->AddRectFilled(
+                    ImVec2(sx, sy),
+                    ImVec2(sx + tileW, sy + tileH),
+                    tileFillColor
+                );
+            }
         }
         
-        // Draw bounding box around entire selection
+        // Draw bounding box around entire selection (with offset if floating)
+        int boundsX = currentSelection.bounds.x;
+        int boundsY = currentSelection.bounds.y;
+        if (isFloatingSelection) {
+            boundsX = floatingOriginX + dragOffsetX;
+            boundsY = floatingOriginY + dragOffsetY;
+        }
+        
         float bx, by;
         canvas.TileToWorld(
-            currentSelection.bounds.x, 
-            currentSelection.bounds.y,
+            boundsX, boundsY,
             model.grid.tileWidth, model.grid.tileHeight, &bx, &by
         );
         float bsx, bsy;
@@ -2322,15 +2397,19 @@ void CanvasPanel::Render(
         drawDashedLine(ImVec2(bsx + boxW, bsy + boxH), ImVec2(bsx, bsy + boxH));
         drawDashedLine(ImVec2(bsx, bsy + boxH), ImVec2(bsx, bsy));
         
-        // Draw selected edges with highlight
-        for (const auto& edgePair : currentSelection.edges) {
+        // Draw selected edges with highlight (with offset if floating)
+        const auto& edgesToDraw = isFloatingSelection ? 
+            floatingContent.edges : currentSelection.edges;
+        for (const auto& edgePair : edgesToDraw) {
             const EdgeId& edge = edgePair.first;
+            int ox = isFloatingSelection ? dragOffsetX : 0;
+            int oy = isFloatingSelection ? dragOffsetY : 0;
             
             // Calculate edge midpoint and draw highlight
             float wx1, wy1, wx2, wy2;
-            canvas.TileToWorld(edge.x1, edge.y1, model.grid.tileWidth, 
+            canvas.TileToWorld(edge.x1 + ox, edge.y1 + oy, model.grid.tileWidth, 
                               model.grid.tileHeight, &wx1, &wy1);
-            canvas.TileToWorld(edge.x2, edge.y2, model.grid.tileWidth, 
+            canvas.TileToWorld(edge.x2 + ox, edge.y2 + oy, model.grid.tileWidth, 
                               model.grid.tileHeight, &wx2, &wy2);
             
             float sx1, sy1, sx2, sy2;
@@ -2355,22 +2434,31 @@ void CanvasPanel::Render(
             );
         }
         
-        // Draw selected markers with highlight ring
-        for (const auto& markerId : currentSelection.markerIds) {
+        // Draw selected markers with highlight ring (with offset if floating)
+        const auto& markerIdsToDraw = isFloatingSelection ? 
+            floatingContent.markerIds : currentSelection.markerIds;
+        for (const auto& markerId : markerIdsToDraw) {
             const Marker* marker = model.FindMarker(markerId);
             if (!marker) continue;
+            
+            float markerX = marker->x;
+            float markerY = marker->y;
+            if (isFloatingSelection) {
+                markerX += dragOffsetX;
+                markerY += dragOffsetY;
+            }
             
             // Convert marker position to screen
             float wx, wy;
             canvas.TileToWorld(
-                static_cast<int>(marker->x), 
-                static_cast<int>(marker->y),
+                static_cast<int>(markerX), 
+                static_cast<int>(markerY),
                 model.grid.tileWidth, model.grid.tileHeight, &wx, &wy
             );
             
             // Add fractional offset
-            wx += (marker->x - std::floor(marker->x)) * model.grid.tileWidth;
-            wy += (marker->y - std::floor(marker->y)) * model.grid.tileHeight;
+            wx += (markerX - std::floor(markerX)) * model.grid.tileWidth;
+            wy += (markerY - std::floor(markerY)) * model.grid.tileHeight;
             
             float sx, sy;
             canvas.WorldToScreen(wx, wy, &sx, &sy);
@@ -3020,6 +3108,10 @@ void CanvasPanel::ClearSelection() {
     hasSelection = false;
     // Keep screen coordinates but mark selection as inactive
     isSelecting = false;
+    // Clean up floating state if any
+    if (isFloatingSelection) {
+        CancelFloatingSelection();
+    }
 }
 
 void CanvasPanel::SelectAll(const Model& model) {
@@ -3515,6 +3607,167 @@ void CanvasPanel::MoveSelection(
     currentSelection.edges = std::move(newEdges);
     
     model.MarkDirty();
+}
+
+void CanvasPanel::EnterFloatingMode() {
+    if (!hasSelection || currentSelection.IsEmpty()) return;
+    if (isFloatingSelection) return;  // Already floating
+    
+    // Store origin position
+    floatingOriginX = currentSelection.bounds.x;
+    floatingOriginY = currentSelection.bounds.y;
+    
+    // Copy selection content to floating buffer
+    floatingContent = currentSelection;
+    
+    // Reset drag offset
+    dragOffsetX = 0;
+    dragOffsetY = 0;
+    
+    isFloatingSelection = true;
+}
+
+void CanvasPanel::CommitFloatingSelection(Model& model, History& history) {
+    if (!isFloatingSelection || floatingContent.IsEmpty()) {
+        CancelFloatingSelection();
+        return;
+    }
+    
+    const std::string globalRoomId = "";
+    
+    // Calculate final position
+    int finalX = floatingOriginX + dragOffsetX;
+    int finalY = floatingOriginY + dragOffsetY;
+    
+    // Step 1: Delete content at original positions
+    std::vector<PaintTilesCommand::TileChange> deleteTileChanges;
+    for (const auto& tilePair : floatingContent.tiles) {
+        int x = tilePair.first.first;
+        int y = tilePair.first.second;
+        
+        PaintTilesCommand::TileChange change;
+        change.roomId = globalRoomId;
+        change.x = x;
+        change.y = y;
+        change.oldTileId = model.GetTileAt(globalRoomId, x, y);
+        change.newTileId = 0;
+        deleteTileChanges.push_back(change);
+        model.SetTileAt(globalRoomId, x, y, 0);
+    }
+    
+    std::vector<ModifyEdgesCommand::EdgeChange> deleteEdgeChanges;
+    for (const auto& edgePair : floatingContent.edges) {
+        ModifyEdgesCommand::EdgeChange change;
+        change.edgeId = edgePair.first;
+        change.oldState = model.GetEdgeState(edgePair.first);
+        change.newState = EdgeState::None;
+        deleteEdgeChanges.push_back(change);
+        model.SetEdgeState(edgePair.first, EdgeState::None);
+    }
+    
+    // Step 2: Place content at new positions
+    std::vector<PaintTilesCommand::TileChange> placeTileChanges;
+    for (const auto& tilePair : floatingContent.tiles) {
+        int newX = tilePair.first.first + dragOffsetX;
+        int newY = tilePair.first.second + dragOffsetY;
+        int oldTileId = model.GetTileAt(globalRoomId, newX, newY);
+        
+        PaintTilesCommand::TileChange change;
+        change.roomId = globalRoomId;
+        change.x = newX;
+        change.y = newY;
+        change.oldTileId = oldTileId;
+        change.newTileId = tilePair.second;
+        placeTileChanges.push_back(change);
+        model.SetTileAt(globalRoomId, newX, newY, tilePair.second);
+    }
+    
+    std::vector<ModifyEdgesCommand::EdgeChange> placeEdgeChanges;
+    for (const auto& edgePair : floatingContent.edges) {
+        EdgeId newEdgeId(
+            edgePair.first.x1 + dragOffsetX, edgePair.first.y1 + dragOffsetY,
+            edgePair.first.x2 + dragOffsetX, edgePair.first.y2 + dragOffsetY
+        );
+        EdgeState oldState = model.GetEdgeState(newEdgeId);
+        
+        ModifyEdgesCommand::EdgeChange change;
+        change.edgeId = newEdgeId;
+        change.oldState = oldState;
+        change.newState = edgePair.second;
+        placeEdgeChanges.push_back(change);
+        model.SetEdgeState(newEdgeId, edgePair.second);
+    }
+    
+    // Step 3: Move markers
+    for (const auto& markerId : floatingContent.markerIds) {
+        Marker* marker = model.FindMarker(markerId);
+        if (marker) {
+            float oldX = marker->x;
+            float oldY = marker->y;
+            marker->x += dragOffsetX;
+            marker->y += dragOffsetY;
+            
+            auto cmd = std::make_unique<MoveMarkersCommand>(
+                markerId, oldX, oldY, marker->x, marker->y
+            );
+            history.AddCommand(std::move(cmd), model, false);
+        }
+    }
+    
+    // Add commands to history
+    if (!deleteTileChanges.empty()) {
+        auto cmd = std::make_unique<PaintTilesCommand>(deleteTileChanges);
+        history.AddCommand(std::move(cmd), model, false);
+    }
+    if (!placeTileChanges.empty()) {
+        auto cmd = std::make_unique<PaintTilesCommand>(placeTileChanges);
+        history.AddCommand(std::move(cmd), model, false);
+    }
+    if (!deleteEdgeChanges.empty()) {
+        auto cmd = std::make_unique<ModifyEdgesCommand>(deleteEdgeChanges);
+        history.AddCommand(std::move(cmd), model, false);
+    }
+    if (!placeEdgeChanges.empty()) {
+        auto cmd = std::make_unique<ModifyEdgesCommand>(placeEdgeChanges);
+        history.AddCommand(std::move(cmd), model, false);
+    }
+    
+    // Update selection to new position
+    currentSelection.bounds.x = finalX;
+    currentSelection.bounds.y = finalY;
+    
+    std::unordered_map<std::pair<int, int>, int, PairHash> newTiles;
+    for (const auto& tilePair : floatingContent.tiles) {
+        newTiles[{tilePair.first.first + dragOffsetX, 
+                  tilePair.first.second + dragOffsetY}] = tilePair.second;
+    }
+    currentSelection.tiles = std::move(newTiles);
+    
+    std::unordered_map<EdgeId, EdgeState, EdgeIdHash> newEdges;
+    for (const auto& edgePair : floatingContent.edges) {
+        EdgeId newEdgeId(
+            edgePair.first.x1 + dragOffsetX, edgePair.first.y1 + dragOffsetY,
+            edgePair.first.x2 + dragOffsetX, edgePair.first.y2 + dragOffsetY
+        );
+        newEdges[newEdgeId] = edgePair.second;
+    }
+    currentSelection.edges = std::move(newEdges);
+    
+    // Exit floating mode
+    isFloatingSelection = false;
+    floatingContent.Clear();
+    dragOffsetX = 0;
+    dragOffsetY = 0;
+    
+    model.MarkDirty();
+}
+
+void CanvasPanel::CancelFloatingSelection() {
+    // Simply exit floating mode - content was never removed from model
+    isFloatingSelection = false;
+    floatingContent.Clear();
+    dragOffsetX = 0;
+    dragOffsetY = 0;
 }
 
 } // namespace Cartograph

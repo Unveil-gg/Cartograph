@@ -93,6 +93,12 @@ public:
     int dragOffsetX = 0;                // Current drag offset in tiles
     int dragOffsetY = 0;
     
+    // Floating selection state (content lifted from canvas for preview)
+    bool isFloatingSelection = false;   // True when selection is "floating"
+    int floatingOriginX = 0;            // Original tile X before floating
+    int floatingOriginY = 0;            // Original tile Y before floating
+    SelectionData floatingContent;      // Content being floated (for rendering)
+    
     // Paint state (for Paint/Erase tools)
     bool isPainting = false;
     int lastPaintedTileX = -1;
@@ -240,6 +246,26 @@ public:
      * Exit paste preview mode without pasting.
      */
     void ExitPasteMode();
+    
+    /**
+     * Enter floating selection mode (lifts content for preview).
+     * Content is visually removed from canvas but model unchanged until commit.
+     */
+    void EnterFloatingMode();
+    
+    /**
+     * Commit floating selection at current offset position.
+     * Actually modifies the model: deletes from origin, places at new position.
+     * @param model Model to modify
+     * @param history History for undo
+     */
+    void CommitFloatingSelection(Model& model, History& history);
+    
+    /**
+     * Cancel floating selection and return to normal selection state.
+     * No model changes occur.
+     */
+    void CancelFloatingSelection();
     
     /**
      * Move selection by offset (for nudge/drag).
