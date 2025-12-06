@@ -518,11 +518,27 @@ void Canvas::RenderMarkers(IRenderer& renderer, const Model& model,
                 );
             }
             
-            // Draw label if zoomed in and enabled
+            // Draw label based on display mode
             if (zoom > 0.7f && marker.showLabel && !marker.label.empty()) {
-                ImVec2 textPos(sx + markerSize/2 + 4, sy - 8);
-                dl->AddText(textPos, marker.color.ToU32(), 
-                           marker.label.c_str());
+                bool shouldShowLabel = false;
+                
+                switch (markerLabelMode) {
+                    case MarkerLabelMode::Always:
+                        shouldShowLabel = true;
+                        break;
+                    case MarkerLabelMode::Never:
+                        shouldShowLabel = false;
+                        break;
+                    case MarkerLabelMode::HoverOnly:
+                        shouldShowLabel = isHovered || isSelected;
+                        break;
+                }
+                
+                if (shouldShowLabel) {
+                    ImVec2 textPos(sx + markerSize/2 + 4, sy - 8);
+                    dl->AddText(textPos, marker.color.ToU32(), 
+                               marker.label.c_str());
+                }
             }
         } else {
             // LOD: Draw simplified dot when zoomed out

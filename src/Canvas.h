@@ -11,6 +11,15 @@ class IconManager;
 class GlRenderer;
 
 /**
+ * Marker label display mode.
+ */
+enum class MarkerLabelMode {
+    Always,     // Show labels for all markers (respects per-marker showLabel)
+    Never,      // Hide all labels
+    HoverOnly   // Only show label for hovered marker
+};
+
+/**
  * Optional rendering context for controlling what gets rendered.
  * Used primarily for PNG export to control layers and skip ImGui.
  */
@@ -46,6 +55,9 @@ public:
     static constexpr float DEFAULT_ZOOM = 2.5f;
     
     bool showGrid = true;
+    
+    // Marker label display mode (default: hover only for cleaner canvas)
+    MarkerLabelMode markerLabelMode = MarkerLabelMode::HoverOnly;
     
     // Thumbnail cache - cached last render for thumbnails
     std::vector<uint8_t> cachedThumbnail;

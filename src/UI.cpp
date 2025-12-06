@@ -568,6 +568,24 @@ void UI::RenderMenuBar(
             
             ImGui::MenuItem("Show Grid", "G", &canvas.showGrid);
             
+            // Marker Labels submenu
+            if (ImGui::BeginMenu("Marker Labels")) {
+                bool isAlways = (canvas.markerLabelMode == MarkerLabelMode::Always);
+                bool isNever = (canvas.markerLabelMode == MarkerLabelMode::Never);
+                bool isHover = (canvas.markerLabelMode == MarkerLabelMode::HoverOnly);
+                
+                if (ImGui::MenuItem("Always Show", nullptr, isAlways)) {
+                    canvas.markerLabelMode = MarkerLabelMode::Always;
+                }
+                if (ImGui::MenuItem("Never Show", nullptr, isNever)) {
+                    canvas.markerLabelMode = MarkerLabelMode::Never;
+                }
+                if (ImGui::MenuItem("Hover Only", nullptr, isHover)) {
+                    canvas.markerLabelMode = MarkerLabelMode::HoverOnly;
+                }
+                ImGui::EndMenu();
+            }
+            
             ImGui::Separator();
             
             if (ImGui::MenuItem("Zoom In", "=")) {
