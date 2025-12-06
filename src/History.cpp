@@ -14,8 +14,7 @@ static const uint64_t PROPERTY_COALESCE_TIME_MS = 300;  // Longer for typing
 
 History::History()
     : m_lastCommandTime(0)
-{
-}
+{}
 
 void History::AddCommand(std::unique_ptr<ICommand> cmd, Model& model, 
                          bool execute) {
@@ -109,9 +108,7 @@ std::string History::GetRedoDescription() const {
 // ============================================================================
 
 PaintTilesCommand::PaintTilesCommand(const std::vector<TileChange>& changes)
-    : m_changes(changes)
-{
-}
+    : m_changes(changes) {}
 
 void PaintTilesCommand::Execute(Model& model) {
     for (const auto& change : m_changes) {
@@ -160,9 +157,7 @@ bool PaintTilesCommand::TryCoalesce(
 // ============================================================================
 
 FillTilesCommand::FillTilesCommand(const std::vector<TileChange>& changes)
-    : m_changes(changes)
-{
-}
+    : m_changes(changes) {}
 
 void FillTilesCommand::Execute(Model& model) {
     for (const auto& change : m_changes) {
@@ -186,8 +181,7 @@ std::string FillTilesCommand::GetDescription() const {
 
 ModifyEdgesCommand::ModifyEdgesCommand(
     const std::vector<EdgeChange>& changes
-) : m_changes(changes) {
-}
+) : m_changes(changes) {}
 
 void ModifyEdgesCommand::Execute(Model& model) {
     for (const auto& change : m_changes) {
@@ -235,8 +229,7 @@ bool ModifyEdgesCommand::TryCoalesce(
 // ============================================================================
 
 CreateRoomCommand::CreateRoomCommand(const Room& room)
-    : m_room(room) {
-}
+    : m_room(room) {}
 
 void CreateRoomCommand::Execute(Model& model) {
     // Add room to model
@@ -266,8 +259,7 @@ std::string CreateRoomCommand::GetDescription() const {
 // ============================================================================
 
 DeleteRoomCommand::DeleteRoomCommand(const std::string& roomId)
-    : m_roomId(roomId) {
-}
+    : m_roomId(roomId) {}
 
 void DeleteRoomCommand::Execute(Model& model) {
     // Find and save room data (only first time)
@@ -327,8 +319,7 @@ ModifyRoomPropertiesCommand::ModifyRoomPropertiesCommand(
     const std::string& roomId,
     const RoomPropertiesSnapshot& oldProps,
     const RoomPropertiesSnapshot& newProps
-) : m_roomId(roomId), m_oldProps(oldProps), m_newProps(newProps) {
-}
+) : m_roomId(roomId), m_oldProps(oldProps), m_newProps(newProps) {}
 
 void ModifyRoomPropertiesCommand::Execute(Model& model) {
     Room* room = model.FindRoom(m_roomId);
@@ -386,8 +377,7 @@ bool ModifyRoomPropertiesCommand::TryCoalesce(
 // ============================================================================
 
 CreateRegionCommand::CreateRegionCommand(const RegionGroup& region)
-    : m_region(region) {
-}
+    : m_region(region) {}
 
 void CreateRegionCommand::Execute(Model& model) {
     model.regionGroups.push_back(m_region);
@@ -415,8 +405,7 @@ std::string CreateRegionCommand::GetDescription() const {
 // ============================================================================
 
 DeleteRegionCommand::DeleteRegionCommand(const std::string& regionId)
-    : m_regionId(regionId) {
-}
+    : m_regionId(regionId) {}
 
 void DeleteRegionCommand::Execute(Model& model) {
     // Save region data (only first time)
@@ -481,8 +470,7 @@ ModifyRegionPropertiesCommand::ModifyRegionPropertiesCommand(
     const std::string& regionId,
     const RegionPropertiesSnapshot& oldProps,
     const RegionPropertiesSnapshot& newProps
-) : m_regionId(regionId), m_oldProps(oldProps), m_newProps(newProps) {
-}
+) : m_regionId(regionId), m_oldProps(oldProps), m_newProps(newProps) {}
 
 void ModifyRegionPropertiesCommand::Execute(Model& model) {
     RegionGroup* region = model.FindRegionGroup(m_regionId);
@@ -536,8 +524,7 @@ bool ModifyRegionPropertiesCommand::TryCoalesce(
 
 ModifyRoomAssignmentsCommand::ModifyRoomAssignmentsCommand(
     const std::vector<CellAssignment>& assignments
-) : m_assignments(assignments) {
-}
+) : m_assignments(assignments) {}
 
 void ModifyRoomAssignmentsCommand::Execute(Model& model) {
     for (const auto& assignment : m_assignments) {
@@ -659,9 +646,7 @@ std::string DeleteMarkerCommand::GetDescription() const {
 // ============================================================================
 
 MoveMarkersCommand::MoveMarkersCommand(const std::vector<MarkerMove>& moves)
-    : m_moves(moves)
-{
-}
+    : m_moves(moves) {}
 
 MoveMarkersCommand::MoveMarkersCommand(
     const std::string& markerId,
@@ -709,8 +694,7 @@ ModifyMarkerPropertiesCommand::ModifyMarkerPropertiesCommand(
     const std::string& markerId,
     const MarkerPropertiesSnapshot& oldProps,
     const MarkerPropertiesSnapshot& newProps
-) : m_markerId(markerId), m_oldProps(oldProps), m_newProps(newProps) {
-}
+) : m_markerId(markerId), m_oldProps(oldProps), m_newProps(newProps) {}
 
 void ModifyMarkerPropertiesCommand::Execute(Model& model) {
     Marker* marker = model.FindMarker(m_markerId);
@@ -741,8 +725,7 @@ std::string ModifyMarkerPropertiesCommand::GetDescription() const {
 bool ModifyMarkerPropertiesCommand::TryCoalesce(
     ICommand* other,
     uint64_t timeDelta,
-    float /*distanceSq*/
-) {
+    float /*distanceSq*/) {
     // Only coalesce within time threshold
     if (timeDelta > PROPERTY_COALESCE_TIME_MS) {
         return false;
@@ -775,9 +758,7 @@ DeleteIconCommand::DeleteIconCommand(const std::string& iconName,
     , m_iconManager(iconManager)
     , m_savedWidth(0)
     , m_savedHeight(0)
-    , m_iconCaptured(false)
-{
-}
+    , m_iconCaptured(false) {}
 
 void DeleteIconCommand::CaptureIconState() {
     if (!m_iconCaptured) {
@@ -846,8 +827,7 @@ std::string DeleteIconCommand::GetDescription() const {
 AddPaletteColorCommand::AddPaletteColorCommand(
     const std::string& name, 
     const Color& color
-) : m_name(name), m_color(color), m_tileId(-1) {
-}
+) : m_name(name), m_color(color), m_tileId(-1) {}
 
 void AddPaletteColorCommand::Execute(Model& model) {
     if (m_tileId == -1) {
@@ -878,8 +858,7 @@ RemovePaletteColorCommand::RemovePaletteColorCommand(
     int replacementTileId
 ) : m_tileId(tileId), 
     m_replacementTileId(replacementTileId),
-    m_savedTile{} {
-}
+    m_savedTile{} {}
 
 void RemovePaletteColorCommand::Execute(Model& model) {
     // First execution - save tile data for undo
@@ -952,8 +931,7 @@ UpdatePaletteColorCommand::UpdatePaletteColorCommand(
     m_newName(newName), 
     m_newColor(newColor),
     m_oldName(""),
-    m_oldColor() {
-}
+    m_oldColor() {}
 
 void UpdatePaletteColorCommand::Execute(Model& model) {
     // Save old state on first execution
@@ -987,9 +965,7 @@ SetZoomCommand::SetZoomCommand(Canvas& canvas, float oldZoom, float newZoom,
     : m_canvas(canvas)
     , m_oldZoom(oldZoom)
     , m_newZoom(newZoom)
-    , m_displayPercent(displayPercent)
-{
-}
+    , m_displayPercent(displayPercent) {}
 
 void SetZoomCommand::Execute(Model& /*model*/) {
     m_canvas.SetZoom(m_newZoom);
@@ -1144,4 +1120,3 @@ std::string DetectRoomsCommand::GetDescription() const {
 }
 
 } // namespace Cartograph
-
