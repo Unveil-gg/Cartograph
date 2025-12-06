@@ -104,6 +104,13 @@ public:
      */
     void RenderMarkerLabelRenameModal(Model& model, History& history);
     
+    /**
+     * Render project action modal (delete/remove from list).
+     * Called when X button clicked on project card.
+     * @param recentProjects Reference to recent projects list for removal
+     */
+    void RenderProjectActionModal(std::vector<RecentProject>& recentProjects);
+    
     // Modal visibility flags
     bool showExportModal = false;
     bool shouldShowExportPngDialog = false;
@@ -126,6 +133,7 @@ public:
     bool showAboutModal = false;
     bool showSaveBeforeActionModal = false;
     bool showFillConfirmationModal = false;
+    bool showProjectActionModal = false;  // Delete/remove project modal
     
     // Modal popup opened tracking flags (to call OpenPopup only once)
     bool exportModalOpened = false;
@@ -148,6 +156,7 @@ public:
     bool saveBeforeActionModalOpened = false;
     bool fillConfirmationModalOpened = false;
     bool whatsNewModalOpened = false;
+    bool projectActionModalOpened = false;
     
     // Fill confirmation modal state
     enum class PendingFillType { None, Tile, Room };
@@ -215,6 +224,10 @@ public:
         OpenProject
     };
     PendingAction pendingAction = PendingAction::None;
+    
+    // Project action modal state (delete/remove from list)
+    std::string projectActionPath;       // Path of project being acted upon
+    std::string projectActionName;       // Name of project for display
     
     // About modal logo textures
     unsigned int cartographLogoTexture = 0;

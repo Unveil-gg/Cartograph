@@ -2482,6 +2482,53 @@ void Modals::RenderProjectBrowserModal(App& app,
                 ImGui::SetCursorScreenPos(textPos);
                 ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), 
                                   "%s", project.name.c_str());
+                
+                // X button in top-right corner
+                const float xButtonSize = 18.0f;
+                const float xButtonMargin = 5.0f;
+                ImVec2 xButtonPos(cardPos.x + cardWidth - xButtonSize - 
+                                 xButtonMargin,
+                                 cardPos.y + xButtonMargin);
+                ImGui::SetCursorScreenPos(xButtonPos);
+                
+                // Style for X button
+                ImGui::PushStyleColor(ImGuiCol_Button, 
+                                     ImVec4(0.0f, 0.0f, 0.0f, 0.5f));
+                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, 
+                                     ImVec4(0.8f, 0.2f, 0.2f, 0.8f));
+                ImGui::PushStyleColor(ImGuiCol_ButtonActive, 
+                                     ImVec4(0.6f, 0.1f, 0.1f, 1.0f));
+                ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 3.0f);
+                
+                std::string xButtonId = "##xclose" + std::to_string(i);
+                if (ImGui::Button(xButtonId.c_str(), 
+                                 ImVec2(xButtonSize, xButtonSize))) {
+                    // Open project action modal
+                    showProjectActionModal = true;
+                    projectActionPath = project.path;
+                    projectActionName = project.name;
+                }
+                
+                // Draw X icon manually
+                ImVec2 xCenter(xButtonPos.x + xButtonSize * 0.5f,
+                              xButtonPos.y + xButtonSize * 0.5f);
+                float xSize = 4.0f;
+                ImU32 xColor = IM_COL32(255, 255, 255, 200);
+                drawList->AddLine(
+                    ImVec2(xCenter.x - xSize, xCenter.y - xSize),
+                    ImVec2(xCenter.x + xSize, xCenter.y + xSize),
+                    xColor, 2.0f);
+                drawList->AddLine(
+                    ImVec2(xCenter.x + xSize, xCenter.y - xSize),
+                    ImVec2(xCenter.x - xSize, xCenter.y + xSize),
+                    xColor, 2.0f);
+                
+                ImGui::PopStyleVar();
+                ImGui::PopStyleColor(3);
+                
+                if (ImGui::IsItemHovered()) {
+                    ImGui::SetTooltip("Remove or delete project");
+                }
             }
             
             ImGui::EndGroup();
@@ -2528,6 +2575,160 @@ void Modals::RenderProjectBrowserModal(App& app,
     // Reset flag if modal was closed (via X button)
     if (!showProjectBrowserModal) {
         projectBrowserModalOpened = false;
+    }
+    
+    // Render project action modal if opened from browser
+    if (showProjectActionModal) {
+        RenderProjectActionModal(recentProjects);
+    }
+}
+
+
+void Modals::RenderProjectActionModal(
+    std::vector<RecentProject>& recentProjects) {
+    // Only call OpenPopup once when modal is first shown
+    if (!projectActionModalOpened) {
+        ImGui::OpenPopup("Project Options");
+        projectActionModalOpened = true;
+    }
+    
+    ImGui::SetNextWindowSize(ImVec2(320, 0), ImGuiCond_Always);
+    
+    ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    
+    if (ImGui::BeginPopupModal("Project Options", &showProjectActionModal,
+        ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove)) {
+        
+        // Project name header
+        ImGui::TextColored(ImVec4(0.8f, 0.8f, 0.8f, 1.0f), 
+                          "%s", projectActionName.c_str());
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        // Delete Project button (destructive)
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.7f, 0.2f, 0.2f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, 
+                             ImVec4(0.8f, 0.3f, 0.3f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, 
+                             ImVec4(0.6f, 0.1f, 0.1f, 1.0f));
+        
+        if (ImGui::Button("Delete Project", ImVec2(-1, 0))) {
+            // Show confirmation popup
+            ImGui::OpenPopup("Confirm Delete");
+        }
+        
+        ImGui::PopStyleColor(3);
+        
+        // Confirmation popup for delete
+        if (ImGui::BeginPopupModal("Confirm Delete", nullptr,
+            ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove)) {
+            
+            ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.0f, 1.0f),
+                "Are you sure you want to delete this project?");
+            ImGui::Spacing();
+            ImGui::TextWrapped("This will permanently delete the project "
+                             "files from disk. This cannot be undone.");
+            ImGui::Spacing();
+            ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f),
+                "%s", projectActionPath.c_str());
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::Spacing();
+            
+            ImGui::PushStyleColor(ImGuiCol_Button, 
+                                 ImVec4(0.7f, 0.2f, 0.2f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, 
+                                 ImVec4(0.8f, 0.3f, 0.3f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, 
+                                 ImVec4(0.6f, 0.1f, 0.1f, 1.0f));
+            
+            if (ImGui::Button("Delete Permanently", ImVec2(140, 0))) {
+                // Delete from filesystem
+                namespace fs = std::filesystem;
+                std::error_code ec;
+                
+                if (fs::exists(projectActionPath, ec)) {
+                    if (fs::is_directory(projectActionPath, ec)) {
+                        fs::remove_all(projectActionPath, ec);
+                    } else {
+                        fs::remove(projectActionPath, ec);
+                    }
+                }
+                
+                // Remove from recent projects
+                RecentProjects::Remove(projectActionPath);
+                
+                // Remove from in-memory list
+                auto it = std::remove_if(recentProjects.begin(), 
+                    recentProjects.end(),
+                    [this](const RecentProject& p) {
+                        return p.path == projectActionPath;
+                    });
+                recentProjects.erase(it, recentProjects.end());
+                
+                m_ui.ShowToast("Project deleted", Toast::Type::Info);
+                
+                showProjectActionModal = false;
+                projectActionModalOpened = false;
+                ImGui::CloseCurrentPopup();
+                ImGui::CloseCurrentPopup();  // Close both popups
+            }
+            
+            ImGui::PopStyleColor(3);
+            
+            ImGui::SameLine();
+            
+            if (ImGui::Button("Cancel##delete", ImVec2(100, 0))) {
+                ImGui::CloseCurrentPopup();
+            }
+            
+            ImGui::EndPopup();
+        }
+        
+        ImGui::Spacing();
+        
+        // Remove from list button (non-destructive)
+        if (ImGui::Button("Remove from List", ImVec2(-1, 0))) {
+            // Remove from recent projects only (don't delete files)
+            RecentProjects::Remove(projectActionPath);
+            
+            // Remove from in-memory list
+            auto it = std::remove_if(recentProjects.begin(), 
+                recentProjects.end(),
+                [this](const RecentProject& p) {
+                    return p.path == projectActionPath;
+                });
+            recentProjects.erase(it, recentProjects.end());
+            
+            m_ui.ShowToast("Project removed from list", Toast::Type::Info);
+            
+            showProjectActionModal = false;
+            projectActionModalOpened = false;
+            ImGui::CloseCurrentPopup();
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Remove from recent projects list\n"
+                            "(project files are not deleted)");
+        }
+        
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        // Cancel button
+        if (ImGui::Button("Cancel", ImVec2(-1, 0))) {
+            showProjectActionModal = false;
+            projectActionModalOpened = false;
+            ImGui::CloseCurrentPopup();
+        }
+        
+        ImGui::EndPopup();
+    }
+    
+    // Reset flag if modal was closed
+    if (!showProjectActionModal) {
+        projectActionModalOpened = false;
     }
 }
 

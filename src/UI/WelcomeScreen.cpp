@@ -408,6 +408,11 @@ void WelcomeScreen::Render(
         m_ui.m_modals.RenderProjectBrowserModal(app, recentProjects);
     }
     
+    // Render project action modal (delete/remove)
+    if (m_ui.m_modals.showProjectActionModal) {
+        m_ui.m_modals.RenderProjectActionModal(recentProjects);
+    }
+    
     // Render toasts
     m_ui.RenderToasts(0.016f);
 }
@@ -496,6 +501,52 @@ void WelcomeScreen::RenderRecentProjectsList(App& app) {
             ImGui::SetCursorScreenPos(textPos);
             ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), 
                               "%s", project.name.c_str());
+            
+            // X button in top-right corner
+            const float xButtonSize = 20.0f;
+            const float xButtonMargin = 6.0f;
+            ImVec2 xButtonPos(cardPos.x + cardWidth - xButtonSize - xButtonMargin,
+                             cardPos.y + xButtonMargin);
+            ImGui::SetCursorScreenPos(xButtonPos);
+            
+            // Style for X button (semi-transparent dark background)
+            ImGui::PushStyleColor(ImGuiCol_Button, 
+                                 ImVec4(0.0f, 0.0f, 0.0f, 0.5f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, 
+                                 ImVec4(0.8f, 0.2f, 0.2f, 0.8f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, 
+                                 ImVec4(0.6f, 0.1f, 0.1f, 1.0f));
+            ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+            
+            std::string xButtonId = "##xclose" + std::to_string(i);
+            if (ImGui::Button(xButtonId.c_str(), 
+                             ImVec2(xButtonSize, xButtonSize))) {
+                // Open project action modal
+                m_ui.m_modals.showProjectActionModal = true;
+                m_ui.m_modals.projectActionPath = project.path;
+                m_ui.m_modals.projectActionName = project.name;
+            }
+            
+            // Draw X icon manually (centered in button)
+            ImVec2 xCenter(xButtonPos.x + xButtonSize * 0.5f,
+                          xButtonPos.y + xButtonSize * 0.5f);
+            float xSize = 5.0f;
+            ImU32 xColor = IM_COL32(255, 255, 255, 200);
+            drawList->AddLine(
+                ImVec2(xCenter.x - xSize, xCenter.y - xSize),
+                ImVec2(xCenter.x + xSize, xCenter.y + xSize),
+                xColor, 2.0f);
+            drawList->AddLine(
+                ImVec2(xCenter.x + xSize, xCenter.y - xSize),
+                ImVec2(xCenter.x - xSize, xCenter.y + xSize),
+                xColor, 2.0f);
+            
+            ImGui::PopStyleVar();
+            ImGui::PopStyleColor(3);
+            
+            if (ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Remove or delete project");
+            }
         }
         
         ImGui::EndGroup();
