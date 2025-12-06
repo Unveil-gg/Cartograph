@@ -251,6 +251,15 @@ private:
     bool m_colorPickerWasOpen = false;
     std::string m_editingMarkerId;  // Track which marker we're editing
     
+public:
+    // Palette style selection state (for label rename feature)
+    // Public so Modals can clear after dialog closes
+    std::string m_selectedPaletteStyleKey;  // "icon:colorHex" of clicked style
+    int m_paletteStyleMarkerCount = 0;      // Count of markers with this style
+    
+private:
+    std::string m_pendingLabelRename;       // New label for rename dialog
+    
     // Room property editing state (for undo/redo)
     RoomPropertiesSnapshot m_roomEditStartState;
     bool m_roomColorPickerWasOpen = false;

@@ -65,6 +65,13 @@ public:
      */
     static std::string SanitizeProjectName(const std::string& name);
     
+    /**
+     * Extract folder name from a path, handling trailing slashes.
+     * @param path Folder path (may have trailing slash)
+     * @return Folder name, or empty string if extraction fails
+     */
+    static std::string GetFolderNameFromPath(const std::string& path);
+    
 private:
     /**
      * Get list of custom icon files to save.

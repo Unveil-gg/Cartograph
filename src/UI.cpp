@@ -1609,23 +1609,39 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
         }
         
         // Capture state when starting to edit label
-        if (ImGui::IsItemActivated() && selMarker) {
-            m_markerEditStartState = captureMarkerProps(selMarker);
-            m_editingMarkerId = selMarker->id;
+        if (ImGui::IsItemActivated()) {
+            if (selMarker) {
+                // Editing a specific marker - clear palette style selection
+                m_selectedPaletteStyleKey.clear();
+                m_paletteStyleMarkerCount = 0;
+                m_markerEditStartState = captureMarkerProps(selMarker);
+                m_editingMarkerId = selMarker->id;
+            }
         }
         
-        // Create command when label edit finishes
-        if (ImGui::IsItemDeactivatedAfterEdit() && selMarker &&
-            m_editingMarkerId == selMarker->id) {
-            auto newProps = captureMarkerProps(selMarker);
-            if (newProps != m_markerEditStartState) {
-                auto cmd = std::make_unique<ModifyMarkerPropertiesCommand>(
-                    selMarker->id,
-                    m_markerEditStartState,
-                    newProps
-                );
-                history.AddCommand(std::move(cmd), model, false);
+        // Handle label edit completion
+        if (ImGui::IsItemDeactivatedAfterEdit()) {
+            // Check if editing from a palette style with multiple markers
+            if (!m_selectedPaletteStyleKey.empty() && 
+                m_paletteStyleMarkerCount > 1) {
+                // Show rename dialog - ask "Rename All" or "Create New"
+                m_modals.showMarkerLabelRenameModal = true;
+                m_modals.markerLabelRenameStyleKey = m_selectedPaletteStyleKey;
+                m_modals.markerLabelRenameNewLabel = m_canvasPanel.markerLabel;
+                m_modals.markerLabelRenameCount = m_paletteStyleMarkerCount;
+            } else if (selMarker && m_editingMarkerId == selMarker->id) {
+                // Single marker selected - create undo command
+                auto newProps = captureMarkerProps(selMarker);
+                if (newProps != m_markerEditStartState) {
+                    auto cmd = std::make_unique<ModifyMarkerPropertiesCommand>(
+                        selMarker->id,
+                        m_markerEditStartState,
+                        newProps
+                    );
+                    history.AddCommand(std::move(cmd), model, false);
+                }
             }
+            // Else: no marker selected, just updated template - nothing to save
         }
         
         // Color picker (hex input)
@@ -2166,14 +2182,6 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
                     
                     ImGui::SameLine();
                     
-                    // Color swatch
-                    ImGui::ColorButton("##color", style.color.ToImVec4(),
-                        ImGuiColorEditFlags_NoTooltip | 
-                        ImGuiColorEditFlags_NoBorder,
-                        ImVec2(16, 24));
-                    
-                    ImGui::SameLine();
-                    
                     // Label or icon name + count
                     std::string displayName = style.label.empty() ? 
                         style.icon : style.label;
@@ -2189,6 +2197,10 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
                         m_canvasPanel.selectedIconName = style.icon;
                         m_canvasPanel.markerColor = style.color;
                         m_canvasPanel.markerLabel = style.label;
+                        
+                        // Track selected palette style for label rename feature
+                        m_selectedPaletteStyleKey = key;
+                        m_paletteStyleMarkerCount = style.count;
                         
                         // Update hex input
                         std::string hexStr = style.color.ToHex(false);

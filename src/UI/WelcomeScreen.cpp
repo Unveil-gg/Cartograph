@@ -595,33 +595,45 @@ static RecentProject CreateProjectEntryFromFolder(
 ) {
     namespace fs = std::filesystem;
             
-            RecentProject project;
+    RecentProject project;
     project.path = folderPath;
     
+    // Get folder name using helper (handles trailing slashes)
+    std::string folderName = ProjectFolder::GetFolderNameFromPath(folderPath);
+    project.name = folderName;  // Default to folder name
+            
+    // Set thumbnail path if preview.png exists
     fs::path p(folderPath);
-    project.name = p.filename().string();
-            
-            // Set thumbnail path if preview.png exists
     fs::path previewPath = p / "preview.png";
-            if (fs::exists(previewPath)) {
-                project.thumbnailPath = previewPath.string();
-            }
+    if (fs::exists(previewPath)) {
+        project.thumbnailPath = previewPath.string();
+    }
             
-            // Read description from project.json
+    // Read title and description from project.json
     fs::path projectJsonPath = p / "project.json";
-            if (fs::exists(projectJsonPath)) {
-                try {
-                    std::ifstream file(projectJsonPath);
-                    if (file.is_open()) {
-                        nlohmann::json j = nlohmann::json::parse(file);
-                        if (j.contains("meta") && 
-                            j["meta"].contains("description")) {
-                            project.description = 
-                                j["meta"]["description"].get<std::string>();
+    if (fs::exists(projectJsonPath)) {
+        try {
+            std::ifstream file(projectJsonPath);
+            if (file.is_open()) {
+                nlohmann::json j = nlohmann::json::parse(file);
+                if (j.contains("meta")) {
+                    // Use meta.title as display name if available
+                    if (j["meta"].contains("title")) {
+                        std::string title = 
+                            j["meta"]["title"].get<std::string>();
+                        if (!title.empty()) {
+                            project.name = title;
                         }
                     }
-                } catch (...) {
-            // Silently ignore parse errors
+                    // Also read description
+                    if (j["meta"].contains("description")) {
+                        project.description = 
+                            j["meta"]["description"].get<std::string>();
+                    }
+                }
+            }
+        } catch (...) {
+            // Silently ignore parse errors - folder name fallback used
         }
     }
     

@@ -69,6 +69,7 @@ void Modals::RenderAll(
     if (showRenameRegionDialog) RenderRenameRegionModal(model);
     if (showDeleteRegionDialog) RenderDeleteRegionModal(model, history);
     if (showFillConfirmationModal) RenderFillConfirmationModal(model, history);
+    if (showMarkerLabelRenameModal) RenderMarkerLabelRenameModal(model, history);
 }
 
 void Modals::RenderDeleteRoomModal(Model& model, History& history) {
@@ -478,6 +479,132 @@ void Modals::RenderFillConfirmationModal(Model& model, History& history) {
     }
 }
 
+
+void Modals::RenderMarkerLabelRenameModal(Model& model, History& history) {
+    static bool modalOpened = false;
+    
+    if (!modalOpened) {
+        ImGui::OpenPopup("Rename Markers");
+        modalOpened = true;
+    }
+    
+    ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSize(ImVec2(400, 0), ImGuiCond_Appearing);
+    
+    if (ImGui::BeginPopupModal("Rename Markers", nullptr, 
+                               ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::TextWrapped(
+            "You changed the label for a marker style with %d markers.",
+            markerLabelRenameCount);
+        ImGui::Spacing();
+        ImGui::TextWrapped("New label: \"%s\"", 
+                          markerLabelRenameNewLabel.c_str());
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        ImGui::Text("What would you like to do?");
+        ImGui::Spacing();
+        
+        // Rename All button
+        if (ImGui::Button("Rename All", ImVec2(180, 0))) {
+            // Parse style key to get icon and color
+            size_t colonPos = markerLabelRenameStyleKey.find(':');
+            if (colonPos != std::string::npos) {
+                std::string styleIcon = 
+                    markerLabelRenameStyleKey.substr(0, colonPos);
+                std::string styleColorHex = 
+                    markerLabelRenameStyleKey.substr(colonPos + 1);
+                
+                // Update all markers with this style
+                for (auto& marker : model.markers) {
+                    if (marker.icon == styleIcon && 
+                        marker.color.ToHex(false) == styleColorHex) {
+                        marker.label = markerLabelRenameNewLabel;
+                        marker.showLabel = !markerLabelRenameNewLabel.empty();
+                    }
+                }
+                model.MarkDirty();
+                
+                // Note: For simplicity, we don't create individual undo 
+                // commands for batch rename. Could be added if needed.
+            }
+            
+            // Clear state and close
+            showMarkerLabelRenameModal = false;
+            modalOpened = false;
+            m_ui.m_selectedPaletteStyleKey.clear();
+            m_ui.m_paletteStyleMarkerCount = 0;
+            ImGui::CloseCurrentPopup();
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Update the label for all %d markers\n"
+                             "with this icon and color", 
+                             markerLabelRenameCount);
+        }
+        
+        ImGui::SameLine();
+        
+        // Create New button
+        if (ImGui::Button("Just This One", ImVec2(180, 0))) {
+            // Only update template for new markers - don't modify existing
+            // The label is already set in m_canvasPanel.markerLabel
+            // If there was a selected marker, update just that one
+            Marker* selMarker = 
+                model.FindMarker(m_ui.m_canvasPanel.selectedMarkerId);
+            if (selMarker) {
+                selMarker->label = markerLabelRenameNewLabel;
+                selMarker->showLabel = !markerLabelRenameNewLabel.empty();
+                model.MarkDirty();
+            }
+            
+            // Clear state and close
+            showMarkerLabelRenameModal = false;
+            modalOpened = false;
+            m_ui.m_selectedPaletteStyleKey.clear();
+            m_ui.m_paletteStyleMarkerCount = 0;
+            ImGui::CloseCurrentPopup();
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("Only update the selected marker (if any)\n"
+                             "or set as template for new markers");
+        }
+        
+        ImGui::Spacing();
+        
+        // Cancel button
+        if (ImGui::Button("Cancel", ImVec2(-1, 0))) {
+            // Revert the label change
+            size_t colonPos = markerLabelRenameStyleKey.find(':');
+            if (colonPos != std::string::npos) {
+                // Find original label from first marker with this style
+                std::string styleIcon = 
+                    markerLabelRenameStyleKey.substr(0, colonPos);
+                std::string styleColorHex = 
+                    markerLabelRenameStyleKey.substr(colonPos + 1);
+                
+                for (const auto& marker : model.markers) {
+                    if (marker.icon == styleIcon && 
+                        marker.color.ToHex(false) == styleColorHex) {
+                        m_ui.m_canvasPanel.markerLabel = marker.label;
+                        break;
+                    }
+                }
+            }
+            
+            showMarkerLabelRenameModal = false;
+            modalOpened = false;
+            m_ui.m_selectedPaletteStyleKey.clear();
+            m_ui.m_paletteStyleMarkerCount = 0;
+            ImGui::CloseCurrentPopup();
+        }
+        
+        ImGui::EndPopup();
+    }
+}
+
+
 void Modals::RenderExportModal(Model& model, Canvas& canvas) {
     // Only call OpenPopup once when modal is first shown
     if (!exportModalOpened) {
@@ -635,20 +762,15 @@ void Modals::RenderSettingsModal(App& app, Model& model, KeymapManager& keymap) 
         ImGui::OpenPopup("Settings");
         settingsModalOpened = true;
         
-        // Capture original folder name for rename detection
+        // Capture original folder name and title for rename detection
         const std::string& currentPath = app.GetCurrentFilePath();
         if (!currentPath.empty()) {
-            namespace fs = std::filesystem;
-            settingsOriginalFolderName = fs::path(currentPath)
-                .lexically_normal().filename().string();
-            // Handle case where path ends with / (folder becomes empty)
-            if (settingsOriginalFolderName.empty()) {
-                settingsOriginalFolderName = fs::path(currentPath)
-                    .lexically_normal().parent_path().filename().string();
-            }
+            settingsOriginalFolderName = 
+                ProjectFolder::GetFolderNameFromPath(currentPath);
         } else {
             settingsOriginalFolderName.clear();
         }
+        settingsOriginalTitle = model.meta.title;
     }
     
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
@@ -710,8 +832,12 @@ void Modals::RenderSettingsModal(App& app, Model& model, KeymapManager& keymap) 
                 ImGui::SameLine();
                 if (ImGui::Button("Rename Folder")) {
                     if (app.RenameProjectFolder(model.meta.title)) {
-                        // Update tracked folder name on success
+                        // Update tracked names on success
                         settingsOriginalFolderName = sanitizedTitle;
+                        settingsOriginalTitle = model.meta.title;
+                    } else {
+                        // Revert title to match original on failure
+                        model.meta.title = settingsOriginalTitle;
                     }
                 }
                 if (ImGui::IsItemHovered()) {

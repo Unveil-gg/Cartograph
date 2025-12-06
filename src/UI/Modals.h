@@ -98,6 +98,12 @@ public:
         std::vector<RecentProject>& recentProjects
     );
     
+    /**
+     * Render marker label rename modal (rename all vs create new).
+     * Called when editing label from placed markers palette.
+     */
+    void RenderMarkerLabelRenameModal(Model& model, History& history);
+    
     // Modal visibility flags
     bool showExportModal = false;
     bool shouldShowExportPngDialog = false;
@@ -155,6 +161,7 @@ public:
     // Settings modal state
     int settingsModalSelectedTab = 1;  // 0=Project, 1=Grid&Canvas, 2=Keybindings
     std::string settingsOriginalFolderName;  // Folder name when modal opened
+    std::string settingsOriginalTitle;       // Title when modal opened
     
     // Icon rename modal state
     std::string renameIconOldName;
@@ -164,6 +171,12 @@ public:
     std::string deleteIconName;
     int deleteIconMarkerCount = 0;
     std::vector<std::string> deleteIconAffectedMarkers;
+    
+    // Marker label rename modal state
+    bool showMarkerLabelRenameModal = false;
+    std::string markerLabelRenameStyleKey;  // "icon:colorHex" style key
+    std::string markerLabelRenameNewLabel;  // New label to apply
+    int markerLabelRenameCount = 0;         // How many markers to rename
     
     // Keybinding rebind modal state
     std::string rebindAction = "";

@@ -170,6 +170,19 @@ std::string ProjectFolder::SanitizeProjectName(const std::string& name) {
     return sanitized.substr(start, end - start + 1);
 }
 
+std::string ProjectFolder::GetFolderNameFromPath(const std::string& path) {
+    // Normalize path to remove trailing slashes, then extract filename
+    fs::path p = fs::path(path).lexically_normal();
+    std::string name = p.filename().string();
+    
+    // If still empty (e.g., root path), try parent
+    if (name.empty() || name == "." || name == "..") {
+        name = p.parent_path().filename().string();
+    }
+    
+    return name;
+}
+
 std::vector<std::pair<std::string, std::string>>
 ProjectFolder::GetIconList(IconManager* icons) {
     std::vector<std::pair<std::string, std::string>> result;
