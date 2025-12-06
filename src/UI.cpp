@@ -2450,37 +2450,12 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
     ImGui::SameLine();
     
     if (ImGui::Button("Detect Rooms")) {
-        int splitCount = 0;
-            int created = 0;
+        // Create undoable command for room detection
+        auto cmd = std::make_unique<DetectRoomsCommand>();
+        cmd->Execute(model);
         
-        // Pass 1: Split any disconnected rooms first
-        // (rooms whose cells are separated by empty cells, walls, or doors)
-        splitCount = model.SplitDisconnectedRooms();
-        
-        // Pass 2: Detect all enclosed regions
-        // This now detects both painted and unpainted regions
-        auto enclosedRooms = model.DetectAllEnclosedRooms();
-        
-        // Create rooms only from UNPAINTED enclosed areas
-        // (painted areas already have room assignments, handled by split)
-        for (const auto& detected : enclosedRooms) {
-                if (detected.isEnclosed && !detected.cells.empty()) {
-                // Check if any cell in this region is unpainted
-                bool hasUnpaintedCells = false;
-                for (const auto& cell : detected.cells) {
-                    if (model.GetCellRoom(cell.first, cell.second).empty()) {
-                        hasUnpaintedCells = true;
-                        break;
-                    }
-                }
-                
-                // Only create room if cells are unpainted
-                if (hasUnpaintedCells) {
-                    Room room = model.CreateRoomFromCells(detected.cells);
-                    created++;
-                }
-            }
-        }
+        int created = cmd->GetCreatedCount();
+        int splitCount = cmd->GetSplitCount();
         
         // Build result message
         std::string message;
@@ -2500,6 +2475,11 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
         } else {
             AddConsoleMessage("No rooms to detect or split", 
                 MessageType::Info);
+        }
+        
+        // Only add to history if something changed
+        if (created > 0 || splitCount > 0) {
+            history.AddCommand(std::move(cmd), model, false);
         }
     }
     
