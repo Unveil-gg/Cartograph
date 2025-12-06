@@ -611,6 +611,22 @@ std::string Model::GetCellRoom(int x, int y) const {
     return "";  // No room assigned
 }
 
+std::string Model::GetCellPaintState(int x, int y) const {
+    // First check room assignment
+    std::string roomId = GetCellRoom(x, y);
+    if (!roomId.empty()) {
+        return roomId;  // Has room assignment
+    }
+    
+    // Check global tile layer for painted tiles
+    int tileId = GetTileAt("", x, y);
+    if (tileId > 0) {
+        return "tile_" + std::to_string(tileId);  // Has tile color
+    }
+    
+    return "";  // Truly empty/unpainted
+}
+
 void Model::SetCellRoom(int x, int y, const std::string& roomId) {
     // Get old room ID to invalidate its cache
     std::string oldRoomId = GetCellRoom(x, y);
@@ -1067,18 +1083,18 @@ Model::DetectedRoom Model::DetectEnclosedRoom(int x, int y) {
         return result;
     }
     
-    // Check if cell already belongs to a room
-    if (!GetCellRoom(x, y).empty()) {
-        return result;  // Already in a room
-    }
+    // Get the paint state of the starting cell
+    // This combines room assignments AND tile colors
+    std::string startPaintState = GetCellPaintState(x, y);
     
-    // Flood-fill to find connected area
+    // Flood-fill to find connected area with same "paint state"
     std::vector<std::vector<bool>> visited(
         grid.rows, std::vector<bool>(grid.cols, false)
     );
     
     std::vector<std::pair<int, int>> stack;
     stack.push_back({x, y});
+    visited[y][x] = true;  // Mark start as visited immediately
     
     int minX = x, minY = y, maxX = x, maxY = y;
     bool touchesBorder = false;
@@ -1087,17 +1103,7 @@ Model::DetectedRoom Model::DetectEnclosedRoom(int x, int y) {
         auto [cx, cy] = stack.back();
         stack.pop_back();
         
-        // Check bounds
-        if (cx < 0 || cx >= grid.cols || cy < 0 || cy >= grid.rows) {
-            touchesBorder = true;
-            continue;
-        }
-        
-        if (visited[cy][cx]) {
-            continue;
-        }
-        
-        visited[cy][cx] = true;
+        // Add to result
         result.cells.insert({cx, cy});
         
         // Update bounding box
@@ -1106,13 +1112,15 @@ Model::DetectedRoom Model::DetectEnclosedRoom(int x, int y) {
         maxX = std::max(maxX, cx);
         maxY = std::max(maxY, cy);
         
-        // Check if at border
-        if (cx == 0 || cx == grid.cols - 1 || 
-            cy == 0 || cy == grid.rows - 1) {
+        // Check if at border (only for unpainted cells)
+        // Painted cells bounded by unpainted are still "enclosed"
+        if (startPaintState.empty() && 
+            (cx == 0 || cx == grid.cols - 1 || 
+             cy == 0 || cy == grid.rows - 1)) {
             touchesBorder = true;
         }
         
-        // Check all 4 neighbors - only cross if no wall
+        // Check all 4 neighbors - only cross if no wall/door
         EdgeSide sides[] = {
             EdgeSide::North, EdgeSide::South,
             EdgeSide::East, EdgeSide::West
@@ -1121,27 +1129,52 @@ Model::DetectedRoom Model::DetectEnclosedRoom(int x, int y) {
         int dy[] = {-1, 1, 0, 0};
         
         for (int i = 0; i < 4; ++i) {
+            int nx = cx + dx[i];
+            int ny = cy + dy[i];
+            
+            // Check bounds
+            if (nx < 0 || nx >= grid.cols || ny < 0 || ny >= grid.rows) {
+                // Out of bounds = touches border for unpainted cells
+                if (startPaintState.empty()) {
+                    touchesBorder = true;
+                }
+                continue;
+            }
+            
+            // Skip if already visited
+            if (visited[ny][nx]) {
+                continue;
+            }
+            
+            // Check if neighbor has same paint state (room ID or tile color)
+            // Different paint state = boundary (don't cross)
+            if (GetCellPaintState(nx, ny) != startPaintState) {
+                continue;  // Different paint state = boundary
+            }
+            
+            // Check edge state - walls and doors block crossing
             EdgeId edgeId = MakeEdgeId(cx, cy, sides[i]);
             EdgeState state = GetEdgeState(edgeId);
-            
-            // Can only cross if edge is None or Door
-            // Wall blocks region boundary
-            if (state == EdgeState::None || state == EdgeState::Door) {
-                int nx = cx + dx[i];
-                int ny = cy + dy[i];
-                
-                // Don't cross into cells that already have rooms
-                if (nx >= 0 && nx < grid.cols && 
-                    ny >= 0 && ny < grid.rows &&
-                    !visited[ny][nx] && 
-                    GetCellRoom(nx, ny).empty()) {
-                    stack.push_back({nx, ny});
-                }
+            if (state != EdgeState::None) {
+                continue;  // Wall or door blocks crossing
             }
+            
+            // Valid neighbor - mark visited and add to stack
+            visited[ny][nx] = true;
+            stack.push_back({nx, ny});
         }
     }
     
-    result.isEnclosed = !touchesBorder && !result.cells.empty();
+    // For painted regions: enclosed if we found cells and didn't escape
+    // through open edges to unpainted space (handled by paint state check)
+    // For unpainted regions: enclosed if didn't touch border
+    if (startPaintState.empty()) {
+        result.isEnclosed = !touchesBorder && !result.cells.empty();
+    } else {
+        // Painted cells are enclosed if bounded by walls/doors/different colors
+        result.isEnclosed = !result.cells.empty();
+    }
+    
     result.boundingBox = {minX, minY, maxX - minX + 1, maxY - minY + 1};
     
     return result;
@@ -1155,16 +1188,11 @@ std::vector<Model::DetectedRoom> Model::DetectAllEnclosedRooms() {
         grid.rows, std::vector<bool>(grid.cols, false)
     );
     
-    // Mark cells already in rooms as visited
-    for (const auto& assignment : cellRoomAssignments) {
-        int cx = assignment.first.first;
-        int cy = assignment.first.second;
-        if (cx >= 0 && cx < grid.cols && cy >= 0 && cy < grid.rows) {
-            visited[cy][cx] = true;
-        }
-    }
+    // Process ALL cells (both painted and unpainted)
+    // DetectEnclosedRoom now handles both cases:
+    // - Painted cells: bounded by walls/doors/unpainted cells
+    // - Unpainted cells: bounded by walls/doors/grid border
     
-    // Flood-fill from each unvisited cell
     for (int y = 0; y < grid.rows; ++y) {
         for (int x = 0; x < grid.cols; ++x) {
             if (visited[y][x]) continue;
@@ -1190,6 +1218,322 @@ std::vector<Model::DetectedRoom> Model::DetectAllEnclosedRooms() {
     }
     
     return detectedRooms;
+}
+
+Model::DetectedRoom Model::DetectColorRegion(int x, int y) {
+    DetectedRoom result;
+    result.isEnclosed = false;
+    
+    // Check if cell is in bounds
+    if (x < 0 || x >= grid.cols || y < 0 || y >= grid.rows) {
+        return result;
+    }
+    
+    // Get the room ID (color) at this cell
+    std::string sourceRoomId = GetCellRoom(x, y);
+    if (sourceRoomId.empty()) {
+        return result;  // No color/room assigned, skip
+    }
+    
+    // Flood-fill to find connected cells of the same color
+    std::vector<std::vector<bool>> visited(
+        grid.rows, std::vector<bool>(grid.cols, false)
+    );
+    
+    std::vector<std::pair<int, int>> stack;
+    stack.push_back({x, y});
+    
+    int minX = x, minY = y, maxX = x, maxY = y;
+    bool touchesBorder = false;
+    bool hasOpenEdgeToEmpty = false;  // Track if region bleeds into empty
+    
+    while (!stack.empty()) {
+        auto [cx, cy] = stack.back();
+        stack.pop_back();
+        
+        // Check bounds
+        if (cx < 0 || cx >= grid.cols || cy < 0 || cy >= grid.rows) {
+            touchesBorder = true;
+            continue;
+        }
+        
+        if (visited[cy][cx]) {
+            continue;
+        }
+        
+        // Check if this cell has the same room assignment
+        std::string cellRoomId = GetCellRoom(cx, cy);
+        if (cellRoomId != sourceRoomId) {
+            // Different color or uncolored - this is a boundary
+            // If uncolored and no wall/door, track it
+            continue;
+        }
+        
+        visited[cy][cx] = true;
+        result.cells.insert({cx, cy});
+        
+        // Update bounding box
+        minX = std::min(minX, cx);
+        minY = std::min(minY, cy);
+        maxX = std::max(maxX, cx);
+        maxY = std::max(maxY, cy);
+        
+        // Check if at grid border
+        if (cx == 0 || cx == grid.cols - 1 || 
+            cy == 0 || cy == grid.rows - 1) {
+            touchesBorder = true;
+        }
+        
+        // Check all 4 neighbors
+        EdgeSide sides[] = {
+            EdgeSide::North, EdgeSide::South,
+            EdgeSide::East, EdgeSide::West
+        };
+        int dx[] = {0, 0, 1, -1};
+        int dy[] = {-1, 1, 0, 0};
+        
+        for (int i = 0; i < 4; ++i) {
+            int nx = cx + dx[i];
+            int ny = cy + dy[i];
+            
+            EdgeId edgeId = MakeEdgeId(cx, cy, sides[i]);
+            EdgeState state = GetEdgeState(edgeId);
+            
+            // Walls and doors block traversal
+            if (state == EdgeState::Wall || state == EdgeState::Door) {
+                continue;  // Blocked by wall/door
+            }
+            
+            // Check if neighbor is in bounds
+            if (nx < 0 || nx >= grid.cols || ny < 0 || ny >= grid.rows) {
+                touchesBorder = true;
+                continue;
+            }
+            
+            if (visited[ny][nx]) {
+                continue;
+            }
+            
+            // Check neighbor's room assignment
+            std::string neighborRoom = GetCellRoom(nx, ny);
+            
+            if (neighborRoom == sourceRoomId) {
+                // Same color, continue flood-fill
+                stack.push_back({nx, ny});
+            } else if (neighborRoom.empty()) {
+                // Uncolored neighbor with no wall = open edge
+                // This doesn't make it non-enclosed if there's a physical
+                // boundary (wall/door), but if no wall, it's open
+                hasOpenEdgeToEmpty = true;
+            }
+            // Different color = implicit boundary (don't traverse)
+        }
+    }
+    
+    // Region is enclosed if:
+    // - Doesn't touch grid border through open edges
+    // - Has cells
+    // Color regions are considered enclosed even with open edges to empty
+    // cells (the color itself defines the boundary)
+    result.isEnclosed = !touchesBorder && !result.cells.empty();
+    result.boundingBox = {minX, minY, maxX - minX + 1, maxY - minY + 1};
+    
+    return result;
+}
+
+std::vector<Model::DetectedRoom> Model::DetectAllColorRegions() {
+    std::vector<DetectedRoom> detectedRooms;
+    
+    // Track which cells have been visited
+    std::vector<std::vector<bool>> visited(
+        grid.rows, std::vector<bool>(grid.cols, false)
+    );
+    
+    // Find all unique room IDs that have cell assignments
+    std::set<std::string> roomIdsWithCells;
+    for (const auto& assignment : cellRoomAssignments) {
+        roomIdsWithCells.insert(assignment.second);
+    }
+    
+    // For each colored cell, detect its region
+    for (int y = 0; y < grid.rows; ++y) {
+        for (int x = 0; x < grid.cols; ++x) {
+            if (visited[y][x]) continue;
+            
+            std::string roomId = GetCellRoom(x, y);
+            if (roomId.empty()) {
+                visited[y][x] = true;
+                continue;  // Skip uncolored cells
+            }
+            
+            DetectedRoom detected = DetectColorRegion(x, y);
+            
+            // Mark cells as visited
+            for (const auto& cell : detected.cells) {
+                int cx = cell.first;
+                int cy = cell.second;
+                if (cx >= 0 && cx < grid.cols && cy >= 0 && cy < grid.rows) {
+                    visited[cy][cx] = true;
+                }
+            }
+            
+            // Color regions are always considered valid rooms
+            // (the color defines the room, enclosure is optional)
+            if (!detected.cells.empty() && detected.cells.size() < 10000) {
+                // Mark as enclosed for color regions (color = boundary)
+                detected.isEnclosed = true;
+                detectedRooms.push_back(detected);
+            }
+        }
+    }
+    
+    return detectedRooms;
+}
+
+std::vector<std::unordered_set<std::pair<int, int>, PairHash>>
+Model::FindContiguousRegions(
+    const std::unordered_set<std::pair<int, int>, PairHash>& cells
+) {
+    std::vector<std::unordered_set<std::pair<int, int>, PairHash>> regions;
+    
+    if (cells.empty()) return regions;
+    
+    // Track visited cells within this set
+    std::unordered_set<std::pair<int, int>, PairHash> visited;
+    
+    // For each unvisited cell, flood-fill to find its contiguous region
+    for (const auto& startCell : cells) {
+        if (visited.count(startCell)) continue;
+        
+        // Flood-fill from this cell
+        std::unordered_set<std::pair<int, int>, PairHash> region;
+        std::vector<std::pair<int, int>> stack;
+        stack.push_back(startCell);
+        
+        while (!stack.empty()) {
+            auto cell = stack.back();
+            stack.pop_back();
+            
+            if (visited.count(cell)) continue;
+            if (cells.find(cell) == cells.end()) continue;  // Not in our set
+            
+            visited.insert(cell);
+            region.insert(cell);
+            
+            // Check 4-connected neighbors
+            int cx = cell.first;
+            int cy = cell.second;
+            
+            // Check for walls/doors blocking adjacency
+            EdgeSide sides[] = {
+                EdgeSide::North, EdgeSide::South,
+                EdgeSide::East, EdgeSide::West
+            };
+            int dx[] = {0, 0, 1, -1};
+            int dy[] = {-1, 1, 0, 0};
+            
+            for (int i = 0; i < 4; ++i) {
+                int nx = cx + dx[i];
+                int ny = cy + dy[i];
+                std::pair<int, int> neighbor = {nx, ny};
+                
+                // Skip if not in our cell set
+                if (cells.find(neighbor) == cells.end()) continue;
+                // Skip if already visited
+                if (visited.count(neighbor)) continue;
+                
+                // Check if blocked by wall or door
+                EdgeId edgeId = MakeEdgeId(cx, cy, sides[i]);
+                EdgeState state = GetEdgeState(edgeId);
+                if (state == EdgeState::Wall || state == EdgeState::Door) {
+                    continue;  // Blocked
+                }
+                
+                stack.push_back(neighbor);
+            }
+        }
+        
+        if (!region.empty()) {
+            regions.push_back(region);
+        }
+    }
+    
+    return regions;
+}
+
+int Model::SplitDisconnectedRooms() {
+    int splitCount = 0;
+    
+    // Collect rooms to process (can't modify while iterating)
+    std::vector<std::string> roomIds;
+    for (const auto& room : rooms) {
+        roomIds.push_back(room.id);
+    }
+    
+    for (const auto& roomId : roomIds) {
+        Room* room = FindRoom(roomId);
+        if (!room) continue;
+        
+        // Get current cells for this room
+        const auto& cells = GetRoomCells(roomId);
+        if (cells.size() <= 1) continue;  // Can't split single cell
+        
+        // Find contiguous regions within this room's cells
+        auto regions = FindContiguousRegions(cells);
+        
+        if (regions.size() <= 1) continue;  // Already contiguous
+        
+        // Find the largest region (keep it with original room)
+        size_t largestIdx = 0;
+        size_t largestSize = 0;
+        for (size_t i = 0; i < regions.size(); ++i) {
+            if (regions[i].size() > largestSize) {
+                largestSize = regions[i].size();
+                largestIdx = i;
+            }
+        }
+        
+        // Create new rooms for smaller regions
+        int splitNum = 2;
+        for (size_t i = 0; i < regions.size(); ++i) {
+            if (i == largestIdx) continue;  // Skip largest
+            
+            // Create new room with similar properties
+            Room newRoom;
+            newRoom.id = GenerateRoomId();
+            newRoom.name = room->name + " (" + std::to_string(splitNum++) + ")";
+            newRoom.regionId = -1;
+            newRoom.parentRegionGroupId = room->parentRegionGroupId;
+            newRoom.color = GenerateDistinctRoomColor();
+            newRoom.notes = "";  // Don't copy notes
+            newRoom.cellsCacheDirty = false;
+            newRoom.cells = regions[i];
+            newRoom.connectionsDirty = true;
+            
+            // Reassign cells to new room
+            for (const auto& cell : regions[i]) {
+                cellRoomAssignments[cell] = newRoom.id;
+            }
+            
+            rooms.push_back(newRoom);
+            splitCount++;
+        }
+        
+        // Update original room's cells to only the largest region
+        room->cells = regions[largestIdx];
+        room->cellsCacheDirty = true;  // Force refresh
+        
+        // Clear and reassign cells for original room
+        for (const auto& cell : regions[largestIdx]) {
+            cellRoomAssignments[cell] = roomId;
+        }
+    }
+    
+    if (splitCount > 0) {
+        MarkDirty();
+    }
+    
+    return splitCount;
 }
 
 Room Model::CreateRoomFromCells(

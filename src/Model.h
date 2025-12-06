@@ -443,6 +443,10 @@ public:
     void ClearCellRoom(int x, int y);  // Remove room assignment
     void ClearAllCellsForRoom(const std::string& roomId);  // Clear all cells
     
+    // Get cell "paint state" for detection (combines room ID and tile ID)
+    // Returns: room ID if assigned, "tile_N" if has tile, "" if empty
+    std::string GetCellPaintState(int x, int y) const;
+    
     // Palette management
     int AddPaletteColor(const std::string& name, const Color& color);
     bool RemovePaletteColor(int tileId);
@@ -499,10 +503,19 @@ public:
     };
     DetectedRoom DetectEnclosedRoom(int x, int y);  // Detect room at cell
     std::vector<DetectedRoom> DetectAllEnclosedRooms();  // Detect all
+    DetectedRoom DetectColorRegion(int x, int y);  // Detect by color
+    std::vector<DetectedRoom> DetectAllColorRegions();  // Detect all colored
     Room CreateRoomFromCells(
         const std::unordered_set<std::pair<int, int>, PairHash>& cells,
         const std::string& name = ""
     );
+    
+    // Room validation and splitting
+    std::vector<std::unordered_set<std::pair<int, int>, PairHash>>
+        FindContiguousRegions(
+            const std::unordered_set<std::pair<int, int>, PairHash>& cells
+        );  // Find contiguous regions within a set of cells
+    int SplitDisconnectedRooms();  // Split rooms with disconnected cells
     
     // Room wall generation
     void GenerateRoomPerimeterWalls(const std::string& roomId);

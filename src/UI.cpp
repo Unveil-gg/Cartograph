@@ -2450,26 +2450,56 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
     ImGui::SameLine();
     
     if (ImGui::Button("Detect Rooms")) {
-        // Detect all enclosed rooms
-        auto detectedRooms = model.DetectAllEnclosedRooms();
-        
-        if (detectedRooms.empty()) {
-            AddConsoleMessage("No enclosed rooms found", MessageType::Warning);
-        } else {
-            // Show confirmation dialog would go here
-            // For now, just create them
+        int splitCount = 0;
             int created = 0;
-            for (const auto& detected : detectedRooms) {
+        
+        // Pass 1: Split any disconnected rooms first
+        // (rooms whose cells are separated by empty cells, walls, or doors)
+        splitCount = model.SplitDisconnectedRooms();
+        
+        // Pass 2: Detect all enclosed regions
+        // This now detects both painted and unpainted regions
+        auto enclosedRooms = model.DetectAllEnclosedRooms();
+        
+        // Create rooms only from UNPAINTED enclosed areas
+        // (painted areas already have room assignments, handled by split)
+        for (const auto& detected : enclosedRooms) {
                 if (detected.isEnclosed && !detected.cells.empty()) {
+                // Check if any cell in this region is unpainted
+                bool hasUnpaintedCells = false;
+                for (const auto& cell : detected.cells) {
+                    if (model.GetCellRoom(cell.first, cell.second).empty()) {
+                        hasUnpaintedCells = true;
+                        break;
+                    }
+                }
+                
+                // Only create room if cells are unpainted
+                if (hasUnpaintedCells) {
                     Room room = model.CreateRoomFromCells(detected.cells);
                     created++;
                 }
             }
-            
-            if (created > 0) {
-                AddConsoleMessage("Detected and created " + std::to_string(created) + 
-                                " room(s)", MessageType::Success);
-            }
+        }
+        
+        // Build result message
+        std::string message;
+        if (splitCount > 0 && created > 0) {
+            message = "Split " + std::to_string(splitCount) + 
+                " disconnected region(s), created " + 
+                std::to_string(created) + " new room(s)";
+            AddConsoleMessage(message, MessageType::Success);
+        } else if (splitCount > 0) {
+            message = "Split " + std::to_string(splitCount) + 
+                " disconnected region(s)";
+            AddConsoleMessage(message, MessageType::Success);
+        } else if (created > 0) {
+            message = "Detected and created " + 
+                std::to_string(created) + " room(s)";
+            AddConsoleMessage(message, MessageType::Success);
+        } else {
+            AddConsoleMessage("No rooms to detect or split", 
+                MessageType::Info);
         }
     }
     
@@ -2690,6 +2720,11 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
                             AddConsoleMessage("Removed " + room.name + " from region", 
                                             MessageType::Success);
                         }
+                        if (ImGui::MenuItem("Add Perimeter Walls")) {
+                            model.GenerateRoomPerimeterWalls(room.id);
+                            AddConsoleMessage("Added perimeter walls to " + 
+                                room.name, MessageType::Success);
+                        }
                         ImGui::Separator();
                         if (ImGui::MenuItem("Delete Room")) {
                             m_modals.showDeleteRoomDialog = true;
@@ -2824,6 +2859,12 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
                     }
                 }
                 ImGui::EndMenu();
+            }
+            
+            if (ImGui::MenuItem("Add Perimeter Walls")) {
+                model.GenerateRoomPerimeterWalls(room.id);
+                AddConsoleMessage("Added perimeter walls to " + room.name, 
+                    MessageType::Success);
             }
             
             ImGui::Separator();
@@ -3176,11 +3217,26 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
                     ImGui::Unindent();
                 }
                 
-                // Delete room button
+                // Room actions
                 ImGui::Spacing();
                 ImGui::Separator();
                 ImGui::Spacing();
                 
+                // Add Perimeter Walls button
+                if (ImGui::Button("Add Perimeter Walls", ImVec2(-1, 0))) {
+                    model.GenerateRoomPerimeterWalls(room->id);
+                    AddConsoleMessage("Added perimeter walls to " + room->name,
+                        MessageType::Success);
+                }
+                if (ImGui::IsItemHovered()) {
+                    ImGui::SetTooltip(
+                        "Add walls around room boundaries\n"
+                        "where there are no existing walls");
+                }
+                
+                ImGui::Spacing();
+                
+                // Delete room button
                 ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.2f, 0.2f, 1.0f));
                 ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.9f, 0.3f, 0.3f, 1.0f));
                 ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.7f, 0.1f, 0.1f, 1.0f));
