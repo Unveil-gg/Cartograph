@@ -1034,15 +1034,102 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
         ImGui::Text("Target Room:");
         ImGui::Separator();
         
-        // Room dropdown selector
-        Room* targetRoom = model.FindRoom(m_canvasPanel.activeRoomId);
-        const char* previewName = targetRoom ? targetRoom->name.c_str() : 
-                                             "Select Room...";
+        // Calculate height for scrollable area (max 10 rooms visible)
+        const float itemHeight = 28.0f;  // Height per room row
+        const float maxVisibleRooms = 10.0f;
+        const float addButtonHeight = 28.0f;
+        float listHeight = std::min(
+            static_cast<float>(model.rooms.size()) * itemHeight + addButtonHeight,
+            maxVisibleRooms * itemHeight + addButtonHeight
+        );
+        // Minimum height when empty
+        if (model.rooms.empty()) {
+            listHeight = addButtonHeight + 8.0f;
+        }
         
-        ImGui::SetNextItemWidth(-1);
-        if (ImGui::BeginCombo("##targetRoom", previewName)) {
-            // Option to create new room (undoable)
-            if (ImGui::Selectable("+ Create New Room")) {
+        // Scrollable room list
+        if (ImGui::BeginChild("##roomList", ImVec2(-1, listHeight), true)) {
+            // Display rooms as list (similar to paint palette)
+            for (const auto& room : model.rooms) {
+                ImGui::PushID(room.id.c_str());
+                
+                bool isSelected = (m_canvasPanel.activeRoomId == room.id);
+                ImVec4 roomColor = room.color.ToImVec4();
+                
+                // Highlight selected room row
+                if (isSelected) {
+                    ImGui::PushStyleColor(ImGuiCol_Button, 
+                        ImVec4(0.26f, 0.59f, 0.98f, 0.4f));
+                    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, 
+                        ImVec4(0.26f, 0.59f, 0.98f, 0.6f));
+                }
+                
+                // Color swatch button
+                if (ImGui::ColorButton("##roomColor", roomColor,
+                                      ImGuiColorEditFlags_NoTooltip |
+                                      ImGuiColorEditFlags_NoPicker,
+                                      ImVec2(20, 20))) {
+                    m_canvasPanel.activeRoomId = room.id;
+                }
+                
+                ImGui::SameLine();
+                
+                // Room name button (full width)
+                float availWidth = ImGui::GetContentRegionAvail().x;
+                if (ImGui::Button(room.name.c_str(), ImVec2(availWidth, 20))) {
+                    m_canvasPanel.activeRoomId = room.id;
+                }
+                
+                if (isSelected) {
+                    ImGui::PopStyleColor(2);
+                }
+                
+                // Tooltip with room info
+                if (ImGui::IsItemHovered()) {
+                    auto cells = model.GetRoomCells(room.id);
+                    ImGui::BeginTooltip();
+                    ImGui::Text("%s", room.name.c_str());
+                    ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f),
+                        "%zu cells", cells.size());
+                    ImGui::EndTooltip();
+                }
+                
+                // Right-click context menu
+                if (ImGui::BeginPopupContextItem("room_context")) {
+                    ImGui::TextDisabled("%s", room.name.c_str());
+                    ImGui::Separator();
+                    
+                    if (ImGui::MenuItem("Rename...")) {
+                        m_modals.showRenameRoomDialog = true;
+                        m_modals.editingRoomId = room.id;
+                        strncpy(m_modals.renameBuffer, room.name.c_str(),
+                               sizeof(m_modals.renameBuffer) - 1);
+                        m_modals.renameBuffer[
+                            sizeof(m_modals.renameBuffer) - 1] = '\0';
+                    }
+                    
+                    if (ImGui::MenuItem("Add Perimeter Walls")) {
+                        model.GenerateRoomPerimeterWalls(room.id);
+                        AddConsoleMessage("Added perimeter walls to " + 
+                            room.name, MessageType::Success);
+                    }
+                    
+                    ImGui::Separator();
+                    
+                    if (ImGui::MenuItem("Delete Room...")) {
+                        m_modals.showDeleteRoomDialog = true;
+                        m_modals.editingRoomId = room.id;
+                    }
+                    
+                    ImGui::EndPopup();
+                }
+                
+                ImGui::PopID();
+            }
+            
+            // "+ Add Room" button at the end
+            ImGui::Spacing();
+            if (ImGui::Button("+ Add Room", ImVec2(-1, 0))) {
                 Room newRoom;
                 newRoom.id = model.GenerateRoomId();
                 newRoom.name = "Room " + std::to_string(model.rooms.size() + 1);
@@ -1055,37 +1142,21 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
                 history.AddCommand(std::move(cmd), model);
                 
                 m_canvasPanel.activeRoomId = newRoom.id;
+                AddConsoleMessage("Created " + newRoom.name, 
+                    MessageType::Success);
             }
             
-            if (!model.rooms.empty()) {
-                ImGui::Separator();
-            }
-            
-            // List all rooms
-            for (const auto& room : model.rooms) {
-                bool isSelected = (m_canvasPanel.activeRoomId == room.id);
-                
-                // Color indicator
-                ImVec4 roomColor = room.color.ToImVec4();
-                ImGui::ColorButton("##roomColor", roomColor,
-                                 ImGuiColorEditFlags_NoTooltip |
-                                 ImGuiColorEditFlags_NoPicker,
-                                 ImVec2(16, 16));
-                ImGui::SameLine();
-                
-                if (ImGui::Selectable(room.name.c_str(), isSelected)) {
-                    m_canvasPanel.activeRoomId = room.id;
-                }
-            }
-            
-            ImGui::EndCombo();
+            ImGui::EndChild();
         }
         
         // Show warning if no room selected
-        if (m_canvasPanel.activeRoomId.empty()) {
+        if (m_canvasPanel.activeRoomId.empty() && !model.rooms.empty()) {
             ImGui::Spacing();
             ImGui::TextColored(ImVec4(1.0f, 0.7f, 0.3f, 1.0f),
                              "Select a target room to begin");
+        } else if (model.rooms.empty()) {
+            ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f),
+                             "Click '+ Add Room' to create one");
         }
     }
     else if (m_canvasPanel.currentTool == CanvasPanel::Tool::RoomErase) {
