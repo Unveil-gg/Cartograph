@@ -1188,32 +1188,123 @@ std::vector<Model::DetectedRoom> Model::DetectAllEnclosedRooms() {
         grid.rows, std::vector<bool>(grid.cols, false)
     );
     
-    // Process ALL cells (both painted and unpainted)
-    // DetectEnclosedRoom now handles both cases:
-    // - Painted cells: bounded by walls/doors/unpainted cells
-    // - Unpainted cells: bounded by walls/doors/grid border
+    // OPTIMIZATION: Pre-build paint state cache to avoid expensive GetTileAt
+    // This is built ONCE and used for all lookups during flood-fill
+    std::unordered_map<std::pair<int, int>, std::string, PairHash> paintStateCache;
     
-    for (int y = 0; y < grid.rows; ++y) {
-        for (int x = 0; x < grid.cols; ++x) {
-            if (visited[y][x]) continue;
-            
-            DetectedRoom detected = DetectEnclosedRoom(x, y);
-            
-            // Mark cells as visited
-            for (const auto& cell : detected.cells) {
-                int cx = cell.first;
-                int cy = cell.second;
-                if (cx >= 0 && cx < grid.cols && cy >= 0 && cy < grid.rows) {
-                    visited[cy][cx] = true;
+    // 1. Collect cells from global tile layer (roomId = "")
+    for (const auto& row : tiles) {
+        if (row.roomId.empty()) {  // Global tile layer
+            for (const auto& run : row.runs) {
+                if (run.tileId > 0) {  // Has a tile (not empty)
+                    std::string paintState = "tile_" + std::to_string(run.tileId);
+                    for (int x = run.startX; x < run.startX + run.count; ++x) {
+                        if (x >= 0 && x < grid.cols && 
+                            row.y >= 0 && row.y < grid.rows) {
+                            paintStateCache[{x, row.y}] = paintState;
+                        }
+                    }
                 }
             }
+        }
+    }
+    
+    // 2. Add cells with room assignments (overrides tile paint state)
+    for (const auto& assignment : cellRoomAssignments) {
+        int x = assignment.first.first;
+        int y = assignment.first.second;
+        if (x >= 0 && x < grid.cols && y >= 0 && y < grid.rows) {
+            paintStateCache[{x, y}] = assignment.second;  // Room ID
+        }
+    }
+    
+    // Helper lambda for cached paint state lookup - O(1) instead of O(n)
+    auto getCachedPaintState = [&](int x, int y) -> std::string {
+        auto it = paintStateCache.find({x, y});
+        return (it != paintStateCache.end()) ? it->second : "";
+    };
+    
+    // 3. Only process painted cells (skip empty cells entirely)
+    for (const auto& [cellCoord, paintState] : paintStateCache) {
+        int startX = cellCoord.first;
+        int startY = cellCoord.second;
+        
+        if (visited[startY][startX]) continue;
+        
+        // Inline flood-fill using cached paint states (FAST!)
+        DetectedRoom detected;
+        detected.isEnclosed = false;
+        
+        std::string startPaintState = paintState;
+        std::vector<std::pair<int, int>> stack;
+        stack.push_back({startX, startY});
+        visited[startY][startX] = true;
+        
+        int minX = startX, minY = startY, maxX = startX, maxY = startY;
+        bool touchesBorder = false;
+        
+        while (!stack.empty()) {
+            auto [cx, cy] = stack.back();
+            stack.pop_back();
             
-            // Only keep if enclosed and reasonable size
-            if (detected.isEnclosed && 
-                detected.cells.size() > 0 && 
-                detected.cells.size() < 10000) {
-                detectedRooms.push_back(detected);
+            detected.cells.insert({cx, cy});
+            
+            minX = std::min(minX, cx);
+            minY = std::min(minY, cy);
+            maxX = std::max(maxX, cx);
+            maxY = std::max(maxY, cy);
+            
+            if (startPaintState.empty() && 
+                (cx == 0 || cx == grid.cols - 1 || 
+                 cy == 0 || cy == grid.rows - 1)) {
+                touchesBorder = true;
             }
+            
+            // Check 4 neighbors
+            EdgeSide sides[] = {
+                EdgeSide::North, EdgeSide::South,
+                EdgeSide::East, EdgeSide::West
+            };
+            int dx[] = {0, 0, 1, -1};
+            int dy[] = {-1, 1, 0, 0};
+            
+            for (int i = 0; i < 4; ++i) {
+                int nx = cx + dx[i];
+                int ny = cy + dy[i];
+                
+                if (nx < 0 || nx >= grid.cols || ny < 0 || ny >= grid.rows) {
+                    if (startPaintState.empty()) touchesBorder = true;
+                    continue;
+                }
+                
+                if (visited[ny][nx]) continue;
+                
+                // Use cached paint state - O(1) lookup!
+                if (getCachedPaintState(nx, ny) != startPaintState) continue;
+                
+                // Check edge state
+                EdgeId edgeId = MakeEdgeId(cx, cy, sides[i]);
+                EdgeState state = GetEdgeState(edgeId);
+                if (state != EdgeState::None) continue;
+                
+                visited[ny][nx] = true;
+                stack.push_back({nx, ny});
+            }
+        }
+        
+        // Determine if enclosed
+        if (startPaintState.empty()) {
+            detected.isEnclosed = !touchesBorder && !detected.cells.empty();
+        } else {
+            detected.isEnclosed = !detected.cells.empty();
+        }
+        
+        detected.boundingBox = {minX, minY, maxX - minX + 1, maxY - minY + 1};
+        
+        if (detected.isEnclosed && 
+            detected.cells.size() > 0 && 
+            detected.cells.size() < 10000) {
+            detectedRooms.push_back(detected);
         }
     }
     
