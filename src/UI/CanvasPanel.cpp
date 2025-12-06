@@ -442,6 +442,27 @@ void CanvasPanel::Render(
             currentTool = Tool::Marker;
         }
         
+        // Room tool shortcuts (auto-open hierarchy panel)
+        bool roomToolActivated = false;
+        if (keymap.IsActionTriggered("toolRoomPaint")) {
+            currentTool = Tool::RoomPaint;
+            roomToolActivated = true;
+        }
+        if (keymap.IsActionTriggered("toolRoomFill")) {
+            currentTool = Tool::RoomFill;
+            roomToolActivated = true;
+        }
+        if (keymap.IsActionTriggered("toolRoomErase")) {
+            currentTool = Tool::RoomErase;
+            roomToolActivated = true;
+        }
+        
+        // Auto-open hierarchy panel when room tool activated via keyboard
+        if (roomToolActivated && showPropertiesPanel && !(*showPropertiesPanel)) {
+            *showPropertiesPanel = true;
+            *layoutInitialized = false;  // Trigger layout rebuild
+        }
+        
         // Clear selection when switching away from Select tool
         if (prevTool == Tool::Select && currentTool != Tool::Select) {
             ClearSelection();

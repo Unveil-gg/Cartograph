@@ -947,6 +947,12 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
                 m_canvasPanel.ClearSelection();
             }
             m_canvasPanel.currentTool = static_cast<CanvasPanel::Tool>(toolIdx);
+            
+            // Auto-open hierarchy panel when selecting room tools
+            if (!showPropertiesPanel) {
+                showPropertiesPanel = true;
+                m_layoutInitialized = false;  // Trigger layout rebuild
+            }
         }
         
         // Fixed 4-column grid layout
