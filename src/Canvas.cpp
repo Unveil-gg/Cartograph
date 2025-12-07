@@ -32,7 +32,8 @@ void Canvas::Render(
     bool showRoomOverlays,
     const Marker* selectedMarker,
     const Marker* hoveredMarker,
-    const RenderContext* context
+    const RenderContext* context,
+    const std::string& hoveredRoomId
 ) {
     m_vpX = viewportX;
     m_vpY = viewportY;
@@ -78,7 +79,7 @@ void Canvas::Render(
         RenderGrid(renderer, model.grid);
     }
     if (showRoomsLayer && showRoomOverlays) {
-        RenderRoomOverlays(renderer, model);
+        RenderRoomOverlays(renderer, model, hoveredRoomId);
     }
     
     // Pop clip rect only if we pushed it
@@ -563,7 +564,8 @@ void Canvas::RenderMarkers(IRenderer& renderer, const Model& model,
     }
 }
 
-void Canvas::RenderRoomOverlays(IRenderer& renderer, const Model& model) {
+void Canvas::RenderRoomOverlays(IRenderer& renderer, const Model& model,
+                               const std::string& hoveredRoomId) {
     const int tileWidth = model.grid.tileWidth;
     const int tileHeight = model.grid.tileHeight;
     
@@ -581,9 +583,12 @@ void Canvas::RenderRoomOverlays(IRenderer& renderer, const Model& model) {
         
         if (roomCells.empty()) continue;
         
-        // Room overlay color (very transparent)
+        // Check if this room is being hovered in UI
+        bool isHovered = (!hoveredRoomId.empty() && room.id == hoveredRoomId);
+        
+        // Room overlay color (more visible when hovered)
         Color overlayColor = room.color;
-        overlayColor.a = 0.15f;  // Super light overlay
+        overlayColor.a = isHovered ? 0.4f : 0.15f;
         
         // Room outline color (opaque)
         Color outlineColor = room.color;

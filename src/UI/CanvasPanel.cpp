@@ -2287,8 +2287,13 @@ void CanvasPanel::Render(
         isHoveringEdge ? &hoveredEdge : nullptr,
         showRoomOverlays,  // Pass room overlay toggle state
         selMarkerPtr,      // Pass selected marker for highlight
-        hovMarkerPtr       // Pass hovered marker for highlight
+        hovMarkerPtr,      // Pass hovered marker for highlight
+        nullptr,           // No special render context
+        hoveredRoomId      // Pass hovered room for highlight
     );
+    
+    // Clear hovered room at end of frame (will be set again if still hovering)
+    hoveredRoomId.clear();
     
     // Note: Thumbnail capture moved to App::Render() after ImGui draw data
     // is rendered to ensure pixels are actually in the framebuffer

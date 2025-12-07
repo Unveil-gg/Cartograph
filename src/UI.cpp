@@ -3385,12 +3385,30 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
                                                  ImGuiSelectableFlags_None)) {
                                 m_canvasPanel.selectedRoomId = connectedId;
                                 m_canvasPanel.activeRoomId = connectedId;
-                                // Future: Center camera on selected room
+                                
+                                // Navigate camera to the connected room
+                                auto cells = model.GetRoomCells(connectedId);
+                                if (!cells.empty()) {
+                                    int minX = INT_MAX, minY = INT_MAX;
+                                    int maxX = INT_MIN, maxY = INT_MIN;
+                                    for (const auto& cell : cells) {
+                                        minX = std::min(minX, cell.first);
+                                        maxX = std::max(maxX, cell.first);
+                                        minY = std::min(minY, cell.second);
+                                        maxY = std::max(maxY, cell.second);
+                                    }
+                                    int centerX = (minX + maxX) / 2;
+                                    int centerY = (minY + maxY) / 2;
+                                    canvas.FocusOnTile(centerX, centerY,
+                                        model.grid.tileWidth,
+                                        model.grid.tileHeight);
+                                }
                             }
                             
-                            // Show hand cursor on hover
+                            // Show hand cursor and highlight room on hover
                             if (ImGui::IsItemHovered()) {
                                 ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+                                m_canvasPanel.hoveredRoomId = connectedId;
                             }
                             
                             ImGui::PopStyleVar();

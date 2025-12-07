@@ -138,6 +138,7 @@ public:
     std::string selectedRegionGroupId; // Currently selected region
     bool roomPaintMode = false;        // Room painting mode active
     bool showRoomOverlays = true;      // Show room visual overlays
+    std::string hoveredRoomId;         // Room hovered in UI (for canvas highlight)
     
     // Room assignment state (for room paint mode)
     bool isPaintingRoomCells = false;

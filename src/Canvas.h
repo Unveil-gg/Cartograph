@@ -80,7 +80,8 @@ public:
         bool showRoomOverlays = true,
         const Marker* selectedMarker = nullptr,    // Optional
         const Marker* hoveredMarker = nullptr,     // Optional
-        const RenderContext* context = nullptr     // Optional
+        const RenderContext* context = nullptr,    // Optional
+        const std::string& hoveredRoomId = ""      // Optional, for UI highlight
     );
     
     // Coordinate transformations
@@ -131,7 +132,8 @@ private:
     void RenderMarkers(IRenderer& renderer, const Model& model,
                       IconManager* icons, const Marker* selectedMarker,
                       const Marker* hoveredMarker);
-    void RenderRoomOverlays(IRenderer& renderer, const Model& model);
+    void RenderRoomOverlays(IRenderer& renderer, const Model& model,
+                           const std::string& hoveredRoomId);
     
     // Viewport state (set during Render)
     int m_vpX, m_vpY, m_vpW, m_vpH;
