@@ -1629,7 +1629,8 @@ int Model::SplitDisconnectedRooms() {
 
 Room Model::CreateRoomFromCells(
     const std::unordered_set<std::pair<int, int>, PairHash>& cells,
-    const std::string& name
+    const std::string& name,
+    bool generateWalls
 ) {
     Room room;
     room.id = GenerateRoomId();
@@ -1655,8 +1656,8 @@ Room Model::CreateRoomFromCells(
         cellRoomAssignments[cell] = room.id;
     }
     
-    // Generate perimeter walls if enabled
-    if (autoGenerateRoomWalls) {
+    // Generate perimeter walls if enabled and requested
+    if (generateWalls && autoGenerateRoomWalls) {
         GenerateRoomPerimeterWalls(cells);
     }
     
@@ -1717,6 +1718,55 @@ void Model::GenerateRoomPerimeterWalls(
             }
         }
     }
+}
+
+std::vector<std::tuple<EdgeId, EdgeState, EdgeState>> 
+Model::ComputeRoomPerimeterWallChanges(const std::string& roomId) {
+    std::vector<std::tuple<EdgeId, EdgeState, EdgeState>> changes;
+    
+    const auto& cells = GetRoomCells(roomId);
+    if (cells.empty()) return changes;
+    
+    // Build a set for fast lookup
+    std::set<std::pair<int, int>> cellSet(cells.begin(), cells.end());
+    
+    // For each cell in the room, check all 4 edges
+    for (const auto& cell : cells) {
+        int cx = cell.first;
+        int cy = cell.second;
+        
+        EdgeSide sides[] = {
+            EdgeSide::North, EdgeSide::South, 
+            EdgeSide::East, EdgeSide::West
+        };
+        
+        for (EdgeSide side : sides) {
+            EdgeId edgeId = MakeEdgeId(cx, cy, side);
+            
+            // Determine adjacent cell position
+            int adjX = cx;
+            int adjY = cy;
+            switch (side) {
+                case EdgeSide::North: adjY = cy - 1; break;
+                case EdgeSide::South: adjY = cy + 1; break;
+                case EdgeSide::East:  adjX = cx + 1; break;
+                case EdgeSide::West:  adjX = cx - 1; break;
+            }
+            
+            // Check if adjacent cell is in the same room
+            bool sameRoom = cellSet.count({adjX, adjY}) > 0;
+            
+            // If adjacent is NOT in same room, would add wall
+            if (!sameRoom) {
+                EdgeState currentState = GetEdgeState(edgeId);
+                if (currentState == EdgeState::None) {
+                    changes.emplace_back(edgeId, EdgeState::None, EdgeState::Wall);
+                }
+            }
+        }
+    }
+    
+    return changes;
 }
 
 // ============================================================================

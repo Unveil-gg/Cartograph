@@ -1034,7 +1034,10 @@ void DetectRoomsCommand::Execute(Model& model) {
             }
             
             if (hasUnpaintedCells) {
-                Room room = model.CreateRoomFromCells(detected.cells);
+                // Skip wall generation - user can add walls separately
+                Room room = model.CreateRoomFromCells(
+                    detected.cells, "", false
+                );
                 // Room is already added to model by CreateRoomFromCells
             }
         }

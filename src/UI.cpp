@@ -1145,19 +1145,8 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
                 AddConsoleMessage("Created " + newRoom.name, 
                     MessageType::Success);
             }
-            
-            ImGui::EndChild();
         }
-        
-        // Show warning if no room selected
-        if (m_canvasPanel.activeRoomId.empty() && !model.rooms.empty()) {
-            ImGui::Spacing();
-            ImGui::TextColored(ImVec4(1.0f, 0.7f, 0.3f, 1.0f),
-                             "Select a target room to begin");
-        } else if (model.rooms.empty()) {
-            ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f),
-                             "Click '+ Add Room' to create one");
-        }
+        ImGui::EndChild();  // Must be called regardless of BeginChild return
     }
     else if (m_canvasPanel.currentTool == CanvasPanel::Tool::RoomErase) {
         ImGui::Spacing();
@@ -2573,15 +2562,31 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
     }
     
     if (ImGui::Button("Add Walls")) {
-        int roomsProcessed = 0;
+        // Collect all edge changes across all rooms for undo support
+        std::vector<ModifyEdgesCommand::EdgeChange> allChanges;
+        std::unordered_set<EdgeId, EdgeIdHash> seenEdges;  // Avoid duplicates
+        
         for (const auto& room : model.rooms) {
-            model.GenerateRoomPerimeterWalls(room.id);
-            roomsProcessed++;
+            auto roomChanges = model.ComputeRoomPerimeterWallChanges(room.id);
+            for (const auto& [edgeId, oldState, newState] : roomChanges) {
+                if (seenEdges.insert(edgeId).second) {
+                    ModifyEdgesCommand::EdgeChange change;
+                    change.edgeId = edgeId;
+                    change.oldState = oldState;
+                    change.newState = newState;
+                    allChanges.push_back(change);
+                }
+            }
         }
-        if (roomsProcessed > 0) {
-            AddConsoleMessage("Added perimeter walls to " + 
-                std::to_string(roomsProcessed) + " room(s)", 
-                MessageType::Success);
+        
+        if (!allChanges.empty()) {
+            auto cmd = std::make_unique<ModifyEdgesCommand>(allChanges);
+            history.AddCommand(std::move(cmd), model, true);
+            AddConsoleMessage("Added " + std::to_string(allChanges.size()) + 
+                " wall segment(s)", MessageType::Success);
+        } else {
+            AddConsoleMessage("No walls to add - rooms already have walls", 
+                MessageType::Info);
         }
     }
     

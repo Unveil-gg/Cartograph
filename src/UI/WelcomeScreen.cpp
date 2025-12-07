@@ -512,10 +512,11 @@ void WelcomeScreen::RenderRecentProjectsList(App& app) {
             // X button in top-right corner (only show on hover)
             if (isCardHovered) {
                 const float xButtonSize = 18.0f;
-                const float xButtonMargin = 3.0f;
+                const float xButtonMarginX = -2.0f;  // Negative to push further right
+                const float xButtonMarginY = 6.0f;   // Slightly lower
                 ImVec2 xButtonPos(cardPos.x + cardWidth - xButtonSize - 
-                                 xButtonMargin,
-                                 cardPos.y + xButtonMargin);
+                                 xButtonMarginX,
+                                 cardPos.y + xButtonMarginY);
                 ImGui::SetCursorScreenPos(xButtonPos);
                 
                 // Style for X button (semi-transparent dark background)

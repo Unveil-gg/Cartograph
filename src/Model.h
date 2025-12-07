@@ -507,7 +507,8 @@ public:
     std::vector<DetectedRoom> DetectAllColorRegions();  // Detect all colored
     Room CreateRoomFromCells(
         const std::unordered_set<std::pair<int, int>, PairHash>& cells,
-        const std::string& name = ""
+        const std::string& name = "",
+        bool generateWalls = true
     );
     
     // Room validation and splitting
@@ -522,6 +523,14 @@ public:
     void GenerateRoomPerimeterWalls(
         const std::unordered_set<std::pair<int, int>, PairHash>& cells
     );
+    
+    /**
+     * Compute wall changes for room perimeter without applying.
+     * @param roomId Room to compute walls for
+     * @return Vector of (EdgeId, oldState, newState) tuples
+     */
+    std::vector<std::tuple<EdgeId, EdgeState, EdgeState>> 
+        ComputeRoomPerimeterWallChanges(const std::string& roomId);
     
     // Room connection detection (via doors)
     void UpdateRoomConnections();           // Update all room connections
