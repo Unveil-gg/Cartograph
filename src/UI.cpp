@@ -2555,6 +2555,10 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
     ImGui::Separator();
     ImGui::Spacing();
     
+    // Toggle room overlays (at top for easy access)
+    ImGui::Checkbox("Show Room Overlays", &m_canvasPanel.showRoomOverlays);
+    ImGui::Spacing();
+    
     // Search/filter box
     static char searchBuffer[256] = "";
     ImGui::SetNextItemWidth(-1);
@@ -2933,11 +2937,6 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
     }
     
     ImGui::EndChild();  // End HierarchyList
-    
-    // Toggle room overlays
-    ImGui::Spacing();
-    ImGui::Checkbox("Show Room Overlays", &m_canvasPanel.showRoomOverlays);
-    ImGui::Spacing();
     
     // ========================================================================
     // PROPERTIES SECTION (for selected room/region)
