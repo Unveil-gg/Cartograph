@@ -2483,51 +2483,60 @@ void Modals::RenderProjectBrowserModal(App& app,
                 ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), 
                                   "%s", project.name.c_str());
                 
-                // X button in top-right corner
-                const float xButtonSize = 18.0f;
-                const float xButtonMargin = 5.0f;
-                ImVec2 xButtonPos(cardPos.x + cardWidth - xButtonSize - 
-                                 xButtonMargin,
-                                 cardPos.y + xButtonMargin);
-                ImGui::SetCursorScreenPos(xButtonPos);
+                // Check if mouse is hovering over the card area
+                ImVec2 mousePos = ImGui::GetMousePos();
+                bool isCardHovered = (mousePos.x >= cardPos.x && 
+                                     mousePos.x <= cardPos.x + cardWidth &&
+                                     mousePos.y >= cardPos.y && 
+                                     mousePos.y <= cardPos.y + thumbnailHeight);
                 
-                // Style for X button
-                ImGui::PushStyleColor(ImGuiCol_Button, 
-                                     ImVec4(0.0f, 0.0f, 0.0f, 0.5f));
-                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, 
-                                     ImVec4(0.8f, 0.2f, 0.2f, 0.8f));
-                ImGui::PushStyleColor(ImGuiCol_ButtonActive, 
-                                     ImVec4(0.6f, 0.1f, 0.1f, 1.0f));
-                ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 3.0f);
-                
-                std::string xButtonId = "##xclose" + std::to_string(i);
-                if (ImGui::Button(xButtonId.c_str(), 
-                                 ImVec2(xButtonSize, xButtonSize))) {
-                    // Open project action modal
-                    showProjectActionModal = true;
-                    projectActionPath = project.path;
-                    projectActionName = project.name;
-                }
-                
-                // Draw X icon manually
-                ImVec2 xCenter(xButtonPos.x + xButtonSize * 0.5f,
-                              xButtonPos.y + xButtonSize * 0.5f);
-                float xSize = 4.0f;
-                ImU32 xColor = IM_COL32(255, 255, 255, 200);
-                drawList->AddLine(
-                    ImVec2(xCenter.x - xSize, xCenter.y - xSize),
-                    ImVec2(xCenter.x + xSize, xCenter.y + xSize),
-                    xColor, 2.0f);
-                drawList->AddLine(
-                    ImVec2(xCenter.x + xSize, xCenter.y - xSize),
-                    ImVec2(xCenter.x - xSize, xCenter.y + xSize),
-                    xColor, 2.0f);
-                
-                ImGui::PopStyleVar();
-                ImGui::PopStyleColor(3);
-                
-                if (ImGui::IsItemHovered()) {
-                    ImGui::SetTooltip("Remove or delete project");
+                // X button in top-right corner (only show on hover)
+                if (isCardHovered) {
+                    const float xButtonSize = 16.0f;
+                    const float xButtonMargin = 3.0f;
+                    ImVec2 xButtonPos(cardPos.x + cardWidth - xButtonSize - 
+                                     xButtonMargin,
+                                     cardPos.y + xButtonMargin);
+                    ImGui::SetCursorScreenPos(xButtonPos);
+                    
+                    // Style for X button
+                    ImGui::PushStyleColor(ImGuiCol_Button, 
+                                         ImVec4(0.0f, 0.0f, 0.0f, 0.6f));
+                    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, 
+                                         ImVec4(0.8f, 0.2f, 0.2f, 0.9f));
+                    ImGui::PushStyleColor(ImGuiCol_ButtonActive, 
+                                         ImVec4(0.6f, 0.1f, 0.1f, 1.0f));
+                    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 3.0f);
+                    
+                    std::string xButtonId = "##xclose" + std::to_string(i);
+                    if (ImGui::Button(xButtonId.c_str(), 
+                                     ImVec2(xButtonSize, xButtonSize))) {
+                        // Open project action modal
+                        showProjectActionModal = true;
+                        projectActionPath = project.path;
+                        projectActionName = project.name;
+                    }
+                    
+                    // Draw X icon manually
+                    ImVec2 xCenter(xButtonPos.x + xButtonSize * 0.5f,
+                                  xButtonPos.y + xButtonSize * 0.5f);
+                    float xSize = 4.0f;
+                    ImU32 xColor = IM_COL32(255, 255, 255, 220);
+                    drawList->AddLine(
+                        ImVec2(xCenter.x - xSize, xCenter.y - xSize),
+                        ImVec2(xCenter.x + xSize, xCenter.y + xSize),
+                        xColor, 2.0f);
+                    drawList->AddLine(
+                        ImVec2(xCenter.x + xSize, xCenter.y - xSize),
+                        ImVec2(xCenter.x - xSize, xCenter.y + xSize),
+                        xColor, 2.0f);
+                    
+                    ImGui::PopStyleVar();
+                    ImGui::PopStyleColor(3);
+                    
+                    if (ImGui::IsItemHovered()) {
+                        ImGui::SetTooltip("Remove or delete project");
+                    }
                 }
             }
             
