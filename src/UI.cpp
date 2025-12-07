@@ -1964,7 +1964,7 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
                 // Get marker icon names (exclude tool icons)
                 auto iconNames = icons.GetIconNamesByCategory("marker");
                 
-                // Responsive grid layout
+                // Responsive grid layout (no centering to avoid clipping)
                 float buttonSize = 80.0f;  // Size of each icon button
                 float spacing = 8.0f;
                 float availWidth = ImGui::GetContentRegionAvail().x;
@@ -1975,12 +1975,6 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
                                     (buttonSize + spacing)));
                 columns = std::min(columns, 4);
                 
-                // Calculate centering offset
-                float totalWidth = columns * buttonSize + 
-                                  (columns - 1) * spacing;
-                float leftPadding = std::max(0.0f, 
-                    (availWidth - totalWidth) * 0.5f);
-                
                 for (size_t i = 0; i < iconNames.size(); ++i) {
                     const std::string& iconName = iconNames[i];
                     const Icon* icon = icons.GetIcon(iconName);
@@ -1989,11 +1983,8 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
                     
                     ImGui::PushID(static_cast<int>(i));
                     
-                    // Begin new row with left padding for centering
-                    if (i % columns == 0) {
-                        ImGui::SetCursorPosX(
-                            ImGui::GetCursorPosX() + leftPadding);
-                    } else {
+                    // Grid layout without centering (prevents clipping)
+                    if (i % columns != 0) {
                         ImGui::SameLine(0, spacing);
                     }
                     
