@@ -871,8 +871,6 @@ void Modals::RenderSettingsModal(App& app, Model& model, KeymapManager& keymap) 
             model.meta.description = descBuf;
             model.MarkDirty();
         }
-                ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f),
-                    "Brief description of your project (optional)");
         
         ImGui::Spacing();
         ImGui::Separator();
@@ -1110,6 +1108,7 @@ void Modals::RenderSettingsModal(App& app, Model& model, KeymapManager& keymap) 
             renderBinding("Tool: Room Paint", "toolRoomPaint");
             renderBinding("Tool: Room Erase", "toolRoomErase");
             renderBinding("Tool: Room Fill", "toolRoomFill");
+            renderBinding("Tool: Room Select", "toolRoomSelect");
             
             // VIEW CATEGORY
             ImGui::TableNextRow();

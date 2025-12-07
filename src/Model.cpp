@@ -859,6 +859,7 @@ void Model::InitDefaultKeymap() {
     keymap["toolRoomPaint"] = "Shift+R";
     keymap["toolRoomErase"] = "Shift+E";
     keymap["toolRoomFill"] = "Shift+F";
+    keymap["toolRoomSelect"] = "Shift+S";
     
     // View
     keymap["pan"] = "Space+Drag";

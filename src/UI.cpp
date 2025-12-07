@@ -850,23 +850,23 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
     ImGui::Dummy(ImVec2(0, panelPadding * 0.5f));
     
     const char* roomToolNames[] = {
-        "Room Paint", "Room Fill", "Room Erase"
+        "Room Paint", "Room Fill", "Room Erase", "Room Select"
     };
     
     const char* roomToolIconNames[] = {
-        "paintbrush", "paint-bucket", "eraser"
+        "paintbrush", "paint-bucket", "eraser", "mouse-pointer-2"
     };
     
     const char* roomToolShortcuts[] = {
-        "Shift+R", "Shift+F", "Shift+E"
+        "Shift+R", "Shift+F", "Shift+E", "Shift+S"
     };
     
     const ImVec4 maroonBg(0.55f, 0.1f, 0.1f, 1.0f);
     const ImVec4 maroonBgHover(0.65f, 0.2f, 0.2f, 1.0f);
     const ImVec4 maroonBgActive(0.45f, 0.05f, 0.05f, 1.0f);
     
-    for (int i = 0; i < 3; ++i) {
-        int toolIdx = 8 + i;  // RoomPaint=8, RoomFill=9, RoomErase=10
+    for (int i = 0; i < 4; ++i) {
+        int toolIdx = 8 + i;  // RoomPaint=8, RoomFill=9, RoomErase=10, RoomSelect=11
         bool selected = (static_cast<int>(m_canvasPanel.currentTool) == toolIdx);
         
         ImGui::PushID(toolIdx);
@@ -930,6 +930,12 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
                     ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
                         "Click/drag to remove cells from rooms");
                     break;
+                case 3: // Room Select
+                    ImGui::Text("Room Select Tool [Shift+S]");
+                    ImGui::Separator();
+                    ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
+                        "Click cell to select its room");
+                    break;
             }
             ImGui::EndTooltip();
         }
@@ -956,7 +962,7 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
         }
         
         // Fixed 4-column grid layout
-        if ((i + 1) % TOOLS_PER_ROW != 0 && i < 2) {
+        if ((i + 1) % TOOLS_PER_ROW != 0 && i < 3) {
             ImGui::SameLine(0, iconSpacing);
         }
         
@@ -2674,11 +2680,23 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
     // Render all regions and unassigned rooms in a flat list
     bool hasAnyItems = false;
     
+    // Helper for case-insensitive search
+    auto containsIgnoreCase = [](const std::string& haystack, 
+                                  const std::string& needle) -> bool {
+        if (needle.empty()) return true;
+        std::string lowerHaystack = haystack;
+        std::string lowerNeedle = needle;
+        std::transform(lowerHaystack.begin(), lowerHaystack.end(),
+                      lowerHaystack.begin(), ::tolower);
+        std::transform(lowerNeedle.begin(), lowerNeedle.end(),
+                      lowerNeedle.begin(), ::tolower);
+        return lowerHaystack.find(lowerNeedle) != std::string::npos;
+    };
+    
     // First, render all regions
     for (auto& region : model.regionGroups) {
-        // Filter by search
-        if (!searchTerm.empty() && 
-            region.name.find(searchTerm) == std::string::npos) {
+        // Filter by search (case-insensitive)
+        if (!searchTerm.empty() && !containsIgnoreCase(region.name, searchTerm)) {
             continue;
         }
         
@@ -2749,9 +2767,9 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
             int roomCount = 0;
             for (auto& room : model.rooms) {
                 if (room.parentRegionGroupId == region.id) {
-                    // Filter by search
+                    // Filter by search (case-insensitive)
                     if (!searchTerm.empty() && 
-                        room.name.find(searchTerm) == std::string::npos) {
+                        !containsIgnoreCase(room.name, searchTerm)) {
                         continue;
                     }
                     
@@ -2863,9 +2881,9 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
             continue;  // Skip rooms in regions
         }
         
-        // Filter by search
+        // Filter by search (case-insensitive)
         if (!searchTerm.empty() && 
-            room.name.find(searchTerm) == std::string::npos) {
+            !containsIgnoreCase(room.name, searchTerm)) {
             continue;
         }
         
@@ -3815,12 +3833,35 @@ void UI::RenderStatusBar(Model& model, Canvas& canvas) {
             
             // Calculate time since message (for fading effect)
             double age = Platform::GetTime() - lastMsg.timestamp;
+            
+            // Use selectable text so users can copy console messages
+            // InputText with ReadOnly flag allows selection/copy
+            static char consoleMsgBuf[256];
+            strncpy(consoleMsgBuf, displayMsg.c_str(), sizeof(consoleMsgBuf) - 1);
+            consoleMsgBuf[sizeof(consoleMsgBuf) - 1] = '\0';
+            
+            // Style to match surrounding text
+            ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
+            ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0, 0, 0, 0));
+            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
+            ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
+            
             if (age > 5.0) {
                 // Fade out old messages
-                ImGui::TextDisabled("%s", displayMsg.c_str());
-            } else {
-                ImGui::Text("%s", displayMsg.c_str());
+                ImGui::PushStyleColor(ImGuiCol_Text, 
+                    ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
             }
+            
+            ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+            ImGui::InputText("##consoleMsg", consoleMsgBuf, sizeof(consoleMsgBuf),
+                           ImGuiInputTextFlags_ReadOnly);
+            
+            if (age > 5.0) {
+                ImGui::PopStyleColor();  // Text color
+            }
+            
+            ImGui::PopStyleVar(2);
+            ImGui::PopStyleColor(2);
         } else {
             // No messages yet
             ImGui::TextDisabled("Ready");
@@ -3941,6 +3982,7 @@ void UI::BuildFixedLayout(ImGuiID dockspaceId) {
             rightNode->LocalFlags |= ImGuiDockNodeFlags_NoTabBar;
             rightNode->LocalFlags |= ImGuiDockNodeFlags_NoWindowMenuButton;
             rightNode->LocalFlags |= ImGuiDockNodeFlags_NoCloseButton;
+            rightNode->LocalFlags |= ImGuiDockNodeFlags_NoResize;  // Non-resizable
         }
     }
     

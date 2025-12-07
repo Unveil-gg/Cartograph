@@ -456,6 +456,10 @@ void CanvasPanel::Render(
             currentTool = Tool::RoomErase;
             roomToolActivated = true;
         }
+        if (keymap.IsActionTriggered("toolRoomSelect")) {
+            currentTool = Tool::RoomSelect;
+            roomToolActivated = true;
+        }
         
         // Auto-open hierarchy panel when room tool activated via keyboard
         if (roomToolActivated && showPropertiesPanel && !(*showPropertiesPanel)) {
@@ -2008,6 +2012,30 @@ void CanvasPanel::Render(
                             }
                         }
                     }
+                }
+            }
+        }
+        else if (currentTool == Tool::RoomSelect) {
+            // Room Select tool: Click cell to select its room
+            if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+                ImVec2 mousePos = ImGui::GetMousePos();
+                
+                // Convert mouse position to tile coordinates
+                int tx, ty;
+                canvas.ScreenToTile(
+                    mousePos.x, mousePos.y,
+                    model.grid.tileWidth, model.grid.tileHeight,
+                    &tx, &ty
+                );
+                
+                // Look up which room this cell belongs to
+                std::string roomId = model.GetCellRoom(tx, ty);
+                
+                if (!roomId.empty()) {
+                    // Select the room
+                    selectedRoomId = roomId;
+                    activeRoomId = roomId;
+                    selectedRegionGroupId = "";  // Clear region selection
                 }
             }
         }

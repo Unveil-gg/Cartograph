@@ -38,7 +38,8 @@ public:
         Zoom,          // Zoom in/out centered on click point
         RoomPaint,     // Paint cells to assign to active room
         RoomFill,      // Flood-fill cells into active room
-        RoomErase      // Remove cells from rooms
+        RoomErase,     // Remove cells from rooms
+        RoomSelect     // Click cell to select its room
     };
     
     /**
