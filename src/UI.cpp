@@ -850,15 +850,15 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
     ImGui::Dummy(ImVec2(0, panelPadding * 0.5f));
     
     const char* roomToolNames[] = {
-        "Room Paint", "Room Fill", "Room Erase", "Room Select"
+        "Room Select", "Room Paint", "Room Fill", "Room Erase"
     };
     
     const char* roomToolIconNames[] = {
-        "paintbrush", "paint-bucket", "eraser", "mouse-pointer-2"
+        "mouse-pointer-2", "paintbrush", "paint-bucket", "eraser"
     };
     
     const char* roomToolShortcuts[] = {
-        "Shift+R", "Shift+F", "Shift+E", "Shift+S"
+        "Shift+S", "Shift+R", "Shift+F", "Shift+E"
     };
     
     const ImVec4 maroonBg(0.55f, 0.1f, 0.1f, 1.0f);
@@ -866,7 +866,7 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
     const ImVec4 maroonBgActive(0.45f, 0.05f, 0.05f, 1.0f);
     
     for (int i = 0; i < 4; ++i) {
-        int toolIdx = 8 + i;  // RoomPaint=8, RoomFill=9, RoomErase=10, RoomSelect=11
+        int toolIdx = 8 + i;  // RoomSelect=8, RoomPaint=9, RoomFill=10, RoomErase=11
         bool selected = (static_cast<int>(m_canvasPanel.currentTool) == toolIdx);
         
         ImGui::PushID(toolIdx);
@@ -912,29 +912,29 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
             ImGui::SetNextWindowPos(ImVec2(mousePos.x + 15, mousePos.y + 10));
             ImGui::BeginTooltip();
             switch (i) {
-                case 0: // Room Paint
+                case 0: // Room Select
+                    ImGui::Text("Room Select Tool [Shift+S]");
+                    ImGui::Separator();
+                    ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
+                        "Click cell to select its room");
+                    break;
+                case 1: // Room Paint
                     ImGui::Text("Room Paint Tool [Shift+R]");
                     ImGui::Separator();
                     ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
                         "Click/drag to assign cells to active room");
                     break;
-                case 1: // Room Fill
+                case 2: // Room Fill
                     ImGui::Text("Room Fill Tool [Shift+F]");
                     ImGui::Separator();
                     ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
                         "Click to flood-fill area into active room");
                     break;
-                case 2: // Room Erase
+                case 3: // Room Erase
                     ImGui::Text("Room Erase Tool [Shift+E]");
                     ImGui::Separator();
                     ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
                         "Click/drag to remove cells from rooms");
-                    break;
-                case 3: // Room Select
-                    ImGui::Text("Room Select Tool [Shift+S]");
-                    ImGui::Separator();
-                    ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
-                        "Click cell to select its room");
                     break;
             }
             ImGui::EndTooltip();
@@ -1115,9 +1115,29 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
                     }
                     
                     if (ImGui::MenuItem("Add Perimeter Walls")) {
-                        model.GenerateRoomPerimeterWalls(room.id);
-                        AddConsoleMessage("Added perimeter walls to " + 
-                            room.name, MessageType::Success);
+                        auto changes = model.ComputeRoomPerimeterWallChanges(
+                            room.id);
+                        if (!changes.empty()) {
+                            std::vector<ModifyEdgesCommand::EdgeChange> edgeChanges;
+                            for (const auto& [edgeId, oldState, newState] : changes) {
+                                ModifyEdgesCommand::EdgeChange ec;
+                                ec.edgeId = edgeId;
+                                ec.oldState = oldState;
+                                ec.newState = newState;
+                                edgeChanges.push_back(ec);
+                            }
+                            auto cmd = std::make_unique<ModifyEdgesCommand>(
+                                edgeChanges);
+                            history.AddCommand(std::move(cmd), model, true);
+                            AddConsoleMessage("Added " + 
+                                std::to_string(changes.size()) + 
+                                " wall segment(s) to " + room.name,
+                                MessageType::Success);
+                        } else {
+                            AddConsoleMessage("No walls to add - " + room.name +
+                                " already has perimeter walls",
+                                MessageType::Info);
+                        }
                     }
                     
                     ImGui::Separator();
@@ -2847,9 +2867,28 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
                                             MessageType::Success);
                         }
                         if (ImGui::MenuItem("Add Perimeter Walls")) {
-                            model.GenerateRoomPerimeterWalls(room.id);
-                            AddConsoleMessage("Added perimeter walls to " + 
-                                room.name, MessageType::Success);
+                            auto changes = model.ComputeRoomPerimeterWallChanges(
+                                room.id);
+                            if (!changes.empty()) {
+                                std::vector<ModifyEdgesCommand::EdgeChange> ec;
+                                for (const auto& [eId, oldS, newS] : changes) {
+                                    ModifyEdgesCommand::EdgeChange c;
+                                    c.edgeId = eId;
+                                    c.oldState = oldS;
+                                    c.newState = newS;
+                                    ec.push_back(c);
+                                }
+                                auto cmd = std::make_unique<ModifyEdgesCommand>(ec);
+                                history.AddCommand(std::move(cmd), model, true);
+                                AddConsoleMessage("Added " + 
+                                    std::to_string(changes.size()) + 
+                                    " wall segment(s) to " + room.name,
+                                    MessageType::Success);
+                            } else {
+                                AddConsoleMessage("No walls to add - " + 
+                                    room.name + " already has perimeter walls",
+                                    MessageType::Info);
+                            }
                         }
                         ImGui::Separator();
                         if (ImGui::MenuItem("Delete Room")) {
@@ -2974,23 +3013,46 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
                 m_modals.renameBuffer[sizeof(m_modals.renameBuffer) - 1] = '\0';
             }
             
-            // Show "Move to Region" submenu
+            // Show "Move to Region" submenu (disabled if no regions exist)
+            bool hasRegions = !model.regionGroups.empty();
+            if (!hasRegions) {
+                ImGui::BeginDisabled();
+            }
             if (ImGui::BeginMenu("Move to Region")) {
                 for (auto& region : model.regionGroups) {
                     if (ImGui::MenuItem(region.name.c_str())) {
                         room.parentRegionGroupId = region.id;
                         model.MarkDirty();
-                        AddConsoleMessage("Moved " + room.name + " to " + region.name, 
-                                        MessageType::Success);
+                        AddConsoleMessage("Moved " + room.name + " to " + 
+                            region.name, MessageType::Success);
                     }
                 }
                 ImGui::EndMenu();
             }
+            if (!hasRegions) {
+                ImGui::EndDisabled();
+            }
             
             if (ImGui::MenuItem("Add Perimeter Walls")) {
-                model.GenerateRoomPerimeterWalls(room.id);
-                AddConsoleMessage("Added perimeter walls to " + room.name, 
-                    MessageType::Success);
+                auto changes = model.ComputeRoomPerimeterWallChanges(room.id);
+                if (!changes.empty()) {
+                    std::vector<ModifyEdgesCommand::EdgeChange> ec;
+                    for (const auto& [eId, oldS, newS] : changes) {
+                        ModifyEdgesCommand::EdgeChange c;
+                        c.edgeId = eId;
+                        c.oldState = oldS;
+                        c.newState = newS;
+                        ec.push_back(c);
+                    }
+                    auto cmd = std::make_unique<ModifyEdgesCommand>(ec);
+                    history.AddCommand(std::move(cmd), model, true);
+                    AddConsoleMessage("Added " + std::to_string(changes.size()) +
+                        " wall segment(s) to " + room.name,
+                        MessageType::Success);
+                } else {
+                    AddConsoleMessage("No walls to add - " + room.name +
+                        " already has perimeter walls", MessageType::Info);
+                }
             }
             
             ImGui::Separator();
@@ -3345,9 +3407,27 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
                 
                 // Add Perimeter Walls button
                 if (ImGui::Button("Add Perimeter Walls", ImVec2(-1, 0))) {
-                    model.GenerateRoomPerimeterWalls(room->id);
-                    AddConsoleMessage("Added perimeter walls to " + room->name,
-                        MessageType::Success);
+                    auto changes = model.ComputeRoomPerimeterWallChanges(
+                        room->id);
+                    if (!changes.empty()) {
+                        std::vector<ModifyEdgesCommand::EdgeChange> ec;
+                        for (const auto& [eId, oldS, newS] : changes) {
+                            ModifyEdgesCommand::EdgeChange c;
+                            c.edgeId = eId;
+                            c.oldState = oldS;
+                            c.newState = newS;
+                            ec.push_back(c);
+                        }
+                        auto cmd = std::make_unique<ModifyEdgesCommand>(ec);
+                        history.AddCommand(std::move(cmd), model, true);
+                        AddConsoleMessage("Added " + 
+                            std::to_string(changes.size()) + 
+                            " wall segment(s) to " + room->name,
+                            MessageType::Success);
+                    } else {
+                        AddConsoleMessage("No walls to add - " + room->name +
+                            " already has perimeter walls", MessageType::Info);
+                    }
                 }
                 if (ImGui::IsItemHovered()) {
                     ImGui::SetTooltip(
@@ -3833,35 +3913,20 @@ void UI::RenderStatusBar(Model& model, Canvas& canvas) {
             
             // Calculate time since message (for fading effect)
             double age = Platform::GetTime() - lastMsg.timestamp;
-            
-            // Use selectable text so users can copy console messages
-            // InputText with ReadOnly flag allows selection/copy
-            static char consoleMsgBuf[256];
-            strncpy(consoleMsgBuf, displayMsg.c_str(), sizeof(consoleMsgBuf) - 1);
-            consoleMsgBuf[sizeof(consoleMsgBuf) - 1] = '\0';
-            
-            // Style to match surrounding text
-            ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
-            ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0, 0, 0, 0));
-            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
-            ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
-            
             if (age > 5.0) {
                 // Fade out old messages
-                ImGui::PushStyleColor(ImGuiCol_Text, 
-                    ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+                ImGui::TextDisabled("%s", displayMsg.c_str());
+            } else {
+                ImGui::Text("%s", displayMsg.c_str());
             }
             
-            ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
-            ImGui::InputText("##consoleMsg", consoleMsgBuf, sizeof(consoleMsgBuf),
-                           ImGuiInputTextFlags_ReadOnly);
-            
-            if (age > 5.0) {
-                ImGui::PopStyleColor();  // Text color
+            // Right-click context menu to copy message
+            if (ImGui::BeginPopupContextItem("##consoleMsgContext")) {
+                if (ImGui::MenuItem("Copy Message")) {
+                    ImGui::SetClipboardText(lastMsg.message.c_str());
+                }
+                ImGui::EndPopup();
             }
-            
-            ImGui::PopStyleVar(2);
-            ImGui::PopStyleColor(2);
         } else {
             // No messages yet
             ImGui::TextDisabled("Ready");

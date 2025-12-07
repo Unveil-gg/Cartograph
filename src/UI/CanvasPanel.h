@@ -36,10 +36,10 @@ public:
         Marker, 
         Eyedropper,
         Zoom,          // Zoom in/out centered on click point
+        RoomSelect,    // Click cell to select its room
         RoomPaint,     // Paint cells to assign to active room
         RoomFill,      // Flood-fill cells into active room
-        RoomErase,     // Remove cells from rooms
-        RoomSelect     // Click cell to select its room
+        RoomErase      // Remove cells from rooms
     };
     
     /**

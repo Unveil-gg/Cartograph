@@ -1105,10 +1105,10 @@ void Modals::RenderSettingsModal(App& app, Model& model, KeymapManager& keymap) 
             renderBinding("Tool: Marker", "toolMarker");
             renderBinding("Tool: Eyedropper", "toolEyedropper");
             renderBinding("Tool: Zoom", "toolZoom");
-            renderBinding("Tool: Room Paint", "toolRoomPaint");
-            renderBinding("Tool: Room Erase", "toolRoomErase");
-            renderBinding("Tool: Room Fill", "toolRoomFill");
             renderBinding("Tool: Room Select", "toolRoomSelect");
+            renderBinding("Tool: Room Paint", "toolRoomPaint");
+            renderBinding("Tool: Room Fill", "toolRoomFill");
+            renderBinding("Tool: Room Erase", "toolRoomErase");
             
             // VIEW CATEGORY
             ImGui::TableNextRow();
