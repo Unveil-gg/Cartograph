@@ -2551,6 +2551,57 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
         }
     }
     
+    // Add Perimeter Walls button (greyed out if no rooms)
+    // Check if any room might need perimeter walls
+    bool hasRooms = !model.rooms.empty();
+    bool anyRoomHasOpenEdge = false;
+    if (hasRooms) {
+        // Quick check: see if any room has cells (potential open edges)
+        for (const auto& room : model.rooms) {
+            auto cells = model.GetRoomCells(room.id);
+            if (!cells.empty()) {
+                anyRoomHasOpenEdge = true;
+                break;
+            }
+        }
+    }
+    
+    bool canAddWalls = hasRooms && anyRoomHasOpenEdge;
+    
+    if (!canAddWalls) {
+        ImGui::BeginDisabled();
+    }
+    
+    if (ImGui::Button("Add Walls")) {
+        int roomsProcessed = 0;
+        for (const auto& room : model.rooms) {
+            model.GenerateRoomPerimeterWalls(room.id);
+            roomsProcessed++;
+        }
+        if (roomsProcessed > 0) {
+            AddConsoleMessage("Added perimeter walls to " + 
+                std::to_string(roomsProcessed) + " room(s)", 
+                MessageType::Success);
+        }
+    }
+    
+    if (!canAddWalls) {
+        ImGui::EndDisabled();
+    }
+    
+    // Tooltip for the button
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+        if (!hasRooms) {
+            ImGui::SetTooltip("No rooms detected yet.\n"
+                            "Click 'Detect Rooms' first.");
+        } else if (!anyRoomHasOpenEdge) {
+            ImGui::SetTooltip("No rooms have cells to add walls to.");
+        } else {
+            ImGui::SetTooltip("Add walls around all room boundaries\n"
+                            "where there are no existing walls or doors.");
+        }
+    }
+    
     ImGui::Spacing();
     ImGui::Separator();
     ImGui::Spacing();
