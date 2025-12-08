@@ -2611,10 +2611,21 @@ void Modals::RenderProjectActionModal(
     if (ImGui::BeginPopupModal("Project Options", &showProjectActionModal,
         ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove)) {
         
-        // Project name header
-        ImGui::TextColored(ImVec4(0.8f, 0.8f, 0.8f, 1.0f), 
-                          "%s", projectActionName.c_str());
+        // Project name (prominent)
+        ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), 
+                          "\"%s\"", projectActionName.c_str());
+        
+        // Project path (dimmed)
+        ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), 
+                          "%s", projectActionPath.c_str());
+        
+        ImGui::Spacing();
         ImGui::Separator();
+        ImGui::Spacing();
+        
+        // Prompt
+        ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), 
+                          "Choose an action:");
         ImGui::Spacing();
         
         // Delete Project button (destructive)
@@ -2631,7 +2642,10 @@ void Modals::RenderProjectActionModal(
         
         ImGui::PopStyleColor(3);
         
-        // Confirmation popup for delete
+        // Confirmation popup for delete (centered)
+        ImVec2 confirmCenter = ImGui::GetMainViewport()->GetCenter();
+        ImGui::SetNextWindowPos(confirmCenter, ImGuiCond_Appearing, 
+                               ImVec2(0.5f, 0.5f));
         if (ImGui::BeginPopupModal("Confirm Delete", nullptr,
             ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove)) {
             
