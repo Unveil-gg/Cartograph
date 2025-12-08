@@ -140,6 +140,10 @@ public:
     bool showRoomOverlays = true;      // Show room visual overlays
     std::string hoveredRoomId;         // Room hovered in UI (for canvas highlight)
     
+    // Canvas-to-hierarchy room drag state (for RoomSelect tool)
+    std::string canvasDragRoomId;      // Room being dragged from canvas
+    bool isCanvasDraggingRoom = false; // Currently dragging a room from canvas
+    
     // Room assignment state (for room paint mode)
     bool isPaintingRoomCells = false;
     int lastRoomPaintX = -1;

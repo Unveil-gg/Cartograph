@@ -2016,26 +2016,30 @@ void CanvasPanel::Render(
             }
         }
         else if (currentTool == Tool::RoomSelect) {
-            // Room Select tool: Click cell to select its room
+            // Room Select tool: Click cell to select its room, drag to hierarchy
+            ImVec2 mousePos = ImGui::GetMousePos();
+            
+            // Convert mouse position to tile coordinates
+            int tx, ty;
+            canvas.ScreenToTile(
+                mousePos.x, mousePos.y,
+                model.grid.tileWidth, model.grid.tileHeight,
+                &tx, &ty
+            );
+            
+            // Look up which room this cell belongs to
+            std::string roomId = model.GetCellRoom(tx, ty);
+            
+            // Handle click: select room and record as drag candidate
             if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-                ImVec2 mousePos = ImGui::GetMousePos();
-                
-                // Convert mouse position to tile coordinates
-                int tx, ty;
-                canvas.ScreenToTile(
-                    mousePos.x, mousePos.y,
-                    model.grid.tileWidth, model.grid.tileHeight,
-                    &tx, &ty
-                );
-                
-                // Look up which room this cell belongs to
-                std::string roomId = model.GetCellRoom(tx, ty);
-                
                 if (!roomId.empty()) {
                     // Select the room
                     selectedRoomId = roomId;
                     activeRoomId = roomId;
                     selectedRegionGroupId = "";  // Clear region selection
+                    
+                    // Record as potential drag candidate
+                    canvasDragRoomId = roomId;
                     
                     // Center and zoom to fit the selected room
                     auto cells = model.GetRoomCells(roomId);
@@ -2052,7 +2056,40 @@ void CanvasPanel::Render(
                                           model.grid.tileWidth,
                                           model.grid.tileHeight);
                     }
+                } else {
+                    // Clicked on empty cell - clear drag candidate
+                    canvasDragRoomId.clear();
                 }
+            }
+            
+            // Handle drag: initiate drag-drop to hierarchy
+            if (!canvasDragRoomId.empty() && 
+                ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
+                isCanvasDraggingRoom = true;
+                
+                // Use SourceExtern for drag sources outside normal ImGui items
+                if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceExtern)) {
+                    ImGui::SetDragDropPayload(
+                        "ROOM_DRAG", 
+                        canvasDragRoomId.c_str(), 
+                        canvasDragRoomId.size()
+                    );
+                    
+                    // Show drag tooltip with room name
+                    const Room* room = model.FindRoom(canvasDragRoomId);
+                    if (room) {
+                        ImGui::Text("Move %s", room->name.c_str());
+                    } else {
+                        ImGui::Text("Move room");
+                    }
+                    ImGui::EndDragDropSource();
+                }
+            }
+            
+            // Handle release: clear drag state
+            if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+                canvasDragRoomId.clear();
+                isCanvasDraggingRoom = false;
             }
         }
     }
