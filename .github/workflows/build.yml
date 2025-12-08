@@ -45,7 +45,8 @@ jobs:
         run: |
           mkdir build
           cd build
-          cmake -G "Visual Studio 17 2022" -A x64 -DUSE_STATIC_CRT=ON ..
+          cmake -G "Visual Studio 17 2022" -A x64 -DUSE_STATIC_CRT=ON \
+            -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON ..
 
       - name: Build
         run: cmake --build build --config Release
@@ -82,7 +83,8 @@ jobs:
           cd build
           cmake -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 \
-            -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" ..
+            -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" \
+            -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON ..
 
       - name: Build
         run: |
@@ -201,8 +203,8 @@ jobs:
 
       - name: Create release zips
         run: |
-          cd windows && zip -r ../Cartograph-Windows.zip . && cd ..
-          cd macos && zip -r ../Cartograph-macOS.zip . && cd ..
+          cd windows && zip -9 -r ../Cartograph-Windows.zip . && cd ..
+          cd macos && zip -9 -r ../Cartograph-macOS.zip . && cd ..
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1

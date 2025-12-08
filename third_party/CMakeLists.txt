@@ -7,6 +7,16 @@ if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/SDL/CMakeLists.txt)
     set(SDL_STATIC ON CACHE BOOL "Build SDL3 as static library" FORCE)
     set(SDL_TEST OFF CACHE BOOL "Disable SDL3 tests" FORCE)
     set(SDL_TESTS OFF CACHE BOOL "Disable SDL3 tests" FORCE)
+
+    # Disable unused SDL3 subsystems to reduce binary size
+    set(SDL_AUDIO OFF CACHE BOOL "Disable audio" FORCE)
+    set(SDL_JOYSTICK OFF CACHE BOOL "Disable joystick" FORCE)
+    set(SDL_HAPTIC OFF CACHE BOOL "Disable haptic" FORCE)
+    set(SDL_HIDAPI OFF CACHE BOOL "Disable HID API" FORCE)
+    set(SDL_POWER OFF CACHE BOOL "Disable power" FORCE)
+    set(SDL_SENSOR OFF CACHE BOOL "Disable sensor" FORCE)
+    set(SDL_CAMERA OFF CACHE BOOL "Disable camera" FORCE)
+    set(SDL_GPU OFF CACHE BOOL "Disable GPU API" FORCE)
     
     # Add SDL3 subdirectory
     add_subdirectory(SDL EXCLUDE_FROM_ALL)
@@ -37,7 +47,6 @@ endif()
 # Dear ImGui
 add_library(imgui STATIC
     imgui/imgui.cpp
-    imgui/imgui_demo.cpp
     imgui/imgui_draw.cpp
     imgui/imgui_tables.cpp
     imgui/imgui_widgets.cpp
@@ -51,8 +60,13 @@ target_include_directories(imgui PUBLIC
 )
 
 # Tell ImGui to use GLAD as its OpenGL loader
-# When IMGUI_IMPL_OPENGL_LOADER_CUSTOM is defined, imgui expects gl.h types to be available
-target_compile_definitions(imgui PUBLIC IMGUI_IMPL_OPENGL_LOADER_GLAD2)
+# Disable unused features to reduce binary size
+target_compile_definitions(imgui PUBLIC
+    IMGUI_IMPL_OPENGL_LOADER_GLAD2
+    IMGUI_DISABLE_DEMO_WINDOWS
+    IMGUI_DISABLE_DEBUG_TOOLS
+    IMGUI_DISABLE_OBSOLETE_FUNCTIONS
+)
 
 # Link to vendored SDL3-static and GLAD (GLAD provides include dirs)
 target_link_libraries(imgui PUBLIC SDL3-static glad)
