@@ -472,6 +472,8 @@ void WelcomeScreen::RenderRecentProjectsList(App& app) {
                 app.OpenProject(project.path);
             app.ShowEditor();
         }
+            // Allow X button to capture clicks over this ImageButton
+            ImGui::SetItemAllowOverlap();
             
             ImGui::PopStyleColor(3);
             
