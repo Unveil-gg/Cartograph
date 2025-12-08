@@ -65,6 +65,7 @@ void Modals::RenderAll(
     if (showSaveBeforeActionModal) RenderSaveBeforeActionModal(app, model);
     if (showAboutModal) RenderAboutModal();
     if (showDeleteRoomDialog) RenderDeleteRoomModal(model, history);
+    if (showRemoveFromRegionDialog) RenderRemoveFromRegionModal(model);
     if (showRenameRoomDialog) RenderRenameRoomModal(model);
     if (showRenameRegionDialog) RenderRenameRegionModal(model);
     if (showDeleteRegionDialog) RenderDeleteRegionModal(model, history);
@@ -140,6 +141,72 @@ void Modals::RenderDeleteRoomModal(Model& model, History& history) {
             if (ImGui::Button("Close")) {
                 showDeleteRoomDialog = false;
                 deleteRoomDialogOpened = false;
+                editingRoomId.clear();
+                ImGui::CloseCurrentPopup();
+            }
+        }
+        
+        ImGui::EndPopup();
+    }
+}
+
+void Modals::RenderRemoveFromRegionModal(Model& model) {
+    // Only call OpenPopup once when modal is first shown
+    if (!removeFromRegionDialogOpened) {
+        ImGui::OpenPopup("Remove from Region?");
+        removeFromRegionDialogOpened = true;
+    }
+    
+    ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    
+    if (ImGui::BeginPopupModal("Remove from Region?", nullptr,
+                              ImGuiWindowFlags_AlwaysAutoResize)) {
+        Room* room = model.FindRoom(editingRoomId);
+        if (room) {
+            // Find the region name
+            std::string regionName = "Unknown Region";
+            RegionGroup* region = model.FindRegionGroup(room->parentRegionGroupId);
+            if (region) {
+                regionName = region->name;
+            }
+            
+            ImGui::Text("Remove \"%s\" from \"%s\"?", 
+                       room->name.c_str(), regionName.c_str());
+            ImGui::Separator();
+            ImGui::TextWrapped(
+                "The room will become unassigned and appear in the "
+                "unparented rooms list."
+            );
+            ImGui::Spacing();
+            
+            if (ImGui::Button("Cancel", ImVec2(120, 0))) {
+                showRemoveFromRegionDialog = false;
+                removeFromRegionDialogOpened = false;
+                editingRoomId.clear();
+                ImGui::CloseCurrentPopup();
+            }
+            
+            ImGui::SameLine();
+            
+            if (ImGui::Button("Remove", ImVec2(120, 0))) {
+                std::string roomName = room->name;
+                room->parentRegionGroupId = "";
+                model.MarkDirty();
+                
+                m_ui.AddConsoleMessage("Removed \"" + roomName + 
+                    "\" from region", MessageType::Success);
+                
+                showRemoveFromRegionDialog = false;
+                removeFromRegionDialogOpened = false;
+                editingRoomId.clear();
+                ImGui::CloseCurrentPopup();
+            }
+        } else {
+            ImGui::Text("Room not found");
+            if (ImGui::Button("Close")) {
+                showRemoveFromRegionDialog = false;
+                removeFromRegionDialogOpened = false;
                 editingRoomId.clear();
                 ImGui::CloseCurrentPopup();
             }

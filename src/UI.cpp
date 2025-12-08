@@ -2900,11 +2900,9 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
                                    sizeof(m_modals.renameBuffer) - 1);
                             m_modals.renameBuffer[sizeof(m_modals.renameBuffer) - 1] = '\0';
                         }
-                        if (ImGui::MenuItem("Remove from Region")) {
-                            room.parentRegionGroupId = "";
-                            model.MarkDirty();
-                            AddConsoleMessage("Removed " + room.name + " from region", 
-                                            MessageType::Success);
+                        if (ImGui::MenuItem("Remove from Region...")) {
+                            m_modals.showRemoveFromRegionDialog = true;
+                            m_modals.editingRoomId = room.id;
                         }
                         if (ImGui::MenuItem("Add Perimeter Walls")) {
                             auto changes = model.ComputeRoomPerimeterWallChanges(

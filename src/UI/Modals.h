@@ -128,6 +128,7 @@ public:
     bool showNewRoomDialog = false;
     bool showRenameRoomDialog = false;
     bool showDeleteRoomDialog = false;
+    bool showRemoveFromRegionDialog = false;
     bool showRenameRegionDialog = false;
     bool showDeleteRegionDialog = false;
     bool showAboutModal = false;
@@ -150,6 +151,7 @@ public:
     bool newRoomDialogOpened = false;
     bool renameRoomDialogOpened = false;
     bool deleteRoomDialogOpened = false;
+    bool removeFromRegionDialogOpened = false;
     bool renameRegionDialogOpened = false;
     bool deleteRegionDialogOpened = false;
     bool aboutModalOpened = false;
@@ -262,6 +264,7 @@ private:
     void RenderSaveBeforeActionModal(App& app, Model& model);
     void RenderAboutModal();
     void RenderDeleteRoomModal(Model& model, History& history);
+    void RenderRemoveFromRegionModal(Model& model);
     void RenderRenameRoomModal(Model& model);
     void RenderRenameRegionModal(Model& model);
     void RenderDeleteRegionModal(Model& model, History& history);
