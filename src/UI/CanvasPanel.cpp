@@ -2061,36 +2061,40 @@ void CanvasPanel::Render(
                     canvasDragRoomId.clear();
                 }
             }
+        }
+    }
+    
+    // Handle RoomSelect drag-drop source (outside hover check)
+    // This ensures the drag tooltip continues even when mouse is over hierarchy
+    if (currentTool == Tool::RoomSelect) {
+        // Handle drag: initiate drag-drop to hierarchy
+        if (!canvasDragRoomId.empty() && 
+            ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
+            isCanvasDraggingRoom = true;
             
-            // Handle drag: initiate drag-drop to hierarchy
-            if (!canvasDragRoomId.empty() && 
-                ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
-                isCanvasDraggingRoom = true;
+            // Use SourceExtern for drag sources outside normal ImGui items
+            if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceExtern)) {
+                ImGui::SetDragDropPayload(
+                    "ROOM_DRAG", 
+                    canvasDragRoomId.c_str(), 
+                    canvasDragRoomId.size()
+                );
                 
-                // Use SourceExtern for drag sources outside normal ImGui items
-                if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceExtern)) {
-                    ImGui::SetDragDropPayload(
-                        "ROOM_DRAG", 
-                        canvasDragRoomId.c_str(), 
-                        canvasDragRoomId.size()
-                    );
-                    
-                    // Show drag tooltip with room name
-                    const Room* room = model.FindRoom(canvasDragRoomId);
-                    if (room) {
-                        ImGui::Text("Move %s", room->name.c_str());
-                    } else {
-                        ImGui::Text("Move room");
-                    }
-                    ImGui::EndDragDropSource();
+                // Show drag tooltip with room name
+                const Room* room = model.FindRoom(canvasDragRoomId);
+                if (room) {
+                    ImGui::Text("Move %s", room->name.c_str());
+                } else {
+                    ImGui::Text("Move room");
                 }
+                ImGui::EndDragDropSource();
             }
-            
-            // Handle release: clear drag state
-            if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
-                canvasDragRoomId.clear();
-                isCanvasDraggingRoom = false;
-            }
+        }
+        
+        // Handle release: clear drag state
+        if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+            canvasDragRoomId.clear();
+            isCanvasDraggingRoom = false;
         }
     }
     
