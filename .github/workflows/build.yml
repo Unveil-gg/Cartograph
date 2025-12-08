@@ -68,7 +68,7 @@ jobs:
   # ===========================================================================
   build-macos:
     name: macOS
-    runs-on: macos-latest
+    runs-on: macos-13
 
     steps:
       - name: Checkout
@@ -80,7 +80,7 @@ jobs:
         run: |
           mkdir build
           cd build
-          cmake -DCMAKE_BUILD_TYPE=Release ..
+          cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15 ..
 
       - name: Build
         run: |
@@ -210,4 +210,3 @@ jobs:
             Cartograph-macOS.zip
           draft: true
           generate_release_notes: true
-
