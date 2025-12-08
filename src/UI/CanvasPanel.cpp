@@ -2905,6 +2905,36 @@ void CanvasPanel::Render(
         }
     }
     
+    // Room Select tool: show hover highlight and tooltip for room under cursor
+    if (currentTool == Tool::RoomSelect && ImGui::IsItemHovered()) {
+        ImVec2 mousePos = ImGui::GetMousePos();
+        
+        // Convert to tile coordinates
+        int tx, ty;
+        canvas.ScreenToTile(
+            mousePos.x, mousePos.y,
+            model.grid.tileWidth, model.grid.tileHeight,
+            &tx, &ty
+        );
+        
+        // Look up which room this cell belongs to
+        std::string roomAtCursor = model.GetCellRoom(tx, ty);
+        
+        if (!roomAtCursor.empty()) {
+            // Set hovered room for canvas highlight
+            hoveredRoomId = roomAtCursor;
+            
+            // Find the room to get its name for the tooltip
+            const Room* room = model.FindRoom(roomAtCursor);
+            if (room) {
+                ImGui::BeginTooltip();
+                ImGui::Text("Room: %s", room->name.c_str());
+                ImGui::TextDisabled("Click to select");
+                ImGui::EndTooltip();
+            }
+        }
+    }
+    
     // Draw marker snap point preview if Marker tool is active
     if (currentTool == Tool::Marker && ImGui::IsItemHovered()) {
         ImVec2 mousePos = ImGui::GetMousePos();

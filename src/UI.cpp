@@ -2817,6 +2817,16 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
                     
                     ImGui::TreeNodeEx(room.name.c_str(), roomFlags);
                     
+                    // Auto-scroll to hovered room (from canvas RoomSelect tool)
+                    if (m_canvasPanel.hoveredRoomId == room.id) {
+                        ImGui::SetScrollHereY(0.5f);
+                    }
+                    
+                    // Hover to highlight room on canvas
+                    if (ImGui::IsItemHovered()) {
+                        m_canvasPanel.hoveredRoomId = room.id;
+                    }
+                    
                     // Click to select room
                     if (ImGui::IsItemClicked()) {
                         m_canvasPanel.selectedRoomId = room.id;
@@ -2950,6 +2960,16 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
         ImGui::SameLine();
         
         ImGui::TreeNodeEx(room.name.c_str(), roomFlags);
+        
+        // Auto-scroll to hovered room (from canvas RoomSelect tool)
+        if (m_canvasPanel.hoveredRoomId == room.id) {
+            ImGui::SetScrollHereY(0.5f);
+        }
+        
+        // Hover to highlight room on canvas
+        if (ImGui::IsItemHovered()) {
+            m_canvasPanel.hoveredRoomId = room.id;
+        }
         
         // Click to select room
         if (ImGui::IsItemClicked()) {
@@ -3409,6 +3429,11 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
                                 }
                             }
                             
+                            // Auto-scroll to hovered room (from canvas RoomSelect)
+                            if (m_canvasPanel.hoveredRoomId == connectedId) {
+                                ImGui::SetScrollHereY(0.5f);
+                            }
+                            
                             // Show hand cursor and highlight room on hover
                             if (ImGui::IsItemHovered()) {
                                 ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
@@ -3703,9 +3728,15 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
                             }
                         }
                         
-                        // Show hand cursor on hover
+                        // Auto-scroll to hovered room (from canvas RoomSelect)
+                        if (m_canvasPanel.hoveredRoomId == room->id) {
+                            ImGui::SetScrollHereY(0.5f);
+                        }
+                        
+                        // Show hand cursor and highlight room on canvas
                         if (ImGui::IsItemHovered()) {
                             ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+                            m_canvasPanel.hoveredRoomId = room->id;
                         }
                         
                         ImGui::PopStyleVar();
