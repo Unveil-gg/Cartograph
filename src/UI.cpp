@@ -14,6 +14,7 @@
 #include "platform/System.h"
 #include "platform/NativeMenu.h"
 #include "platform/NativeMenu_imgui.h"
+#include "UI/ImGuiHelpers.h"
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <SDL3/SDL_dialog.h>
@@ -2666,6 +2667,9 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
     
     // Begin child region for scrollable hierarchy
     ImGui::BeginChild("HierarchyList", ImVec2(0, hierarchyHeight), true);
+    
+    // Auto-scroll when dragging rooms near edges of the list
+    ImGuiHelpers::HandleDragDropAutoScroll();
     
     // Context menu on empty space for creating new items
     if (ImGui::BeginPopupContextWindow("HierarchyContextMenu")) {

@@ -29,6 +29,7 @@ set(CARTOGRAPH_SOURCES
     src/App.cpp
     src/UI.cpp
     src/UI/CanvasPanel.cpp
+    src/UI/ImGuiHelpers.cpp
     src/UI/Modals.cpp
     src/UI/WelcomeScreen.cpp
     src/Canvas.cpp
@@ -72,6 +73,7 @@ set(CARTOGRAPH_HEADERS
     src/App.h
     src/UI.h
     src/UI/CanvasPanel.h
+    src/UI/ImGuiHelpers.h
     src/UI/Modals.h
     src/UI/WelcomeScreen.h
     src/Canvas.h
