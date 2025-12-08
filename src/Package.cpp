@@ -9,7 +9,7 @@
 // minizip-ng compatibility layer provides zip.h and unzip.h
 #include "zip.h"
 #include "unzip.h"
-#include <zlib.h>  // For Z_DEFLATED, Z_DEFAULT_COMPRESSION
+#include "mz.h"  // For MZ_COMPRESS_METHOD_DEFLATE, MZ_COMPRESS_LEVEL_DEFAULT
 
 // stb_image_write for PNG encoding (implementation in ExportPng.cpp)
 #include <stb/stb_image_write.h>
@@ -73,7 +73,7 @@ bool Package::Save(
     std::string manifest = CreateManifest(model);
     if (zipOpenNewFileInZip(zf, "manifest.json", &fi, 
                             nullptr, 0, nullptr, 0, nullptr,
-                            Z_DEFLATED, Z_DEFAULT_COMPRESSION) == ZIP_OK) {
+                            MZ_COMPRESS_METHOD_DEFLATE, MZ_COMPRESS_LEVEL_DEFAULT) == ZIP_OK) {
         zipWriteInFileInZip(zf, manifest.data(), manifest.size());
         zipCloseFileInZip(zf);
     } else {
@@ -84,7 +84,7 @@ bool Package::Save(
     std::string projectJson = IOJson::SaveToString(model);
     if (zipOpenNewFileInZip(zf, "project.json", &fi,
                             nullptr, 0, nullptr, 0, nullptr,
-                            Z_DEFLATED, Z_DEFAULT_COMPRESSION) == ZIP_OK) {
+                            MZ_COMPRESS_METHOD_DEFLATE, MZ_COMPRESS_LEVEL_DEFAULT) == ZIP_OK) {
         zipWriteInFileInZip(zf, projectJson.data(), projectJson.size());
         zipCloseFileInZip(zf);
     } else {
@@ -132,8 +132,8 @@ bool Package::Save(
                 std::string zipPath = "icons/" + iconName + ".png";
                 if (zipOpenNewFileInZip(zf, zipPath.c_str(), &fi,
                                        nullptr, 0, nullptr, 0, nullptr,
-                                       Z_DEFLATED, 
-                                       Z_DEFAULT_COMPRESSION) == ZIP_OK) {
+                                       MZ_COMPRESS_METHOD_DEFLATE, 
+                                       MZ_COMPRESS_LEVEL_DEFAULT) == ZIP_OK) {
                     zipWriteInFileInZip(zf, writer.data.data(), 
                                        writer.data.size());
                     zipCloseFileInZip(zf);
@@ -167,8 +167,8 @@ bool Package::Save(
         if (result && !writer.data.empty()) {
             if (zipOpenNewFileInZip(zf, "thumb.png", &fi,
                                    nullptr, 0, nullptr, 0, nullptr,
-                                   Z_DEFLATED, 
-                                   Z_DEFAULT_COMPRESSION) == ZIP_OK) {
+                                   MZ_COMPRESS_METHOD_DEFLATE, 
+                                   MZ_COMPRESS_LEVEL_DEFAULT) == ZIP_OK) {
                 zipWriteInFileInZip(zf, writer.data.data(), 
                                    writer.data.size());
                 zipCloseFileInZip(zf);
