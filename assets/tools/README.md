@@ -23,6 +23,8 @@ Permission to use, copy, modify, and/or distribute this software for any purpose
 | `paint-bucket.png` | Paint Bucket | Fill areas |
 | `map-pinned.png` | Map Pinned | Place markers |
 | `pipette.png` | Pipette | Color picker/eyedropper |
+| `mouse-pointer-2.png` | Pointer | Room Select |
+| `zoom-in-png` | Magnifying Glass | Zoom |
 
 ## Icon Format
 
