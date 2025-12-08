@@ -3062,23 +3062,23 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
                 m_modals.renameBuffer[sizeof(m_modals.renameBuffer) - 1] = '\0';
             }
             
-            // Show "Move to Region" submenu (disabled if no regions exist)
+            // Show "Move to Region" submenu (or disabled item if no regions)
             bool hasRegions = !model.regionGroups.empty();
-            if (!hasRegions) {
-                ImGui::BeginDisabled();
-            }
-            if (ImGui::BeginMenu("Move to Region")) {
-                for (auto& region : model.regionGroups) {
-                    if (ImGui::MenuItem(region.name.c_str())) {
-                        room.parentRegionGroupId = region.id;
-                        model.MarkDirty();
-                        AddConsoleMessage("Moved " + room.name + " to " + 
-                            region.name, MessageType::Success);
+            if (hasRegions) {
+                if (ImGui::BeginMenu("Move to Region")) {
+                    for (auto& region : model.regionGroups) {
+                        if (ImGui::MenuItem(region.name.c_str())) {
+                            room.parentRegionGroupId = region.id;
+                            model.MarkDirty();
+                            AddConsoleMessage("Moved " + room.name + " to " + 
+                                region.name, MessageType::Success);
+                        }
                     }
+                    ImGui::EndMenu();
                 }
-                ImGui::EndMenu();
-            }
-            if (!hasRegions) {
+            } else {
+                ImGui::BeginDisabled();
+                ImGui::MenuItem("Move to Region");
                 ImGui::EndDisabled();
             }
             

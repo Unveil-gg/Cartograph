@@ -2122,29 +2122,29 @@ void CanvasPanel::Render(
                     modals->renameBuffer[sizeof(modals->renameBuffer) - 1] = '\0';
                 }
                 
-                // Move to Region submenu
+                // Move to Region submenu (or disabled item if no regions)
                 bool hasRegions = !model.regionGroups.empty();
-                if (!hasRegions) {
-                    ImGui::BeginDisabled();
-                }
-                if (ImGui::BeginMenu("Move to Region")) {
-                    for (auto& region : model.regionGroups) {
-                        // Skip current region if already in one
-                        bool isCurrent = (room->parentRegionGroupId == region.id);
-                        if (isCurrent) {
-                            ImGui::BeginDisabled();
+                if (hasRegions) {
+                    if (ImGui::BeginMenu("Move to Region")) {
+                        for (auto& region : model.regionGroups) {
+                            // Skip current region if already in one
+                            bool isCurrent = (room->parentRegionGroupId == region.id);
+                            if (isCurrent) {
+                                ImGui::BeginDisabled();
+                            }
+                            if (ImGui::MenuItem(region.name.c_str())) {
+                                room->parentRegionGroupId = region.id;
+                                model.MarkDirty();
+                            }
+                            if (isCurrent) {
+                                ImGui::EndDisabled();
+                            }
                         }
-                        if (ImGui::MenuItem(region.name.c_str())) {
-                            room->parentRegionGroupId = region.id;
-                            model.MarkDirty();
-                        }
-                        if (isCurrent) {
-                            ImGui::EndDisabled();
-                        }
+                        ImGui::EndMenu();
                     }
-                    ImGui::EndMenu();
-                }
-                if (!hasRegions) {
+                } else {
+                    ImGui::BeginDisabled();
+                    ImGui::MenuItem("Move to Region");
                     ImGui::EndDisabled();
                 }
                 
