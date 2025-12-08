@@ -2744,6 +2744,30 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
         if (ImGui::IsItemClicked()) {
             m_canvasPanel.selectedRegionGroupId = region.id;
             m_canvasPanel.selectedRoomId = "";  // Clear room selection
+            
+            // Navigate to region: calculate bounding box of all rooms in region
+            int minX = INT_MAX, minY = INT_MAX;
+            int maxX = INT_MIN, maxY = INT_MIN;
+            bool hasRoomsInRegion = false;
+            
+            for (const auto& room : model.rooms) {
+                if (room.parentRegionGroupId == region.id) {
+                    auto cells = model.GetRoomCells(room.id);
+                    for (const auto& cell : cells) {
+                        minX = std::min(minX, cell.first);
+                        maxX = std::max(maxX, cell.first);
+                        minY = std::min(minY, cell.second);
+                        maxY = std::max(maxY, cell.second);
+                        hasRoomsInRegion = true;
+                    }
+                }
+            }
+            
+            // Focus canvas on region if it has rooms
+            if (hasRoomsInRegion) {
+                canvas.FocusOnRect(minX, minY, maxX, maxY,
+                                  model.grid.tileWidth, model.grid.tileHeight);
+            }
         }
         
         // Drag-and-drop target: drop rooms onto region

@@ -82,7 +82,8 @@ public:
         const Marker* hoveredMarker = nullptr,     // Optional
         const RenderContext* context = nullptr,    // Optional
         const std::string& hoveredRoomId = "",     // Optional, for hover highlight
-        const std::string& selectedRoomId = ""     // Optional, for selection highlight
+        const std::string& selectedRoomId = "",    // Optional, for selection highlight
+        const std::string& selectedRegionGroupId = ""  // Optional, for region highlight
     );
     
     // Coordinate transformations
@@ -104,6 +105,16 @@ public:
     void ZoomToPoint(float newZoom, float screenX, float screenY);
     void Pan(float dx, float dy);
     void FocusOnTile(int tx, int ty, int tileWidth, int tileHeight);
+    
+    /**
+     * Focus canvas on a bounding rectangle, adjusting zoom to fit.
+     * @param minTx, minTy Top-left tile coordinates
+     * @param maxTx, maxTy Bottom-right tile coordinates
+     * @param tileWidth, tileHeight Tile dimensions
+     * @param padding Padding factor (1.1 = 10% padding around content)
+     */
+    void FocusOnRect(int minTx, int minTy, int maxTx, int maxTy,
+                     int tileWidth, int tileHeight, float padding = 1.1f);
     
     // Queries
     bool IsVisible(const Rect& rect, int tileWidth, int tileHeight) const;
@@ -135,7 +146,8 @@ private:
                       const Marker* hoveredMarker);
     void RenderRoomOverlays(IRenderer& renderer, const Model& model,
                            const std::string& hoveredRoomId,
-                           const std::string& selectedRoomId);
+                           const std::string& selectedRoomId,
+                           const std::string& selectedRegionGroupId);
     
     // Viewport state (set during Render)
     int m_vpX, m_vpY, m_vpW, m_vpH;

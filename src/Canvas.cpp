@@ -34,7 +34,8 @@ void Canvas::Render(
     const Marker* hoveredMarker,
     const RenderContext* context,
     const std::string& hoveredRoomId,
-    const std::string& selectedRoomId
+    const std::string& selectedRoomId,
+    const std::string& selectedRegionGroupId
 ) {
     m_vpX = viewportX;
     m_vpY = viewportY;
@@ -80,7 +81,8 @@ void Canvas::Render(
         RenderGrid(renderer, model.grid);
     }
     if (showRoomsLayer && showRoomOverlays) {
-        RenderRoomOverlays(renderer, model, hoveredRoomId, selectedRoomId);
+        RenderRoomOverlays(renderer, model, hoveredRoomId, selectedRoomId,
+                          selectedRegionGroupId);
     }
     
     // Pop clip rect only if we pushed it
@@ -148,6 +150,31 @@ void Canvas::Pan(float dx, float dy) {
 void Canvas::FocusOnTile(int tx, int ty, int tileWidth, int tileHeight) {
     offsetX = tx * tileWidth - m_vpW / (2.0f * zoom);
     offsetY = ty * tileHeight - m_vpH / (2.0f * zoom);
+}
+
+void Canvas::FocusOnRect(int minTx, int minTy, int maxTx, int maxTy,
+                         int tileWidth, int tileHeight, float padding) {
+    // Calculate content dimensions in world pixels
+    float contentW = (maxTx - minTx + 1) * tileWidth;
+    float contentH = (maxTy - minTy + 1) * tileHeight;
+    
+    // Calculate center of content area in world pixels
+    float centerX = (minTx + maxTx + 1) * 0.5f * tileWidth;
+    float centerY = (minTy + maxTy + 1) * 0.5f * tileHeight;
+    
+    // Calculate zoom to fit content with padding (if viewport is valid)
+    if (m_vpW > 0 && m_vpH > 0) {
+        float zoomX = m_vpW / (contentW * padding);
+        float zoomY = m_vpH / (contentH * padding);
+        float fitZoom = std::min(zoomX, zoomY);
+        
+        // Clamp zoom to reasonable range (don't zoom out too far)
+        zoom = std::clamp(fitZoom, 0.5f, DEFAULT_ZOOM * 1.5f);
+    }
+    
+    // Center offset on the bounding box center
+    offsetX = centerX - m_vpW / (2.0f * zoom);
+    offsetY = centerY - m_vpH / (2.0f * zoom);
 }
 
 bool Canvas::IsVisible(
@@ -567,11 +594,20 @@ void Canvas::RenderMarkers(IRenderer& renderer, const Model& model,
 
 void Canvas::RenderRoomOverlays(IRenderer& renderer, const Model& model,
                                const std::string& hoveredRoomId,
-                               const std::string& selectedRoomId) {
+                               const std::string& selectedRoomId,
+                               const std::string& selectedRegionGroupId) {
     const int tileWidth = model.grid.tileWidth;
     const int tileHeight = model.grid.tileHeight;
     
     ImDrawList* dl = ImGui::GetWindowDrawList();
+    
+    // Check if any selection is active (for greyscale effect)
+    bool hasRoomSelection = !selectedRoomId.empty();
+    bool hasRegionSelection = !selectedRegionGroupId.empty();
+    bool hasAnySelection = hasRoomSelection || hasRegionSelection;
+    
+    // Greyscale overlay color for non-selected rooms
+    Color greyscaleOverlay(0.4f, 0.4f, 0.4f, 0.45f);
     
     // Draw overlays for each room
     for (const auto& room : model.rooms) {
@@ -586,22 +622,38 @@ void Canvas::RenderRoomOverlays(IRenderer& renderer, const Model& model,
         if (roomCells.empty()) continue;
         
         // Check room highlight state
-        bool isSelected = (!selectedRoomId.empty() && room.id == selectedRoomId);
+        bool isRoomSelected = (hasRoomSelection && room.id == selectedRoomId);
+        bool isInSelectedRegion = (hasRegionSelection && 
+            room.parentRegionGroupId == selectedRegionGroupId);
         bool isHovered = (!hoveredRoomId.empty() && room.id == hoveredRoomId);
         
-        // Room overlay color: selected strongest, hovered medium, default subtle
+        // Determine if this room should be highlighted or greyed out
+        bool shouldHighlight = isRoomSelected || isInSelectedRegion || isHovered;
+        bool shouldGreyscale = hasAnySelection && !shouldHighlight;
+        
+        // Room overlay color: selected strongest, region medium, default subtle
         Color overlayColor = room.color;
-        if (isSelected) {
-            overlayColor.a = 0.5f;  // Strongest highlight for selection
+        if (isRoomSelected) {
+            overlayColor.a = 0.6f;  // Strongest highlight for room selection
+        } else if (isInSelectedRegion) {
+            overlayColor.a = 0.45f;  // Medium highlight for region selection
         } else if (isHovered) {
             overlayColor.a = 0.4f;
         } else {
             overlayColor.a = 0.15f;
         }
         
-        // Room outline color (opaque)
+        // Room outline color (opaque, but dimmed if greyscaled)
         Color outlineColor = room.color;
         outlineColor.a = 1.0f;
+        if (shouldGreyscale) {
+            // Desaturate outline for greyscaled rooms
+            float grey = (outlineColor.r + outlineColor.g + outlineColor.b) / 3.0f;
+            outlineColor.r = grey * 0.7f;
+            outlineColor.g = grey * 0.7f;
+            outlineColor.b = grey * 0.7f;
+            outlineColor.a = 0.6f;
+        }
         
         // Draw filled overlay for each cell
         for (const auto& cell : roomCells) {
@@ -616,8 +668,13 @@ void Canvas::RenderRoomOverlays(IRenderer& renderer, const Model& model,
             float sw = tileWidth * zoom;
             float sh = tileHeight * zoom;
             
-            // Draw overlay
+            // Draw room color overlay
             renderer.DrawRect(sx, sy, sw, sh, overlayColor);
+            
+            // Apply greyscale overlay on top for non-selected rooms
+            if (shouldGreyscale) {
+                renderer.DrawRect(sx, sy, sw, sh, greyscaleOverlay);
+            }
         }
         
         // Draw outline for perimeter of room
@@ -668,11 +725,17 @@ void Canvas::RenderRoomOverlays(IRenderer& renderer, const Model& model,
                         x2 = sx; y2 = sy + sh;
                     }
                     
+                    // Adjust outline thickness based on selection state
+                    float thickness = 2.0f * std::max(1.0f, zoom);
+                    if (isRoomSelected || isInSelectedRegion) {
+                        thickness *= 1.5f;  // Thicker outline for selected
+                    }
+                    
                     dl->AddLine(
                         ImVec2(x1, y1), 
                         ImVec2(x2, y2), 
                         outlineColor.ToU32(), 
-                        2.0f * std::max(1.0f, zoom)  // Thicker line at higher zoom
+                        thickness
                     );
                 }
             }
