@@ -2036,6 +2036,22 @@ void CanvasPanel::Render(
                     selectedRoomId = roomId;
                     activeRoomId = roomId;
                     selectedRegionGroupId = "";  // Clear region selection
+                    
+                    // Center and zoom to fit the selected room
+                    auto cells = model.GetRoomCells(roomId);
+                    if (!cells.empty()) {
+                        int minX = INT_MAX, minY = INT_MAX;
+                        int maxX = INT_MIN, maxY = INT_MIN;
+                        for (const auto& cell : cells) {
+                            minX = std::min(minX, cell.first);
+                            maxX = std::max(maxX, cell.first);
+                            minY = std::min(minY, cell.second);
+                            maxY = std::max(maxY, cell.second);
+                        }
+                        canvas.FocusOnRect(minX, minY, maxX, maxY,
+                                          model.grid.tileWidth,
+                                          model.grid.tileHeight);
+                    }
                 }
             }
         }
