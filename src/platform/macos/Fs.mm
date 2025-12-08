@@ -5,6 +5,7 @@
 #ifdef __APPLE__
 
 #import <Cocoa/Cocoa.h>
+#import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
 namespace Platform {
 
@@ -98,14 +99,21 @@ std::optional<std::string> ShowOpenDialogForImport(
         [panel setAllowsMultipleSelection:NO];
         [panel setCanCreateDirectories:NO];
         
-        // Set file type filter for .cart files
+        // Set file type filter for .cart files using UTType (macOS 11+)
         if (allowFiles && !fileExtensions.empty()) {
-            NSMutableArray* types = [NSMutableArray array];
+            NSMutableArray<UTType*>* contentTypes = [NSMutableArray array];
             for (const auto& ext : fileExtensions) {
-                [types addObject:[NSString stringWithUTF8String:ext.c_str()]];
+                NSString* extStr = 
+                    [NSString stringWithUTF8String:ext.c_str()];
+                UTType* type = 
+                    [UTType typeWithFilenameExtension:extStr];
+                if (type) {
+                    [contentTypes addObject:type];
+                }
             }
-            [panel setAllowedFileTypes:types];
-            [panel setAllowsOtherFileTypes:NO];
+            if (contentTypes.count > 0) {
+                [panel setAllowedContentTypes:contentTypes];
+            }
         }
         
         // Set default directory

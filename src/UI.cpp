@@ -2566,22 +2566,23 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
         }
     }
     
-    // Add Perimeter Walls button (greyed out if no rooms)
-    // Check if any room might need perimeter walls
+    ImGui::SameLine();
+    
+    // Add Perimeter Walls button (greyed out if no rooms need walls)
+    // Check if any room actually has edges that need walls added
     bool hasRooms = !model.rooms.empty();
-    bool anyRoomHasOpenEdge = false;
+    bool anyRoomNeedsWalls = false;
     if (hasRooms) {
-        // Quick check: see if any room has cells (potential open edges)
         for (const auto& room : model.rooms) {
-            auto cells = model.GetRoomCells(room.id);
-            if (!cells.empty()) {
-                anyRoomHasOpenEdge = true;
-                break;
+            auto changes = model.ComputeRoomPerimeterWallChanges(room.id);
+            if (!changes.empty()) {
+                anyRoomNeedsWalls = true;
+                break;  // Found at least one room needing walls
             }
         }
     }
     
-    bool canAddWalls = hasRooms && anyRoomHasOpenEdge;
+    bool canAddWalls = hasRooms && anyRoomNeedsWalls;
     
     if (!canAddWalls) {
         ImGui::BeginDisabled();
@@ -2625,8 +2626,8 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
         if (!hasRooms) {
             ImGui::SetTooltip("No rooms detected yet.\n"
                             "Click 'Detect Rooms' first.");
-        } else if (!anyRoomHasOpenEdge) {
-            ImGui::SetTooltip("No rooms have cells to add walls to.");
+        } else if (!anyRoomNeedsWalls) {
+            ImGui::SetTooltip("All rooms already have walls.");
         } else {
             ImGui::SetTooltip("Add walls around all room boundaries\n"
                             "where there are no existing walls or doors.");
@@ -4061,7 +4062,7 @@ void UI::BuildFixedLayout(ImGuiID dockspaceId) {
     ImGuiID rightId = 0;
     
     if (showPropertiesPanel) {
-        // 3-column mode: Split right for hierarchy panel (320px)
+        // 3-column mode: Split right for hierarchy panel (360px)
         float rightWidth = 320.0f / (viewport->WorkSize.x - 220.0f);
         ImGui::DockBuilderSplitNode(
             remainingId, ImGuiDir_Right, rightWidth,
