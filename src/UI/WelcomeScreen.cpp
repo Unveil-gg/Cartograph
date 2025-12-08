@@ -465,6 +465,8 @@ void WelcomeScreen::RenderRecentProjectsList(App& app) {
             ImGui::PushStyleColor(ImGuiCol_ButtonActive, 
                                  ImVec4(0.3f, 0.3f, 0.3f, 0.5f));
             
+            // Allow X button to capture clicks over this ImageButton
+            ImGui::SetNextItemAllowOverlap();
             if (ImGui::ImageButton(
                     ("##thumb" + std::to_string(i)).c_str(),
                     (ImTextureID)(intptr_t)project.thumbnailTextureId,
@@ -472,8 +474,6 @@ void WelcomeScreen::RenderRecentProjectsList(App& app) {
                 app.OpenProject(project.path);
             app.ShowEditor();
         }
-            // Allow X button to capture clicks over this ImageButton
-            ImGui::SetItemAllowOverlap();
             
             ImGui::PopStyleColor(3);
             
