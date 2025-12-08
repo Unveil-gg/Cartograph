@@ -33,7 +33,8 @@ void Canvas::Render(
     const Marker* selectedMarker,
     const Marker* hoveredMarker,
     const RenderContext* context,
-    const std::string& hoveredRoomId
+    const std::string& hoveredRoomId,
+    const std::string& selectedRoomId
 ) {
     m_vpX = viewportX;
     m_vpY = viewportY;
@@ -79,7 +80,7 @@ void Canvas::Render(
         RenderGrid(renderer, model.grid);
     }
     if (showRoomsLayer && showRoomOverlays) {
-        RenderRoomOverlays(renderer, model, hoveredRoomId);
+        RenderRoomOverlays(renderer, model, hoveredRoomId, selectedRoomId);
     }
     
     // Pop clip rect only if we pushed it
@@ -565,7 +566,8 @@ void Canvas::RenderMarkers(IRenderer& renderer, const Model& model,
 }
 
 void Canvas::RenderRoomOverlays(IRenderer& renderer, const Model& model,
-                               const std::string& hoveredRoomId) {
+                               const std::string& hoveredRoomId,
+                               const std::string& selectedRoomId) {
     const int tileWidth = model.grid.tileWidth;
     const int tileHeight = model.grid.tileHeight;
     
@@ -583,12 +585,19 @@ void Canvas::RenderRoomOverlays(IRenderer& renderer, const Model& model,
         
         if (roomCells.empty()) continue;
         
-        // Check if this room is being hovered in UI
+        // Check room highlight state
+        bool isSelected = (!selectedRoomId.empty() && room.id == selectedRoomId);
         bool isHovered = (!hoveredRoomId.empty() && room.id == hoveredRoomId);
         
-        // Room overlay color (more visible when hovered)
+        // Room overlay color: selected strongest, hovered medium, default subtle
         Color overlayColor = room.color;
-        overlayColor.a = isHovered ? 0.4f : 0.15f;
+        if (isSelected) {
+            overlayColor.a = 0.5f;  // Strongest highlight for selection
+        } else if (isHovered) {
+            overlayColor.a = 0.4f;
+        } else {
+            overlayColor.a = 0.15f;
+        }
         
         // Room outline color (opaque)
         Color outlineColor = room.color;

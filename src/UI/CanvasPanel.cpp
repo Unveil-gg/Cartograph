@@ -2289,7 +2289,8 @@ void CanvasPanel::Render(
         selMarkerPtr,      // Pass selected marker for highlight
         hovMarkerPtr,      // Pass hovered marker for highlight
         nullptr,           // No special render context
-        hoveredRoomId      // Pass hovered room for highlight
+        hoveredRoomId,     // Pass hovered room for highlight
+        selectedRoomId     // Pass selected room for stronger highlight
     );
     
     // Clear hovered room at end of frame (will be set again if still hovering)

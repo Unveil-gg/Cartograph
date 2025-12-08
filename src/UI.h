@@ -143,6 +143,12 @@ public:
     void AddConsoleMessage(const std::string& message, MessageType type);
     
     /**
+     * Check if any toast messages are currently visible.
+     * @return True if toasts are being displayed
+     */
+    bool HasVisibleToasts() const { return !m_toasts.empty(); }
+    
+    /**
      * Import a custom icon.
      * @param iconManager Icon manager to add icon to
      * @param jobs Job queue for background processing

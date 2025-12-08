@@ -2837,7 +2837,8 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
                             int centerX = (minX + maxX) / 2;
                             int centerY = (minY + maxY) / 2;
                             
-                            // Focus camera on room center
+                            // Focus camera on room center and zoom to 110%
+                            canvas.SetZoom(Canvas::DEFAULT_ZOOM * 1.1f);
                             canvas.FocusOnTile(centerX, centerY, 
                                              model.grid.tileWidth, 
                                              model.grid.tileHeight);
@@ -2970,7 +2971,8 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
                 int centerX = (minX + maxX) / 2;
                 int centerY = (minY + maxY) / 2;
                 
-                // Focus camera on room center
+                // Focus camera on room center and zoom to 110%
+                canvas.SetZoom(Canvas::DEFAULT_ZOOM * 1.1f);
                 canvas.FocusOnTile(centerX, centerY, 
                                  model.grid.tileWidth, 
                                  model.grid.tileHeight);
@@ -3399,6 +3401,8 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
                                     }
                                     int centerX = (minX + maxX) / 2;
                                     int centerY = (minY + maxY) / 2;
+                                    // Zoom to 110% and focus on room center
+                                    canvas.SetZoom(Canvas::DEFAULT_ZOOM * 1.1f);
                                     canvas.FocusOnTile(centerX, centerY,
                                         model.grid.tileWidth,
                                         model.grid.tileHeight);
@@ -3691,6 +3695,8 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
                                 }
                                 int centerX = (minX + maxX) / 2;
                                 int centerY = (minY + maxY) / 2;
+                                // Zoom to 110% and focus on room center
+                                canvas.SetZoom(Canvas::DEFAULT_ZOOM * 1.1f);
                                 canvas.FocusOnTile(centerX, centerY, 
                                                  model.grid.tileWidth, 
                                                  model.grid.tileHeight);
