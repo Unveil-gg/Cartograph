@@ -65,7 +65,6 @@ target_compile_definitions(imgui PUBLIC
     IMGUI_IMPL_OPENGL_LOADER_GLAD2
     IMGUI_DISABLE_DEMO_WINDOWS
     IMGUI_DISABLE_DEBUG_TOOLS
-    IMGUI_DISABLE_OBSOLETE_FUNCTIONS
 )
 
 # Link to vendored SDL3-static and GLAD (GLAD provides include dirs)
