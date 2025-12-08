@@ -9,6 +9,7 @@
 // minizip-ng compatibility layer provides zip.h and unzip.h
 #include "zip.h"
 #include "unzip.h"
+#include <zlib.h>  // For Z_DEFLATED, Z_DEFAULT_COMPRESSION
 
 // stb_image_write for PNG encoding (implementation in ExportPng.cpp)
 #include <stb/stb_image_write.h>
