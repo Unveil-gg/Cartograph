@@ -851,9 +851,10 @@ bool App::RenameProjectFolder(const std::string& newTitle) {
     // Store old path for recent projects update
     std::string oldPath = m_currentFilePath;
     
-    // Perform the rename
+    // Perform the rename (use normalized path to remove trailing slashes,
+    // as Windows rejects paths with trailing backslashes in rename ops)
     std::error_code ec;
-    fs::rename(currentPath, newPath, ec);
+    fs::rename(currentPath.lexically_normal(), newPath, ec);
     
     if (ec) {
         m_ui.ShowToast("Failed to rename folder: " + ec.message(), 
