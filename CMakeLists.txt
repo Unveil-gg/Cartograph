@@ -105,8 +105,12 @@ if(APPLE)
     )
 endif()
 
-# Executable
-add_executable(Cartograph ${CARTOGRAPH_SOURCES} ${CARTOGRAPH_HEADERS})
+# Executable (WIN32 creates GUI app without console window)
+if(WIN32)
+    add_executable(Cartograph WIN32 ${CARTOGRAPH_SOURCES} ${CARTOGRAPH_HEADERS})
+else()
+    add_executable(Cartograph ${CARTOGRAPH_SOURCES} ${CARTOGRAPH_HEADERS})
+endif()
 
 # Include directories
 target_include_directories(Cartograph PRIVATE
