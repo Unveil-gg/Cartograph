@@ -4,6 +4,7 @@
 #include "Icons.h"
 #include <imgui.h>
 #include <algorithm>
+#include <climits>
 #include <cmath>
 #include <cstring>
 
@@ -757,10 +758,11 @@ void Canvas::CaptureThumbnail(IRenderer& renderer, const Model& model,
     const int thumbHeight = 216;
     
     // Calculate content bounding box in tile coordinates
-    int minTileX = model.grid.cols;
-    int minTileY = model.grid.rows;
-    int maxTileX = 0;
-    int maxTileY = 0;
+    // Use INT_MAX/INT_MIN to properly handle negative coordinates
+    int minTileX = INT_MAX;
+    int minTileY = INT_MAX;
+    int maxTileX = INT_MIN;
+    int maxTileY = INT_MIN;
     bool hasContent = false;
     
     for (const auto& row : model.tiles) {
@@ -782,21 +784,21 @@ void Canvas::CaptureThumbnail(IRenderer& renderer, const Model& model,
         int centerX = model.grid.cols / 2;
         int centerY = model.grid.rows / 2;
         int viewSize = 20;
-        minTileX = std::max(0, centerX - viewSize / 2);
-        maxTileX = std::min(model.grid.cols, centerX + viewSize / 2);
-        minTileY = std::max(0, centerY - viewSize / 2);
-        maxTileY = std::min(model.grid.rows, centerY + viewSize / 2);
+        minTileX = centerX - viewSize / 2;
+        maxTileX = centerX + viewSize / 2;
+        minTileY = centerY - viewSize / 2;
+        maxTileY = centerY + viewSize / 2;
     }
     
-    // Add padding around content
+    // Add padding around content (no clamping to support negative coords)
     int contentWidth = maxTileX - minTileX;
     int contentHeight = maxTileY - minTileY;
     int padding = (contentWidth < 10 || contentHeight < 10) ? 4 : 2;
     
-    minTileX = std::max(0, minTileX - padding);
-    minTileY = std::max(0, minTileY - padding);
-    maxTileX = std::min(model.grid.cols, maxTileX + padding);
-    maxTileY = std::min(model.grid.rows, maxTileY + padding);
+    minTileX -= padding;
+    minTileY -= padding;
+    maxTileX += padding;
+    maxTileY += padding;
     
     // Convert content bounds to world coordinates
     float contentMinX = minTileX * model.grid.tileWidth;

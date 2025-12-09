@@ -5,6 +5,7 @@
 #include "render/GlRenderer.h"
 #include "Icons.h"
 #include <algorithm>
+#include <climits>
 
 // stb_image_write for PNG encoding
 #define STB_IMAGE_WRITE_IMPLEMENTATION_THUMBNAIL
@@ -70,10 +71,11 @@ bool Thumbnail::GenerateToMemory(
     glRenderer->Clear(Color(0.1f, 0.1f, 0.12f, 1.0f));
     
     // Calculate bounding box of actual drawn content (painted tiles only)
-    int minX = model.grid.cols;
-    int minY = model.grid.rows;
-    int maxX = 0;
-    int maxY = 0;
+    // Use INT_MAX/INT_MIN to properly handle negative coordinates
+    int minX = INT_MAX;
+    int minY = INT_MAX;
+    int maxX = INT_MIN;
+    int maxY = INT_MIN;
     bool hasContent = false;
     
     // Check painted tiles - this is what actually matters for visual preview
@@ -96,21 +98,21 @@ bool Thumbnail::GenerateToMemory(
         int centerX = model.grid.cols / 2;
         int centerY = model.grid.rows / 2;
         int viewSize = 20;  // Show 20x20 cell area
-        minX = std::max(0, centerX - viewSize / 2);
-        maxX = std::min(model.grid.cols, centerX + viewSize / 2);
-        minY = std::max(0, centerY - viewSize / 2);
-        maxY = std::min(model.grid.rows, centerY + viewSize / 2);
+        minX = centerX - viewSize / 2;
+        maxX = centerX + viewSize / 2;
+        minY = centerY - viewSize / 2;
+        maxY = centerY + viewSize / 2;
     }
     
-    // Add padding around content (more padding for smaller content)
+    // Add padding around content (no clamping to support negative coords)
     int contentWidth = maxX - minX;
     int contentHeight = maxY - minY;
     int padding = (contentWidth < 10 || contentHeight < 10) ? 4 : 2;
     
-    minX = std::max(0, minX - padding);
-    minY = std::max(0, minY - padding);
-    maxX = std::min(model.grid.cols, maxX + padding);
-    maxY = std::min(model.grid.rows, maxY + padding);
+    minX -= padding;
+    minY -= padding;
+    maxX += padding;
+    maxY += padding;
     
     // Calculate dimensions based on content bounds (in world pixels)
     float contentWidthPx = (maxX - minX) * model.grid.tileWidth;

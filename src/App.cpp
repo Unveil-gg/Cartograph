@@ -346,10 +346,15 @@ void App::Render() {
                         m_ui.m_modals.showAutosaveRecoveryModal ||
                         m_ui.HasVisibleToasts();
     
-    if (m_appState == AppState::Editor && m_model.dirty && !modalVisible) {
+    // Capture periodically in editor mode (not just when dirty)
+    // This ensures thumbnails are available after loading or saving
+    if (m_appState == AppState::Editor && !modalVisible) {
         static double lastThumbnailCapture = 0.0;
         double now = Platform::GetTime();
-        if (now - lastThumbnailCapture > 3.0) {
+        // Capture every 3 seconds, or immediately if dirty and never captured
+        bool shouldCapture = (now - lastThumbnailCapture > 3.0) ||
+                            (m_model.dirty && !m_canvas.hasCachedThumbnail);
+        if (shouldCapture) {
             m_canvas.CaptureThumbnail(
                 *m_renderer, m_model,
                 m_canvas.GetViewportX(),
