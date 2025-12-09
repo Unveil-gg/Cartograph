@@ -337,26 +337,36 @@ bool ExportPng::Export(
         }
     }
     
-    // Render grid (using alpha blending so it only shows over content)
+    // Render grid (extends into padding for visual continuity)
     if (options.layerGrid) {
         Color gridColor(0.2f, 0.2f, 0.2f, 0.5f);
         
-        // Vertical lines
-        for (int tx = bounds.minX; tx <= bounds.maxX + 1; ++tx) {
+        // Calculate how many extra tiles fit in the padding area
+        int paddingTilesX = static_cast<int>(std::ceil(
+            static_cast<float>(options.padding) / model.grid.tileWidth)) + 1;
+        int paddingTilesY = static_cast<int>(std::ceil(
+            static_cast<float>(options.padding) / model.grid.tileHeight)) + 1;
+        
+        // Extended grid bounds (content + padding on both sides)
+        int gridMinX = bounds.minX - paddingTilesX;
+        int gridMaxX = bounds.maxX + 1 + paddingTilesX;
+        int gridMinY = bounds.minY - paddingTilesY;
+        int gridMaxY = bounds.maxY + 1 + paddingTilesY;
+        
+        // Vertical lines (span full image height)
+        for (int tx = gridMinX; tx <= gridMaxX; ++tx) {
             int px, py;
             tileToPixel(tx, bounds.minY, &px, &py);
-            int py2 = static_cast<int>((bounds.maxY - bounds.minY + 1) * 
-                model.grid.tileHeight * scale + options.padding * scale);
-            buffer.BlendVLine(px, py, py2, gridColor);
+            // Lines span from top to bottom of image
+            buffer.BlendVLine(px, 0, height, gridColor);
         }
         
-        // Horizontal lines
-        for (int ty = bounds.minY; ty <= bounds.maxY + 1; ++ty) {
+        // Horizontal lines (span full image width)
+        for (int ty = gridMinY; ty <= gridMaxY; ++ty) {
             int px, py;
             tileToPixel(bounds.minX, ty, &px, &py);
-            int px2 = static_cast<int>((bounds.maxX - bounds.minX + 1) * 
-                model.grid.tileWidth * scale + options.padding * scale);
-            buffer.BlendHLine(px, px2, py, gridColor);
+            // Lines span from left to right of image
+            buffer.BlendHLine(0, width, py, gridColor);
         }
     }
     
