@@ -205,25 +205,47 @@ std::string ProjectFolder::EnsureCartprojExtension(const std::string& path) {
 }
 
 std::string ProjectFolder::SanitizeProjectName(const std::string& name) {
-    std::string sanitized = name;
+    std::string result;
+    result.reserve(name.size());
     
-    // Replace invalid filesystem characters with underscores
-    for (char& c : sanitized) {
-        if (c == '/' || c == '\\' || c == ':' || c == '*' || 
-            c == '?' || c == '"' || c == '<' || c == '>' || c == '|') {
-            c = '_';
+    bool lastWasDash = false;
+    
+    for (char c : name) {
+        // Convert whitespace to dash
+        if (c == ' ' || c == '\t' || c == '\n' || c == '\r') {
+            // Collapse multiple whitespace/dashes to single dash
+            if (!lastWasDash && !result.empty()) {
+                result += '-';
+                lastWasDash = true;
+            }
+        }
+        // Replace invalid filesystem characters with dash
+        else if (c == '/' || c == '\\' || c == ':' || c == '*' || 
+                 c == '?' || c == '"' || c == '<' || c == '>' || c == '|') {
+            if (!lastWasDash && !result.empty()) {
+                result += '-';
+                lastWasDash = true;
+            }
+        }
+        // Keep valid characters
+        else {
+            result += c;
+            lastWasDash = (c == '-');  // Track existing dashes
         }
     }
     
-    // Trim leading/trailing whitespace
-    size_t start = sanitized.find_first_not_of(" \t\n\r");
-    size_t end = sanitized.find_last_not_of(" \t\n\r");
-    
-    if (start == std::string::npos) {
-        return "";  // All whitespace
+    // Trim trailing dashes
+    while (!result.empty() && result.back() == '-') {
+        result.pop_back();
     }
     
-    return sanitized.substr(start, end - start + 1);
+    // Trim leading dashes
+    size_t start = result.find_first_not_of('-');
+    if (start == std::string::npos) {
+        return "";  // All dashes or empty
+    }
+    
+    return result.substr(start);
 }
 
 std::string ProjectFolder::GetFolderNameFromPath(const std::string& path) {

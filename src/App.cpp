@@ -675,58 +675,20 @@ void App::ShowNewProjectDialog() {
 }
 
 void App::ShowOpenProjectDialog() {
-    // Callback struct
-    struct CallbackData {
-        App* app;
-    };
-    
-    // Allocate callback data (ownership transferred to callback)
-    auto dataPtr = std::make_unique<CallbackData>();
-    dataPtr->app = this;
-    
-    // Setup filters for both .cart files and folders
-    static SDL_DialogFileFilter filters[] = {
-        { "Cartograph Project", "cart" },
-        { "All Files", "*" }
-    };
-    
-    // Show native file dialog for opening
-    SDL_ShowOpenFileDialog(
-        // Callback
-        [](void* userdata, const char* const* filelist, int filter) {
-            // Take ownership of callback data (automatic cleanup on exit)
-            std::unique_ptr<CallbackData> data(
-                static_cast<CallbackData*>(userdata)
-            );
-            
-            if (filelist == nullptr) {
-                // Error occurred
-                return;
-            }
-            
-            if (filelist[0] == nullptr) {
-                // User canceled
-                return;
-            }
-            
-            // User selected a file or folder - open it
-            std::string path = filelist[0];
-            data->app->OpenProject(path);
-            data->app->ShowEditor();
-        },
-        // Userdata - transfer ownership to SDL callback
-        dataPtr.release(),
-        // Window (NULL for now)
-        nullptr,
-        // Filters
-        filters,
-        // Number of filters
-        2,
-        // Default location
-        nullptr,
-        // Allow multiple files
-        false
+    // Use platform-native dialog that supports both files and folders
+    auto result = Platform::ShowOpenDialogForImport(
+        "Open Cartograph Project",
+        true,   // Allow .cart files
+        true,   // Allow .cartproj folders
+        {"cart"},  // File extensions filter
+        Platform::GetDefaultProjectsDir()  // Default directory
     );
+    
+    if (result) {
+        OpenProject(*result);
+        ShowEditor();
+    }
+    // If nullopt, user cancelled - no action needed
 }
 
 void App::SaveProject() {

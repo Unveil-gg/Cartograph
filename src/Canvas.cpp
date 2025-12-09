@@ -747,7 +747,7 @@ void Canvas::RenderRoomOverlays(IRenderer& renderer, const Model& model,
 void Canvas::CaptureThumbnail(IRenderer& renderer, const Model& model,
                               int viewportX, int viewportY,
                               int viewportW, int viewportH) {
-    // Guard: viewport must be valid (canvas must have rendered at least once)
+    // Guard: viewport must be valid
     if (viewportW <= 0 || viewportH <= 0) {
         hasCachedThumbnail = false;
         return;
@@ -757,112 +757,61 @@ void Canvas::CaptureThumbnail(IRenderer& renderer, const Model& model,
     const int thumbWidth = 384;
     const int thumbHeight = 216;
     
-    // Calculate content bounding box in tile coordinates
-    // Use INT_MAX/INT_MIN to properly handle negative coordinates
-    int minTileX = INT_MAX;
-    int minTileY = INT_MAX;
-    int maxTileX = INT_MIN;
-    int maxTileY = INT_MIN;
-    bool hasContent = false;
-    
-    for (const auto& row : model.tiles) {
-        if (!row.runs.empty()) {
-            for (const auto& run : row.runs) {
-                if (run.tileId != 0) {
-                    minTileX = std::min(minTileX, run.startX);
-                    maxTileX = std::max(maxTileX, run.startX + run.count);
-                    minTileY = std::min(minTileY, row.y);
-                    maxTileY = std::max(maxTileY, row.y + 1);
-                    hasContent = true;
-                }
-            }
-        }
-    }
-    
-    // If no content, capture center of viewport
-    if (!hasContent) {
-        int centerX = model.grid.cols / 2;
-        int centerY = model.grid.rows / 2;
-        int viewSize = 20;
-        minTileX = centerX - viewSize / 2;
-        maxTileX = centerX + viewSize / 2;
-        minTileY = centerY - viewSize / 2;
-        maxTileY = centerY + viewSize / 2;
-    }
-    
-    // Add padding around content (no clamping to support negative coords)
-    int contentWidth = maxTileX - minTileX;
-    int contentHeight = maxTileY - minTileY;
-    int padding = (contentWidth < 10 || contentHeight < 10) ? 4 : 2;
-    
-    minTileX -= padding;
-    minTileY -= padding;
-    maxTileX += padding;
-    maxTileY += padding;
-    
-    // Convert content bounds to world coordinates
-    float contentMinX = minTileX * model.grid.tileWidth;
-    float contentMinY = minTileY * model.grid.tileHeight;
-    float contentMaxX = maxTileX * model.grid.tileWidth;
-    float contentMaxY = maxTileY * model.grid.tileHeight;
-    
-    // Convert to screen coordinates
-    float screenMinX, screenMinY, screenMaxX, screenMaxY;
-    WorldToScreen(contentMinX, contentMinY, &screenMinX, &screenMinY);
-    WorldToScreen(contentMaxX, contentMaxY, &screenMaxX, &screenMaxY);
-    
-    // Calculate capture region (clamped to viewport)
-    int captureX = std::max(viewportX, static_cast<int>(screenMinX));
-    int captureY = std::max(viewportY, static_cast<int>(screenMinY));
-    int captureW = std::min(viewportX + viewportW, 
-                           static_cast<int>(screenMaxX)) - captureX;
-    int captureH = std::min(viewportY + viewportH,
-                           static_cast<int>(screenMaxY)) - captureY;
-    
-    // Ensure reasonable capture size
-    if (captureW <= 0 || captureH <= 0 || 
-        captureW > viewportW || captureH > viewportH) {
-        // Fall back to full viewport
-        captureX = viewportX;
-        captureY = viewportY;
-        captureW = viewportW;
-        captureH = viewportH;
-    }
-    
-    // Read pixels from framebuffer
+    // Cast to GlRenderer for framebuffer operations
     GlRenderer* glRenderer = dynamic_cast<GlRenderer*>(&renderer);
     if (!glRenderer) {
         hasCachedThumbnail = false;
         return;
     }
     
-    std::vector<uint8_t> capturedPixels(captureW * captureH * 4);
-    glRenderer->ReadPixels(captureX, captureY, captureW, captureH,
+    // Get actual framebuffer size (handles HiDPI/Retina displays)
+    int fbWidth, fbHeight;
+    glRenderer->GetDrawableSize(&fbWidth, &fbHeight);
+    
+    // Get window size for calculating scale factor
+    int winWidth, winHeight;
+    glRenderer->GetWindowSize(&winWidth, &winHeight);
+    
+    // Calculate HiDPI scale factor
+    float scaleX = static_cast<float>(fbWidth) / winWidth;
+    float scaleY = static_cast<float>(fbHeight) / winHeight;
+    
+    // Convert viewport coordinates to framebuffer pixels (accounting for HiDPI)
+    int fbViewportX = static_cast<int>(viewportX * scaleX);
+    int fbViewportY = static_cast<int>(viewportY * scaleY);
+    int fbViewportW = static_cast<int>(viewportW * scaleX);
+    int fbViewportH = static_cast<int>(viewportH * scaleY);
+    
+    // Convert Y from ImGui (top-left origin) to OpenGL (bottom-left origin)
+    int glY = fbHeight - fbViewportY - fbViewportH;
+    
+    // Read pixels from framebuffer
+    std::vector<uint8_t> capturedPixels(fbViewportW * fbViewportH * 4);
+    glRenderer->ReadPixels(fbViewportX, glY, fbViewportW, fbViewportH,
                           capturedPixels.data());
     
-    // Flip vertically (OpenGL reads bottom-up)
-    std::vector<uint8_t> flipped(captureW * captureH * 4);
-    for (int y = 0; y < captureH; ++y) {
+    // Flip vertically (OpenGL reads bottom-up, we need top-down)
+    std::vector<uint8_t> flipped(fbViewportW * fbViewportH * 4);
+    for (int y = 0; y < fbViewportH; ++y) {
         memcpy(
-            flipped.data() + y * captureW * 4,
-            capturedPixels.data() + (captureH - 1 - y) * captureW * 4,
-            captureW * 4
+            flipped.data() + y * fbViewportW * 4,
+            capturedPixels.data() + (fbViewportH - 1 - y) * fbViewportW * 4,
+            fbViewportW * 4
         );
     }
     
-    // Simple resize to thumbnail dimensions using nearest neighbor
-    // (Good enough for thumbnails, faster than bilinear)
+    // Resize to thumbnail dimensions using bilinear-ish sampling
     cachedThumbnail.resize(thumbWidth * thumbHeight * 4);
     
-    float scaleX = static_cast<float>(captureW) / thumbWidth;
-    float scaleY = static_cast<float>(captureH) / thumbHeight;
+    float srcScaleX = static_cast<float>(fbViewportW) / thumbWidth;
+    float srcScaleY = static_cast<float>(fbViewportH) / thumbHeight;
     
     for (int y = 0; y < thumbHeight; ++y) {
         for (int x = 0; x < thumbWidth; ++x) {
-            int srcX = std::min(static_cast<int>(x * scaleX), captureW - 1);
-            int srcY = std::min(static_cast<int>(y * scaleY), captureH - 1);
+            int srcX = std::min(static_cast<int>(x * srcScaleX), fbViewportW - 1);
+            int srcY = std::min(static_cast<int>(y * srcScaleY), fbViewportH - 1);
             
-            int srcIdx = (srcY * captureW + srcX) * 4;
+            int srcIdx = (srcY * fbViewportW + srcX) * 4;
             int dstIdx = (y * thumbWidth + x) * 4;
             
             cachedThumbnail[dstIdx + 0] = flipped[srcIdx + 0];
