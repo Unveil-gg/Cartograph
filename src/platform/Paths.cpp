@@ -86,5 +86,24 @@ bool EnsureDirectoryExists(const std::string& path) {
     }
 }
 
+std::string NormalizePath(const std::string& path) {
+    if (path.empty()) {
+        return path;
+    }
+    
+    try {
+        fs::path p(path);
+        
+        // Use weakly_canonical: resolves symlinks for existing parts,
+        // normalizes . and .. components, handles trailing slashes
+        fs::path normalized = fs::weakly_canonical(p);
+        
+        return normalized.string();
+    } catch (...) {
+        // Fallback: just use lexically_normal if weakly_canonical fails
+        return fs::path(path).lexically_normal().string();
+    }
+}
+
 } // namespace Platform
 

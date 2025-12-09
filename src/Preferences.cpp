@@ -199,19 +199,22 @@ void RecentProjects::Add(const std::string& path) {
         Load();
     }
     
-    // Remove existing entry with same path (case-insensitive on macOS)
+    // Normalize path for consistent comparison and storage
+    std::string normalizedPath = Platform::NormalizePath(path);
+    
+    // Remove existing entry with same normalized path (deduplication)
     s_entries.erase(
         std::remove_if(s_entries.begin(), s_entries.end(),
-            [&path](const RecentProjectEntry& e) {
-                return e.path == path;
+            [&normalizedPath](const RecentProjectEntry& e) {
+                return Platform::NormalizePath(e.path) == normalizedPath;
             }),
         s_entries.end()
     );
     
-    // Create new entry
+    // Create new entry with normalized path
     RecentProjectEntry entry;
-    entry.path = path;
-    entry.type = GetProjectType(path);
+    entry.path = normalizedPath;
+    entry.type = GetProjectType(normalizedPath);
     entry.lastOpened = GetCurrentTimestamp();
     
     // Insert at front (most recent)
@@ -231,10 +234,13 @@ void RecentProjects::Remove(const std::string& path) {
         Load();
     }
     
+    // Normalize path for consistent comparison
+    std::string normalizedPath = Platform::NormalizePath(path);
+    
     s_entries.erase(
         std::remove_if(s_entries.begin(), s_entries.end(),
-            [&path](const RecentProjectEntry& e) {
-                return e.path == path;
+            [&normalizedPath](const RecentProjectEntry& e) {
+                return Platform::NormalizePath(e.path) == normalizedPath;
             }),
         s_entries.end()
     );

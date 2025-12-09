@@ -729,13 +729,19 @@ void WelcomeScreen::LoadRecentProjects() {
     
     namespace fs = std::filesystem;
     
-    // Track paths we've already added (for deduplication)
+    // Track normalized paths we've already added (for deduplication)
     std::unordered_set<std::string> addedPaths;
     
     // 1. Load from persistent recent projects list
     auto entries = RecentProjects::GetValidEntries();
     
     for (const auto& entry : entries) {
+        // Normalize path for deduplication
+        std::string normalizedPath = Platform::NormalizePath(entry.path);
+        
+        // Skip if already added (handles duplicates from storage)
+        if (addedPaths.count(normalizedPath) > 0) continue;
+        
         RecentProject project;
         project.path = entry.path;
         
@@ -758,7 +764,7 @@ void WelcomeScreen::LoadRecentProjects() {
         
         project.lastModified = entry.lastOpened;
         recentProjects.push_back(project);
-        addedPaths.insert(entry.path);
+        addedPaths.insert(normalizedPath);
     }
     
     // 2. Scan default projects directory for additional projects
@@ -771,9 +777,10 @@ void WelcomeScreen::LoadRecentProjects() {
                 if (!dirEntry.is_directory()) continue;
                 
                 std::string folderPath = dirEntry.path().string();
+                std::string normalizedPath = Platform::NormalizePath(folderPath);
                 
-                // Skip if already in recent list
-                if (addedPaths.count(folderPath) > 0) continue;
+                // Skip if already in recent list (using normalized path)
+                if (addedPaths.count(normalizedPath) > 0) continue;
                 
                 // Use proper validation (checks project.json + Cartograph format)
                 if (!ProjectFolder::IsProjectFolder(folderPath)) continue;
@@ -781,7 +788,7 @@ void WelcomeScreen::LoadRecentProjects() {
                 // Add to list
                 RecentProject project = CreateProjectEntryFromFolder(folderPath);
                 recentProjects.push_back(project);
-                addedPaths.insert(folderPath);
+                addedPaths.insert(normalizedPath);
             }
         } catch (...) {
             // Silently ignore scan errors

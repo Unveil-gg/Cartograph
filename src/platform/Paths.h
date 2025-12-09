@@ -40,5 +40,14 @@ std::string GetAssetsDir();
  */
 bool EnsureDirectoryExists(const std::string& path);
 
+/**
+ * Normalize a path for consistent comparison and storage.
+ * Removes trailing slashes, resolves . and .. components.
+ * Uses weakly_canonical to handle non-existent paths gracefully.
+ * @param path Path to normalize
+ * @return Normalized path string
+ */
+std::string NormalizePath(const std::string& path);
+
 } // namespace Platform
 
