@@ -18,6 +18,7 @@
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <SDL3/SDL_dialog.h>
+#include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_surface.h>
 #include <nlohmann/json.hpp>
@@ -4335,6 +4336,15 @@ void UI::ShowExportPackageDialog(App& app) {
     std::string defaultFilename = 
         SanitizeFilename(app.GetModel().meta.title) + ".cart";
     
+    // Build default path in Downloads folder
+    std::string defaultPath;
+    const char* downloadsDir = SDL_GetUserFolder(SDL_FOLDER_DOWNLOADS);
+    if (downloadsDir) {
+        defaultPath = std::string(downloadsDir) + defaultFilename;
+    } else {
+        defaultPath = defaultFilename;
+    }
+    
     // Show native save file dialog
     SDL_ShowSaveFileDialog(
         // Callback
@@ -4378,8 +4388,8 @@ void UI::ShowExportPackageDialog(App& app) {
         &filter,
         // Number of filters
         1,
-        // Default filename (pre-filled in save dialog)
-        defaultFilename.c_str()
+        // Default path (Downloads folder + filename)
+        defaultPath.c_str()
     );
 }
 
@@ -4404,6 +4414,15 @@ void UI::ShowExportPngDialog(App& app) {
     // Build default filename from project title
     std::string defaultFilename = 
         SanitizeFilename(app.GetModel().meta.title) + ".png";
+    
+    // Build default path in Downloads folder
+    std::string defaultPath;
+    const char* downloadsDir = SDL_GetUserFolder(SDL_FOLDER_DOWNLOADS);
+    if (downloadsDir) {
+        defaultPath = std::string(downloadsDir) + defaultFilename;
+    } else {
+        defaultPath = defaultFilename;
+    }
     
     // Show native save file dialog
     SDL_ShowSaveFileDialog(
@@ -4457,8 +4476,8 @@ void UI::ShowExportPngDialog(App& app) {
         filters,
         // Number of filters
         2,
-        // Default filename (pre-filled in save dialog)
-        defaultFilename.c_str()
+        // Default path (Downloads folder + filename)
+        defaultPath.c_str()
     );
 }
 

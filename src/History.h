@@ -636,4 +636,3 @@ private:
 };
 
 } // namespace Cartograph
-
