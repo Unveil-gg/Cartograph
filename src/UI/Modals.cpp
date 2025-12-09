@@ -39,6 +39,32 @@ Modals::~Modals() {
     }
 }
 
+bool Modals::AnyModalVisible() const {
+    return showExportModal ||
+           showSettingsModal ||
+           showRenameIconModal ||
+           showDeleteIconModal ||
+           showRebindModal ||
+           showColorPickerModal ||
+           showNewProjectModal ||
+           showProjectBrowserModal ||
+           showWhatsNew ||
+           showAutosaveRecoveryModal ||
+           showLoadingModal ||
+           showQuitConfirmationModal ||
+           showNewRoomDialog ||
+           showRenameRoomDialog ||
+           showDeleteRoomDialog ||
+           showRemoveFromRegionDialog ||
+           showRenameRegionDialog ||
+           showDeleteRegionDialog ||
+           showAboutModal ||
+           showSaveBeforeActionModal ||
+           showFillConfirmationModal ||
+           showProjectActionModal ||
+           showMarkerLabelRenameModal;
+}
+
 void Modals::RenderAll(
     App& app,
     Model& model,

@@ -111,6 +111,13 @@ public:
      */
     void RenderProjectActionModal(std::vector<RecentProject>& recentProjects);
     
+    /**
+     * Check if any modal or dialog is currently visible.
+     * Used to prevent thumbnail capture while UI overlays are shown.
+     * @return true if any modal is visible
+     */
+    bool AnyModalVisible() const;
+    
     // Modal visibility flags
     bool showExportModal = false;
     bool shouldShowExportPngDialog = false;
