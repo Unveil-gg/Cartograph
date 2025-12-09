@@ -187,7 +187,7 @@ if(APPLE)
         MACOSX_BUNDLE_ICON_FILE "cartograph.icns"
         MACOSX_BUNDLE_COPYRIGHT "Copyright © 2025 Unveil. MIT License."
         # Custom Info.plist with UTI declarations for .cart and .cartproj
-        MACOSX_BUNDLE_INFO_PLIST "${CMAKE_SOURCE_DIR}/cmake/Info.plist.in"
+        MACOSX_BUNDLE_INFO_PLIST "${CMAKE_SOURCE_DIR}/assets/project/Info.plist.in"
         # Signing attributes
         XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "${CODESIGN_IDENTITY}"
         XCODE_ATTRIBUTE_DEVELOPMENT_TEAM "${DEVELOPMENT_TEAM}"
@@ -203,20 +203,36 @@ if(APPLE)
         $<TARGET_BUNDLE_CONTENT_DIR:Cartograph>/Resources/cartograph.icns
     )
     
-    # Copy assets into bundle
+    # Copy assets into bundle (excluding repo/ which is for GitHub only)
     add_custom_command(TARGET Cartograph POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_SOURCE_DIR}/assets
+        COMMAND ${CMAKE_COMMAND} -E make_directory
         $<TARGET_BUNDLE_CONTENT_DIR:Cartograph>/Resources/assets
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/assets/icons
+        $<TARGET_BUNDLE_CONTENT_DIR:Cartograph>/Resources/assets/icons
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/assets/project
+        $<TARGET_BUNDLE_CONTENT_DIR:Cartograph>/Resources/assets/project
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/assets/tools
+        $<TARGET_BUNDLE_CONTENT_DIR:Cartograph>/Resources/assets/tools
     )
 endif()
 
-# Windows: Copy assets next to executable
+# Windows: Copy assets next to executable (excluding repo/ which is for GitHub only)
 if(WIN32)
     add_custom_command(TARGET Cartograph POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_SOURCE_DIR}/assets
+        COMMAND ${CMAKE_COMMAND} -E make_directory
         $<TARGET_FILE_DIR:Cartograph>/assets
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/assets/icons
+        $<TARGET_FILE_DIR:Cartograph>/assets/icons
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/assets/project
+        $<TARGET_FILE_DIR:Cartograph>/assets/project
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/assets/tools
+        $<TARGET_FILE_DIR:Cartograph>/assets/tools
     )
 endif()
 
@@ -227,6 +243,8 @@ install(TARGETS Cartograph
 )
 
 if(NOT APPLE)
-    install(DIRECTORY assets DESTINATION .)
+    # Install assets excluding repo/ (GitHub-only assets)
+    install(DIRECTORY assets/icons assets/project assets/tools
+            DESTINATION assets)
 endif()
 
