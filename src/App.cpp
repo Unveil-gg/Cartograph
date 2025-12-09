@@ -9,6 +9,7 @@
 #include "ExportPng.h"
 #include "Thumbnail.h"
 #include "Preferences.h"
+#include <algorithm>
 #include <glad/gl.h>
 #include <SDL3/SDL.h>
 #include <imgui.h>
@@ -851,35 +852,55 @@ bool App::RenameProjectFolder(const std::string& newTitle) {
         return false;
     }
     
-    // Get current folder path and parent directory
-    fs::path currentPath(m_currentFilePath);
+    // Normalize current path FIRST to handle trailing slashes correctly
+    // (parent_path() behaves differently with/without trailing slash)
+    fs::path currentPath = fs::path(m_currentFilePath).lexically_normal();
     fs::path parentDir = currentPath.parent_path();
     fs::path newPath = parentDir / sanitizedName;
     
-    // Normalize paths for comparison (remove trailing slashes)
-    std::string currentNorm = currentPath.lexically_normal().string();
+    // Get normalized strings for comparison
+    std::string currentNorm = currentPath.string();
     std::string newNorm = newPath.lexically_normal().string();
     
     // Check if the name is actually different
+    // Use case-insensitive comparison on macOS/Windows (case-preserving filesystems)
+#if defined(__APPLE__) || defined(_WIN32)
+    std::string currentLower = currentNorm;
+    std::string newLower = newNorm;
+    std::transform(currentLower.begin(), currentLower.end(), 
+                   currentLower.begin(), ::tolower);
+    std::transform(newLower.begin(), newLower.end(), 
+                   newLower.begin(), ::tolower);
+    if (currentLower == newLower) {
+        // Same path (case-insensitive) - nothing to do
+        return true;
+    }
+#else
     if (currentNorm == newNorm) {
         // Same path - nothing to do
         return true;
     }
+#endif
     
-    // Check if target folder already exists
+    // Check if target folder already exists (and is different from current)
     if (fs::exists(newPath)) {
-        m_ui.ShowToast("A folder named \"" + sanitizedName + 
-                      "\" already exists", Toast::Type::Error);
-        return false;
+        // On case-insensitive filesystems, check if it's actually the same folder
+        std::error_code ec;
+        if (fs::equivalent(currentPath, newPath, ec)) {
+            // Same folder, just different case - allow the rename for case change
+        } else {
+            m_ui.ShowToast("A folder named \"" + sanitizedName + 
+                          "\" already exists", Toast::Type::Error);
+            return false;
+        }
     }
     
     // Store old path for recent projects update
     std::string oldPath = m_currentFilePath;
     
-    // Perform the rename (use normalized path to remove trailing slashes,
-    // as Windows rejects paths with trailing backslashes in rename ops)
+    // Perform the rename
     std::error_code ec;
-    fs::rename(currentPath.lexically_normal(), newPath, ec);
+    fs::rename(currentPath, newPath, ec);
     
     if (ec) {
         m_ui.ShowToast("Failed to rename folder: " + ec.message(), 
