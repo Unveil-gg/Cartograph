@@ -852,15 +852,26 @@ bool App::RenameProjectFolder(const std::string& newTitle) {
         return false;
     }
     
-    // Normalize current path FIRST to handle trailing slashes correctly
-    // (parent_path() behaves differently with/without trailing slash)
-    fs::path currentPath = fs::path(m_currentFilePath).lexically_normal();
+    // Explicitly strip trailing slashes from path string
+    // (lexically_normal() doesn't reliably remove them on all platforms)
+    std::string pathStr = m_currentFilePath;
+    while (!pathStr.empty() && (pathStr.back() == '/' || pathStr.back() == '\\')) {
+        pathStr.pop_back();
+    }
+    
+    if (pathStr.empty()) {
+        m_ui.ShowToast("Invalid project path", Toast::Type::Error);
+        return false;
+    }
+    
+    // Now construct paths - parent_path() will work correctly
+    fs::path currentPath(pathStr);
     fs::path parentDir = currentPath.parent_path();
     fs::path newPath = parentDir / sanitizedName;
     
-    // Get normalized strings for comparison
+    // Get strings for comparison
     std::string currentNorm = currentPath.string();
-    std::string newNorm = newPath.lexically_normal().string();
+    std::string newNorm = newPath.string();
     
     // Check if the name is actually different
     // Use case-insensitive comparison on macOS/Windows (case-preserving filesystems)
@@ -887,7 +898,7 @@ bool App::RenameProjectFolder(const std::string& newTitle) {
         // On case-insensitive filesystems, check if it's actually the same folder
         std::error_code ec;
         if (fs::equivalent(currentPath, newPath, ec)) {
-            // Same folder, just different case - allow the rename for case change
+            // Same folder, just different case - proceed with rename for case change
         } else {
             m_ui.ShowToast("A folder named \"" + sanitizedName + 
                           "\" already exists", Toast::Type::Error);
