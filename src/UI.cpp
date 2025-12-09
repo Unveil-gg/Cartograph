@@ -3156,7 +3156,7 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
                 // Room name
                 char nameBuf[256];
                 strncpy(nameBuf, room->name.c_str(), sizeof(nameBuf) - 1);
-                if (ImGui::InputText("Name", nameBuf, sizeof(nameBuf))) {
+                if (ImGui::InputText("Name##Room", nameBuf, sizeof(nameBuf))) {
                     room->name = nameBuf;
                     model.MarkDirty();
                 }
@@ -3553,7 +3553,7 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
                 char nameBuf[256];
                 strncpy(nameBuf, region->name.c_str(), sizeof(nameBuf) - 1);
                 nameBuf[sizeof(nameBuf) - 1] = '\0';
-                if (ImGui::InputText("Name", nameBuf, sizeof(nameBuf))) {
+                if (ImGui::InputText("Name##Region", nameBuf, sizeof(nameBuf))) {
                     region->name = nameBuf;
                     model.MarkDirty();
                 }
