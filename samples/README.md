@@ -1,6 +1,6 @@
 # Sample Maps
 
-This directory contains example `.cart` map files.
+This directory contains example `.cart` map files, for testing and demonstration.
 
 ## Creating Samples
 
@@ -12,5 +12,4 @@ To create a sample map:
 
 ## Included Samples
 
-- `sample.cart` - TODO: Basic demo map with rooms, tiles, doors, and markers
-
+- `Castle-Bronte.cart` - Basic demo map with rooms, tiles, doors, and markers. Shown in promotional materials.
