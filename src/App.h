@@ -130,7 +130,21 @@ public:
     bool IsDragging() const { return m_isDragging; }
     
     // File operations
-    void NewProject(const std::string& savePath = "");
+    /**
+     * Create a new project with optional configuration.
+     * @param savePath Path to save project folder (empty = untitled)
+     * @param projectName Project title (empty = use default "New Map")
+     * @param gridPreset Grid cell type preset
+     * @param mapWidth Map width in cells (0 = use default)
+     * @param mapHeight Map height in cells (0 = use default)
+     */
+    void NewProject(
+        const std::string& savePath = "",
+        const std::string& projectName = "",
+        GridPreset gridPreset = GridPreset::Square,
+        int mapWidth = 0,
+        int mapHeight = 0
+    );
     void OpenProject(const std::string& path);
     void SaveProject();
     void SaveProjectAs(const std::string& path);

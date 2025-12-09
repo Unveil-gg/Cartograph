@@ -524,10 +524,30 @@ void App::DoAutosave() {
     }
 }
 
-void App::NewProject(const std::string& savePath) {
+void App::NewProject(
+    const std::string& savePath,
+    const std::string& projectName,
+    GridPreset gridPreset,
+    int mapWidth,
+    int mapHeight
+) {
     m_model = Model();
     m_model.InitDefaults();
     m_history.Clear();
+    
+    // Apply optional configuration (overrides defaults)
+    if (!projectName.empty()) {
+        m_model.meta.title = projectName;
+    }
+    
+    // Apply grid preset and dimensions if specified
+    m_model.ApplyGridPreset(gridPreset);
+    if (mapWidth > 0) {
+        m_model.grid.cols = mapWidth;
+    }
+    if (mapHeight > 0) {
+        m_model.grid.rows = mapHeight;
+    }
     
     // Load keymap bindings into keymap manager
     m_keymap.LoadBindings(m_model.keymap);

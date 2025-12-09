@@ -2288,26 +2288,19 @@ void Modals::RenderNewProjectModal(App& app, Model& model) {
                 m_ui.ShowToast("Please select a save location", 
                          Toast::Type::Error);
             } else {
-                // Apply configuration to model
-                model.meta.title = std::string(newProjectConfig.projectName);
-                
-                // Apply grid preset (sets tileWidth/tileHeight automatically)
-                model.ApplyGridPreset(newProjectConfig.gridPreset);
-                model.grid.cols = newProjectConfig.mapWidth;
-                model.grid.rows = newProjectConfig.mapHeight;
-                model.grid.locked = false;  // New project starts unlocked
-                
-                // Initialize other defaults
-                model.InitDefaultPalette();
-                model.InitDefaultKeymap();
-                model.InitDefaultTheme("Dark");
-                
                 showNewProjectModal = false;
                 newProjectModalOpened = false;
                 ImGui::CloseCurrentPopup();
                 
-                // Create project with specified path
-                app.NewProject(newProjectConfig.fullSavePath);
+                // Create project with configuration
+                // NewProject() handles InitDefaults() + applies config
+                app.NewProject(
+                    newProjectConfig.fullSavePath,
+                    std::string(newProjectConfig.projectName),
+                    newProjectConfig.gridPreset,
+                    newProjectConfig.mapWidth,
+                    newProjectConfig.mapHeight
+                );
                 
                 // Transition to editor
                 app.ShowEditor();
