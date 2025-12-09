@@ -4,6 +4,7 @@
 #include "IOJson.h"
 #include "platform/Fs.h"
 #include <filesystem>
+#include <nlohmann/json.hpp>
 
 // stb_image_write for PNG encoding
 #define STB_IMAGE_WRITE_IMPLEMENTATION_PROJECT_FOLDER
@@ -12,6 +13,9 @@
 namespace fs = std::filesystem;
 
 namespace Cartograph {
+
+// Length of ".cartproj" extension
+static constexpr size_t CARTPROJ_EXT_LEN = 9;
 
 bool ProjectFolder::Save(
     const Model& model,
@@ -145,7 +149,59 @@ bool ProjectFolder::IsProjectFolder(const std::string& path) {
     
     // Check for project.json
     std::string projectPath = path + "/project.json";
-    return fs::exists(projectPath) && fs::is_regular_file(projectPath);
+    if (!fs::exists(projectPath) || !fs::is_regular_file(projectPath)) {
+        return false;
+    }
+    
+    // Validate JSON content has Cartograph-specific fields
+    auto content = Platform::ReadTextFile(projectPath);
+    if (!content) {
+        return false;
+    }
+    
+    try {
+        auto j = nlohmann::json::parse(*content);
+        
+        // Must have version == 1 (Cartograph format)
+        if (!j.contains("version") || j["version"] != 1) {
+            return false;
+        }
+        
+        // Must have grid object (Cartograph-specific)
+        if (!j.contains("grid") || !j["grid"].is_object()) {
+            return false;
+        }
+        
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
+bool ProjectFolder::HasCartprojExtension(const std::string& path) {
+    if (path.size() < CARTPROJ_EXT_LEN) {
+        return false;
+    }
+    std::string ext = path.substr(path.size() - CARTPROJ_EXT_LEN);
+    // Case-insensitive comparison
+    for (char& c : ext) {
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    }
+    return ext == CARTPROJ_EXTENSION;
+}
+
+std::string ProjectFolder::EnsureCartprojExtension(const std::string& path) {
+    // Strip trailing slashes first
+    std::string cleanPath = path;
+    while (!cleanPath.empty() && 
+           (cleanPath.back() == '/' || cleanPath.back() == '\\')) {
+        cleanPath.pop_back();
+    }
+    
+    if (HasCartprojExtension(cleanPath)) {
+        return cleanPath;
+    }
+    return cleanPath + CARTPROJ_EXTENSION;
 }
 
 std::string ProjectFolder::SanitizeProjectName(const std::string& name) {
@@ -178,6 +234,11 @@ std::string ProjectFolder::GetFolderNameFromPath(const std::string& path) {
     // If still empty (e.g., root path), try parent
     if (name.empty() || name == "." || name == "..") {
         name = p.parent_path().filename().string();
+    }
+    
+    // Strip .cartproj extension if present
+    if (HasCartprojExtension(name)) {
+        name = name.substr(0, name.size() - CARTPROJ_EXT_LEN);
     }
     
     return name;

@@ -912,6 +912,7 @@ void Modals::RenderSettingsModal(App& app, Model& model, KeymapManager& keymap) 
         
         // Show "Rename Folder" button if title differs from folder name
         const std::string& currentPath = app.GetCurrentFilePath();
+        // Check if current project is a folder (not a .cart file)
         bool isProjectFolder = !currentPath.empty() && 
             !(currentPath.size() >= 5 && 
               currentPath.substr(currentPath.size() - 5) == ".cart");
@@ -3223,7 +3224,7 @@ void Modals::UpdateNewProjectPath() {
     std::string sanitized = ProjectFolder::SanitizeProjectName(
         newProjectConfig.projectName);
     
-    // Build full path
+    // Build full path with .cartproj extension
     if (!newProjectConfig.saveDirectory.empty()) {
         // Ensure directory path ends with separator
         std::string dir = newProjectConfig.saveDirectory;
@@ -3235,12 +3236,8 @@ void Modals::UpdateNewProjectPath() {
 #endif
         }
         
-        newProjectConfig.fullSavePath = dir + sanitized + 
-#ifdef _WIN32
-            "\\";
-#else
-            "/";
-#endif
+        // Append .cartproj extension for new projects
+        newProjectConfig.fullSavePath = dir + sanitized + CARTPROJ_EXTENSION;
     }
 }
 

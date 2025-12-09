@@ -4575,7 +4575,7 @@ void UI::HandleDroppedFile(const std::string& filePath, App& app,
         } else {
             // Invalid format
             ShowToast(
-                "Invalid format. Drop a .cart file or project folder.",
+                "Invalid format. Drop a .cart file or .cartproj folder.",
                 Toast::Type::Warning,
                 4.0f
             );

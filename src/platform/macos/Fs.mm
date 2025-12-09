@@ -66,14 +66,13 @@ static void ShowInvalidSelectionAlert(const std::string& path,
         
         if (allowFiles && allowFolders) {
             [alert setInformativeText:
-                @"Please select a .cart file or a folder containing "
-                @"project.json"];
+                @"Please select a .cart file or a .cartproj project folder"];
         } else if (allowFiles) {
             [alert setInformativeText:
                 @"Please select a valid .cart file"];
         } else {
             [alert setInformativeText:
-                @"Please select a folder containing project.json"];
+                @"Please select a .cartproj project folder"];
         }
         
         [alert setAlertStyle:NSAlertStyleWarning];
@@ -99,7 +98,7 @@ std::optional<std::string> ShowOpenDialogForImport(
         [panel setAllowsMultipleSelection:NO];
         [panel setCanCreateDirectories:NO];
         
-        // Set file type filter for .cart files using UTType (macOS 11+)
+        // Set file type filter for .cart and .cartproj using UTType (macOS 11+)
         if (allowFiles && !fileExtensions.empty()) {
             NSMutableArray<UTType*>* contentTypes = [NSMutableArray array];
             for (const auto& ext : fileExtensions) {
@@ -110,6 +109,12 @@ std::optional<std::string> ShowOpenDialogForImport(
                 if (type) {
                     [contentTypes addObject:type];
                 }
+            }
+            // Also allow .cartproj folders (registered as package type)
+            UTType* cartprojType = 
+                [UTType typeWithFilenameExtension:@"cartproj"];
+            if (cartprojType) {
+                [contentTypes addObject:cartprojType];
             }
             if (contentTypes.count > 0) {
                 [panel setAllowedContentTypes:contentTypes];
@@ -149,7 +154,7 @@ std::optional<std::string> ShowOpenDialogForImport(
                     isValid = true;
                 }
             } else if (fs::is_directory(selectedPath)) {
-                // Folder selected - must have project.json
+                // Folder selected - must be valid .cartproj or project folder
                 if (allowFolders && IsValidProjectFolder(selectedPath)) {
                     isValid = true;
                 }

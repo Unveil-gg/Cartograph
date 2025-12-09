@@ -844,6 +844,9 @@ bool App::RenameProjectFolder(const std::string& newTitle) {
     // Sanitize the new title for filesystem use
     std::string sanitizedName = ProjectFolder::SanitizeProjectName(newTitle);
     
+    // Preserve .cartproj extension if current path has it
+    bool hasCartprojExt = ProjectFolder::HasCartprojExtension(m_currentFilePath);
+    
     if (sanitizedName.empty()) {
         m_ui.ShowToast("Project name cannot be empty", Toast::Type::Error);
         return false;
@@ -864,7 +867,13 @@ bool App::RenameProjectFolder(const std::string& newTitle) {
     // Now construct paths - parent_path() will work correctly
     fs::path currentPath(pathStr);
     fs::path parentDir = currentPath.parent_path();
-    fs::path newPath = parentDir / sanitizedName;
+    
+    // Preserve .cartproj extension
+    std::string newFolderName = sanitizedName;
+    if (hasCartprojExt) {
+        newFolderName += CARTPROJ_EXTENSION;
+    }
+    fs::path newPath = parentDir / newFolderName;
     
     // Get strings for comparison
     std::string currentNorm = currentPath.string();
@@ -934,7 +943,7 @@ bool App::RenameProjectFolder(const std::string& newTitle) {
     // Update window title
     UpdateWindowTitle();
     
-    m_ui.ShowToast("Project folder renamed to \"" + sanitizedName + "\"", 
+    m_ui.ShowToast("Project renamed to \"" + sanitizedName + "\"", 
                   Toast::Type::Success);
     
     return true;

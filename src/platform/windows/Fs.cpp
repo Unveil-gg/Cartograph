@@ -72,12 +72,11 @@ static void ShowInvalidSelectionAlert(const std::string& path,
     const wchar_t* message;
     
     if (allowFiles && allowFolders) {
-        message = L"Please select a .cart file or a folder containing "
-                  L"project.json";
+        message = L"Please select a .cart file or a .cartproj project folder";
     } else if (allowFiles) {
         message = L"Please select a valid .cart file";
     } else {
-        message = L"Please select a folder containing project.json";
+        message = L"Please select a .cartproj project folder";
     }
     
     MessageBoxW(nullptr, message, L"Invalid Project", 
@@ -259,7 +258,7 @@ std::optional<std::string> ShowOpenDialogForImport(
             isValid = true;
         }
     } else if (fs::is_directory(selectedPath)) {
-        // Folder selected - must have project.json
+        // Folder selected - must be valid .cartproj or project folder
         if (allowFolders && IsValidProjectFolder(selectedPath)) {
             isValid = true;
         }

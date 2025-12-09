@@ -118,13 +118,14 @@ static std::string GetCurrentTimestamp() {
 
 /**
  * Determine project type from path.
- * @return "cart" for .cart files, "folder" for directories
+ * @return "cart" for .cart files, "folder" for directories/.cartproj
  */
 static std::string GetProjectType(const std::string& path) {
     if (path.size() >= 5 && 
         path.substr(path.size() - 5) == ".cart") {
         return "cart";
     }
+    // Both .cartproj and plain folders are "folder" type
     return "folder";
 }
 

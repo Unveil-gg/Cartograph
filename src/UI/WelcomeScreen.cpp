@@ -762,6 +762,7 @@ void WelcomeScreen::LoadRecentProjects() {
     }
     
     // 2. Scan default projects directory for additional projects
+    // Looks for both .cartproj folders and legacy plain folders
     std::string projectsDir = Platform::GetDefaultProjectsDir();
     
     if (fs::exists(projectsDir) && fs::is_directory(projectsDir)) {
@@ -774,9 +775,8 @@ void WelcomeScreen::LoadRecentProjects() {
                 // Skip if already in recent list
                 if (addedPaths.count(folderPath) > 0) continue;
                 
-                // Check if it's a valid project folder
-                fs::path projectJson = dirEntry.path() / "project.json";
-                if (!fs::exists(projectJson)) continue;
+                // Use proper validation (checks project.json + Cartograph format)
+                if (!ProjectFolder::IsProjectFolder(folderPath)) continue;
                 
                 // Add to list
                 RecentProject project = CreateProjectEntryFromFolder(folderPath);

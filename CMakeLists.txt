@@ -186,6 +186,8 @@ if(APPLE)
         MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
         MACOSX_BUNDLE_ICON_FILE "cartograph.icns"
         MACOSX_BUNDLE_COPYRIGHT "Copyright © 2025 Unveil. MIT License."
+        # Custom Info.plist with UTI declarations for .cart and .cartproj
+        MACOSX_BUNDLE_INFO_PLIST "${CMAKE_SOURCE_DIR}/cmake/Info.plist.in"
         # Signing attributes
         XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "${CODESIGN_IDENTITY}"
         XCODE_ATTRIBUTE_DEVELOPMENT_TEAM "${DEVELOPMENT_TEAM}"
