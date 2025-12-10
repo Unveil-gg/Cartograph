@@ -13,3 +13,4 @@ To create a sample map:
 ## Included Samples
 
 - `Castle-Bronte.cart` - Basic demo map with rooms, tiles, doors, and markers. Shown in promotional materials.
+- `SOTN.cart` - Dracula's Castle from Castlevania: Symphony of the Night.
