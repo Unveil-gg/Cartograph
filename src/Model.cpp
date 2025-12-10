@@ -444,17 +444,15 @@ const std::vector<Region>& Model::GetRegions() {
 void Model::ComputeInferredRegions() {
     inferredRegions.clear();
     
-    // Track which cells have been visited
-    std::vector<std::vector<bool>> visited(
-        grid.rows, std::vector<bool>(grid.cols, false)
-    );
+    // Track which cells have been visited (use set to support negative coords)
+    std::unordered_set<std::pair<int, int>, PairHash> visited;
     
     int nextRegionId = 0;
     
-    // Flood-fill from each unvisited cell
-    for (int y = 0; y < grid.rows; ++y) {
-        for (int x = 0; x < grid.cols; ++x) {
-            if (visited[y][x]) continue;
+    // Flood-fill from each unvisited cell (support negative coordinates)
+    for (int y = grid.minRow; y < grid.rows; ++y) {
+        for (int x = grid.minCol; x < grid.cols; ++x) {
+            if (visited.count({x, y})) continue;
             
             // Start a new region
             Region region;
@@ -472,14 +470,14 @@ void Model::ComputeInferredRegions() {
                 stack.pop_back();
                 
                 // Skip if out of bounds or already visited
-                if (cx < 0 || cx >= grid.cols || 
-                    cy < 0 || cy >= grid.rows || 
-                    visited[cy][cx]) {
+                if (cx < grid.minCol || cx >= grid.cols || 
+                    cy < grid.minRow || cy >= grid.rows || 
+                    visited.count({cx, cy})) {
                     continue;
                 }
                 
                 // Mark as visited
-                visited[cy][cx] = true;
+                visited.insert({cx, cy});
                 region.cells.push_back({cx, cy});
                 
                 // Update bounding box
@@ -506,9 +504,9 @@ void Model::ComputeInferredRegions() {
                         int nx = cx + dx[i];
                         int ny = cy + dy[i];
                         
-                        if (nx >= 0 && nx < grid.cols && 
-                            ny >= 0 && ny < grid.rows &&
-                            !visited[ny][nx]) {
+                        if (nx >= grid.minCol && nx < grid.cols && 
+                            ny >= grid.minRow && ny < grid.rows &&
+                            !visited.count({nx, ny})) {
                             stack.push_back({nx, ny});
                         }
                     }
