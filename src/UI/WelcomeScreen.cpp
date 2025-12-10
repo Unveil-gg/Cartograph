@@ -332,6 +332,10 @@ void WelcomeScreen::Render(
     
     ImGui::EndGroup();
     
+    // Version in bottom left corner
+    ImGui::SetCursorPos(ImVec2(10, windowSize.y - 20));
+    ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "v%s", CARTOGRAPH_VERSION);
+    
     // What's New button in corner
     ImGui::SetCursorPos(ImVec2(windowSize.x - 140, windowSize.y - 40));
     if (ImGui::Button("What's New?", ImVec2(120, 30))) {
