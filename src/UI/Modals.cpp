@@ -1370,6 +1370,29 @@ void Modals::RenderSettingsModal(App& app, Model& model, KeymapManager& keymap) 
         
         // Buttons (outside tab content, always visible)
         if (ImGui::Button("Apply", ImVec2(120, 0))) {
+            // Check if title changed and auto-rename folder if valid
+            const std::string& currentPath = app.GetCurrentFilePath();
+            bool isProjectFolder = !currentPath.empty() && 
+                !(currentPath.size() >= 5 && 
+                  currentPath.substr(currentPath.size() - 5) == ".cart");
+            
+            if (isProjectFolder && !settingsOriginalFolderName.empty() &&
+                model.meta.title != settingsOriginalTitle) {
+                // Title changed - try to rename folder if validation passes
+                std::string sanitizedTitle = 
+                    ProjectFolder::SanitizeProjectName(model.meta.title);
+                
+                if (!sanitizedTitle.empty() && 
+                    sanitizedTitle != settingsOriginalFolderName) {
+                    // Attempt rename (silently skip if it fails)
+                    if (app.RenameProjectFolder(model.meta.title)) {
+                        settingsOriginalFolderName = sanitizedTitle;
+                        settingsOriginalTitle = model.meta.title;
+                    }
+                    // If rename fails, folder stays as-is but title still updates
+                }
+            }
+            
             model.MarkDirty();
             showSettingsModal = false;
             settingsModalOpened = false;
