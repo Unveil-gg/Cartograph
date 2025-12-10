@@ -1228,9 +1228,9 @@ void CanvasPanel::Render(
                         boundMaxY = bounds.maxY + FILL_MARGIN;
                     }
                     
-                    // Clamp to grid bounds
-                    boundMinX = std::max(0, boundMinX);
-                    boundMinY = std::max(0, boundMinY);
+                    // Clamp to grid bounds (support negative coordinates)
+                    boundMinX = std::max(model.grid.minCol, boundMinX);
+                    boundMinY = std::max(model.grid.minRow, boundMinY);
                     boundMaxX = std::min(model.grid.cols - 1, boundMaxX);
                     boundMaxY = std::min(model.grid.rows - 1, boundMaxY);
                     
@@ -1262,9 +1262,9 @@ void CanvasPanel::Render(
                             continue;
                         }
                         
-                        // Check grid bounds
-                        if (x < 0 || x >= model.grid.cols ||
-                            y < 0 || y >= model.grid.rows) {
+                        // Check grid bounds (support negative coordinates)
+                        if (x < model.grid.minCol || x >= model.grid.cols ||
+                            y < model.grid.minRow || y >= model.grid.rows) {
                             continue;
                         }
                         
@@ -1857,9 +1857,9 @@ void CanvasPanel::Render(
                     &tx, &ty
                 );
                 
-                // Check bounds
-                if (tx >= 0 && tx < model.grid.cols && 
-                    ty >= 0 && ty < model.grid.rows) {
+                // Check bounds (support negative coordinates)
+                if (tx >= model.grid.minCol && tx < model.grid.cols && 
+                    ty >= model.grid.minRow && ty < model.grid.rows) {
                     
                     std::string startRoomId = model.GetCellRoom(tx, ty);
                     
@@ -1882,9 +1882,9 @@ void CanvasPanel::Render(
                             boundMaxY = bounds.maxY + FILL_MARGIN;
                         }
                         
-                        // Clamp to grid bounds
-                        boundMinX = std::max(0, boundMinX);
-                        boundMinY = std::max(0, boundMinY);
+                        // Clamp to grid bounds (support negative coordinates)
+                        boundMinX = std::max(model.grid.minCol, boundMinX);
+                        boundMinY = std::max(model.grid.minRow, boundMinY);
                         boundMaxX = std::min(model.grid.cols - 1, boundMaxX);
                         boundMaxY = std::min(model.grid.rows - 1, boundMaxY);
                         
@@ -1917,9 +1917,9 @@ void CanvasPanel::Render(
                                 continue;
                             }
                             
-                            // Check grid bounds
-                            if (x < 0 || x >= model.grid.cols ||
-                                y < 0 || y >= model.grid.rows) {
+                            // Check grid bounds (support negative coordinates)
+                            if (x < model.grid.minCol || x >= model.grid.cols ||
+                                y < model.grid.minRow || y >= model.grid.rows) {
                                 continue;
                             }
                             

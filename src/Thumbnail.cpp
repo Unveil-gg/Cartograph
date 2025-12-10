@@ -6,6 +6,7 @@
 #include "Icons.h"
 #include <algorithm>
 #include <climits>
+#include <cmath>
 
 // stb_image_write for PNG encoding
 #define STB_IMAGE_WRITE_IMPLEMENTATION_THUMBNAIL
@@ -70,7 +71,7 @@ bool Thumbnail::GenerateToMemory(
     // Clear with editor background color (dark gray, not transparent)
     glRenderer->Clear(Color(0.1f, 0.1f, 0.12f, 1.0f));
     
-    // Calculate bounding box of actual drawn content (painted tiles only)
+    // Calculate bounding box of ALL visible content (tiles, rooms, edges, markers)
     // Use INT_MAX/INT_MIN to properly handle negative coordinates
     int minX = INT_MAX;
     int minY = INT_MAX;
@@ -78,7 +79,7 @@ bool Thumbnail::GenerateToMemory(
     int maxY = INT_MIN;
     bool hasContent = false;
     
-    // Check painted tiles - this is what actually matters for visual preview
+    // Check painted tiles
     for (const auto& row : model.tiles) {
         if (!row.runs.empty()) {
             for (const auto& run : row.runs) {
@@ -91,6 +92,39 @@ bool Thumbnail::GenerateToMemory(
                 }
             }
         }
+    }
+    
+    // Check room cell assignments (visible as colored overlays)
+    for (const auto& assignment : model.cellRoomAssignments) {
+        int cx = assignment.first.first;
+        int cy = assignment.first.second;
+        minX = std::min(minX, cx);
+        minY = std::min(minY, cy);
+        maxX = std::max(maxX, cx + 1);
+        maxY = std::max(maxY, cy + 1);
+        hasContent = true;
+    }
+    
+    // Check edges (walls and doors)
+    for (const auto& pair : model.edges) {
+        if (pair.second == EdgeState::None) continue;
+        const EdgeId& edge = pair.first;
+        minX = std::min(minX, std::min(edge.x1, edge.x2));
+        minY = std::min(minY, std::min(edge.y1, edge.y2));
+        maxX = std::max(maxX, std::max(edge.x1, edge.x2) + 1);
+        maxY = std::max(maxY, std::max(edge.y1, edge.y2) + 1);
+        hasContent = true;
+    }
+    
+    // Check markers
+    for (const auto& marker : model.markers) {
+        int mx = static_cast<int>(std::floor(marker.x));
+        int my = static_cast<int>(std::floor(marker.y));
+        minX = std::min(minX, mx);
+        minY = std::min(minY, my);
+        maxX = std::max(maxX, mx + 1);
+        maxY = std::max(maxY, my + 1);
+        hasContent = true;
     }
     
     // If nothing drawn, show center portion of grid (empty project view)

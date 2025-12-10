@@ -1079,8 +1079,9 @@ Model::DetectedRoom Model::DetectEnclosedRoom(int x, int y) {
     DetectedRoom result;
     result.isEnclosed = false;
     
-    // Check if cell is in bounds
-    if (x < 0 || x >= grid.cols || y < 0 || y >= grid.rows) {
+    // Check if cell is in bounds (support negative coordinates)
+    if (x < grid.minCol || x >= grid.cols || 
+        y < grid.minRow || y >= grid.rows) {
         return result;
     }
     
@@ -1089,13 +1090,12 @@ Model::DetectedRoom Model::DetectEnclosedRoom(int x, int y) {
     std::string startPaintState = GetCellPaintState(x, y);
     
     // Flood-fill to find connected area with same "paint state"
-    std::vector<std::vector<bool>> visited(
-        grid.rows, std::vector<bool>(grid.cols, false)
-    );
+    // Use unordered_set to support negative coordinate indexing
+    std::unordered_set<std::pair<int, int>, PairHash> visited;
     
     std::vector<std::pair<int, int>> stack;
     stack.push_back({x, y});
-    visited[y][x] = true;  // Mark start as visited immediately
+    visited.insert({x, y});  // Mark start as visited immediately
     
     int minX = x, minY = y, maxX = x, maxY = y;
     bool touchesBorder = false;
@@ -1116,8 +1116,8 @@ Model::DetectedRoom Model::DetectEnclosedRoom(int x, int y) {
         // Check if at border (only for unpainted cells)
         // Painted cells bounded by unpainted are still "enclosed"
         if (startPaintState.empty() && 
-            (cx == 0 || cx == grid.cols - 1 || 
-             cy == 0 || cy == grid.rows - 1)) {
+            (cx == grid.minCol || cx == grid.cols - 1 || 
+             cy == grid.minRow || cy == grid.rows - 1)) {
             touchesBorder = true;
         }
         
@@ -1133,8 +1133,9 @@ Model::DetectedRoom Model::DetectEnclosedRoom(int x, int y) {
             int nx = cx + dx[i];
             int ny = cy + dy[i];
             
-            // Check bounds
-            if (nx < 0 || nx >= grid.cols || ny < 0 || ny >= grid.rows) {
+            // Check bounds (support negative coordinates)
+            if (nx < grid.minCol || nx >= grid.cols || 
+                ny < grid.minRow || ny >= grid.rows) {
                 // Out of bounds = touches border for unpainted cells
                 if (startPaintState.empty()) {
                     touchesBorder = true;
@@ -1143,7 +1144,7 @@ Model::DetectedRoom Model::DetectEnclosedRoom(int x, int y) {
             }
             
             // Skip if already visited
-            if (visited[ny][nx]) {
+            if (visited.count({nx, ny})) {
                 continue;
             }
             
@@ -1161,7 +1162,7 @@ Model::DetectedRoom Model::DetectEnclosedRoom(int x, int y) {
             }
             
             // Valid neighbor - mark visited and add to stack
-            visited[ny][nx] = true;
+            visited.insert({nx, ny});
             stack.push_back({nx, ny});
         }
     }
@@ -1184,26 +1185,22 @@ Model::DetectedRoom Model::DetectEnclosedRoom(int x, int y) {
 std::vector<Model::DetectedRoom> Model::DetectAllEnclosedRooms() {
     std::vector<DetectedRoom> detectedRooms;
     
-    // Track which cells have been visited
-    std::vector<std::vector<bool>> visited(
-        grid.rows, std::vector<bool>(grid.cols, false)
-    );
+    // Track which cells have been visited (use set to support negative coords)
+    std::unordered_set<std::pair<int, int>, PairHash> visited;
     
     // OPTIMIZATION: Pre-build paint state cache to avoid expensive GetTileAt
     // This is built ONCE and used for all lookups during flood-fill
     std::unordered_map<std::pair<int, int>, std::string, PairHash> paintStateCache;
     
     // 1. Collect cells from global tile layer (roomId = "")
+    // No bounds filtering - include all cells including negative coordinates
     for (const auto& row : tiles) {
         if (row.roomId.empty()) {  // Global tile layer
             for (const auto& run : row.runs) {
                 if (run.tileId > 0) {  // Has a tile (not empty)
                     std::string paintState = "tile_" + std::to_string(run.tileId);
                     for (int x = run.startX; x < run.startX + run.count; ++x) {
-                        if (x >= 0 && x < grid.cols && 
-                            row.y >= 0 && row.y < grid.rows) {
-                            paintStateCache[{x, row.y}] = paintState;
-                        }
+                        paintStateCache[{x, row.y}] = paintState;
                     }
                 }
             }
@@ -1211,12 +1208,9 @@ std::vector<Model::DetectedRoom> Model::DetectAllEnclosedRooms() {
     }
     
     // 2. Add cells with room assignments (overrides tile paint state)
+    // No bounds filtering - include all cells including negative coordinates
     for (const auto& assignment : cellRoomAssignments) {
-        int x = assignment.first.first;
-        int y = assignment.first.second;
-        if (x >= 0 && x < grid.cols && y >= 0 && y < grid.rows) {
-            paintStateCache[{x, y}] = assignment.second;  // Room ID
-        }
+        paintStateCache[assignment.first] = assignment.second;  // Room ID
     }
     
     // Helper lambda for cached paint state lookup - O(1) instead of O(n)
@@ -1230,7 +1224,7 @@ std::vector<Model::DetectedRoom> Model::DetectAllEnclosedRooms() {
         int startX = cellCoord.first;
         int startY = cellCoord.second;
         
-        if (visited[startY][startX]) continue;
+        if (visited.count({startX, startY})) continue;
         
         // Inline flood-fill using cached paint states (FAST!)
         DetectedRoom detected;
@@ -1239,7 +1233,7 @@ std::vector<Model::DetectedRoom> Model::DetectAllEnclosedRooms() {
         std::string startPaintState = paintState;
         std::vector<std::pair<int, int>> stack;
         stack.push_back({startX, startY});
-        visited[startY][startX] = true;
+        visited.insert({startX, startY});
         
         int minX = startX, minY = startY, maxX = startX, maxY = startY;
         bool touchesBorder = false;
@@ -1256,8 +1250,8 @@ std::vector<Model::DetectedRoom> Model::DetectAllEnclosedRooms() {
             maxY = std::max(maxY, cy);
             
             if (startPaintState.empty() && 
-                (cx == 0 || cx == grid.cols - 1 || 
-                 cy == 0 || cy == grid.rows - 1)) {
+                (cx == grid.minCol || cx == grid.cols - 1 || 
+                 cy == grid.minRow || cy == grid.rows - 1)) {
                 touchesBorder = true;
             }
             
@@ -1273,12 +1267,13 @@ std::vector<Model::DetectedRoom> Model::DetectAllEnclosedRooms() {
                 int nx = cx + dx[i];
                 int ny = cy + dy[i];
                 
-                if (nx < 0 || nx >= grid.cols || ny < 0 || ny >= grid.rows) {
+                if (nx < grid.minCol || nx >= grid.cols || 
+                    ny < grid.minRow || ny >= grid.rows) {
                     if (startPaintState.empty()) touchesBorder = true;
                     continue;
                 }
                 
-                if (visited[ny][nx]) continue;
+                if (visited.count({nx, ny})) continue;
                 
                 // Use cached paint state - O(1) lookup!
                 if (getCachedPaintState(nx, ny) != startPaintState) continue;
@@ -1288,7 +1283,7 @@ std::vector<Model::DetectedRoom> Model::DetectAllEnclosedRooms() {
                 EdgeState state = GetEdgeState(edgeId);
                 if (state != EdgeState::None) continue;
                 
-                visited[ny][nx] = true;
+                visited.insert({nx, ny});
                 stack.push_back({nx, ny});
             }
         }
@@ -1316,8 +1311,9 @@ Model::DetectedRoom Model::DetectColorRegion(int x, int y) {
     DetectedRoom result;
     result.isEnclosed = false;
     
-    // Check if cell is in bounds
-    if (x < 0 || x >= grid.cols || y < 0 || y >= grid.rows) {
+    // Check if cell is in bounds (support negative coordinates)
+    if (x < grid.minCol || x >= grid.cols || 
+        y < grid.minRow || y >= grid.rows) {
         return result;
     }
     
@@ -1328,9 +1324,8 @@ Model::DetectedRoom Model::DetectColorRegion(int x, int y) {
     }
     
     // Flood-fill to find connected cells of the same color
-    std::vector<std::vector<bool>> visited(
-        grid.rows, std::vector<bool>(grid.cols, false)
-    );
+    // Use unordered_set to support negative coordinate indexing
+    std::unordered_set<std::pair<int, int>, PairHash> visited;
     
     std::vector<std::pair<int, int>> stack;
     stack.push_back({x, y});
@@ -1343,13 +1338,14 @@ Model::DetectedRoom Model::DetectColorRegion(int x, int y) {
         auto [cx, cy] = stack.back();
         stack.pop_back();
         
-        // Check bounds
-        if (cx < 0 || cx >= grid.cols || cy < 0 || cy >= grid.rows) {
+        // Check bounds (support negative coordinates)
+        if (cx < grid.minCol || cx >= grid.cols || 
+            cy < grid.minRow || cy >= grid.rows) {
             touchesBorder = true;
             continue;
         }
         
-        if (visited[cy][cx]) {
+        if (visited.count({cx, cy})) {
             continue;
         }
         
@@ -1361,7 +1357,7 @@ Model::DetectedRoom Model::DetectColorRegion(int x, int y) {
             continue;
         }
         
-        visited[cy][cx] = true;
+        visited.insert({cx, cy});
         result.cells.insert({cx, cy});
         
         // Update bounding box
@@ -1370,9 +1366,9 @@ Model::DetectedRoom Model::DetectColorRegion(int x, int y) {
         maxX = std::max(maxX, cx);
         maxY = std::max(maxY, cy);
         
-        // Check if at grid border
-        if (cx == 0 || cx == grid.cols - 1 || 
-            cy == 0 || cy == grid.rows - 1) {
+        // Check if at grid border (support negative coordinates)
+        if (cx == grid.minCol || cx == grid.cols - 1 || 
+            cy == grid.minRow || cy == grid.rows - 1) {
             touchesBorder = true;
         }
         
@@ -1396,13 +1392,14 @@ Model::DetectedRoom Model::DetectColorRegion(int x, int y) {
                 continue;  // Blocked by wall/door
             }
             
-            // Check if neighbor is in bounds
-            if (nx < 0 || nx >= grid.cols || ny < 0 || ny >= grid.rows) {
+            // Check if neighbor is in bounds (support negative coordinates)
+            if (nx < grid.minCol || nx >= grid.cols || 
+                ny < grid.minRow || ny >= grid.rows) {
                 touchesBorder = true;
                 continue;
             }
             
-            if (visited[ny][nx]) {
+            if (visited.count({nx, ny})) {
                 continue;
             }
             
@@ -1436,46 +1433,30 @@ Model::DetectedRoom Model::DetectColorRegion(int x, int y) {
 std::vector<Model::DetectedRoom> Model::DetectAllColorRegions() {
     std::vector<DetectedRoom> detectedRooms;
     
-    // Track which cells have been visited
-    std::vector<std::vector<bool>> visited(
-        grid.rows, std::vector<bool>(grid.cols, false)
-    );
+    // Track which cells have been visited (use set to support negative coords)
+    std::unordered_set<std::pair<int, int>, PairHash> visited;
     
-    // Find all unique room IDs that have cell assignments
-    std::set<std::string> roomIdsWithCells;
+    // Instead of iterating the entire grid, iterate only over cells with
+    // room assignments (more efficient and supports negative coordinates)
     for (const auto& assignment : cellRoomAssignments) {
-        roomIdsWithCells.insert(assignment.second);
-    }
-    
-    // For each colored cell, detect its region
-    for (int y = 0; y < grid.rows; ++y) {
-        for (int x = 0; x < grid.cols; ++x) {
-            if (visited[y][x]) continue;
-            
-            std::string roomId = GetCellRoom(x, y);
-            if (roomId.empty()) {
-                visited[y][x] = true;
-                continue;  // Skip uncolored cells
-            }
-            
-            DetectedRoom detected = DetectColorRegion(x, y);
-            
-            // Mark cells as visited
-            for (const auto& cell : detected.cells) {
-                int cx = cell.first;
-                int cy = cell.second;
-                if (cx >= 0 && cx < grid.cols && cy >= 0 && cy < grid.rows) {
-                    visited[cy][cx] = true;
-                }
-            }
-            
-            // Color regions are always considered valid rooms
-            // (the color defines the room, enclosure is optional)
-            if (!detected.cells.empty() && detected.cells.size() < 10000) {
-                // Mark as enclosed for color regions (color = boundary)
-                detected.isEnclosed = true;
-                detectedRooms.push_back(detected);
-            }
+        int x = assignment.first.first;
+        int y = assignment.first.second;
+        
+        if (visited.count({x, y})) continue;
+        
+        DetectedRoom detected = DetectColorRegion(x, y);
+        
+        // Mark cells as visited
+        for (const auto& cell : detected.cells) {
+            visited.insert(cell);
+        }
+        
+        // Color regions are always considered valid rooms
+        // (the color defines the room, enclosure is optional)
+        if (!detected.cells.empty() && detected.cells.size() < 10000) {
+            // Mark as enclosed for color regions (color = boundary)
+            detected.isEnclosed = true;
+            detectedRooms.push_back(detected);
         }
     }
     
