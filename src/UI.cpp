@@ -3266,7 +3266,8 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
                 strncpy(notesBuf, room->notes.c_str(), sizeof(notesBuf) - 1);
                 if (ImGui::InputTextMultiline("##description", notesBuf, 
                                              sizeof(notesBuf), 
-                                             ImVec2(-1, 80))) {
+                                             ImVec2(-1, 80),
+                                             ImGuiInputTextFlags_WordWrap)) {
                     room->notes = notesBuf;
                     model.MarkDirty();
                 }
@@ -3583,7 +3584,8 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
                 descBuf[sizeof(descBuf) - 1] = '\0';
                 if (ImGui::InputTextMultiline("##regionDescription", descBuf, 
                                              sizeof(descBuf), 
-                                             ImVec2(-1, 80))) {
+                                             ImVec2(-1, 80),
+                                             ImGuiInputTextFlags_WordWrap)) {
                     region->description = descBuf;
                     model.MarkDirty();
                 }
