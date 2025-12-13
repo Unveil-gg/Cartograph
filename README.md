@@ -34,10 +34,16 @@ Design interconnected game worlds with an intuitive canvas:
 
 ## Quick Start
 
+**Prerequisites:**
+- macOS 10.15+ or Windows 10+
+- Git
+- CMake 3.16+
+- C++17 compiler
+
 ### macOS
 
 ```bash
-git clone https://github.com/unveil/cartograph.git
+git clone https://github.com/unveil-gg/cartograph.git
 cd cartograph
 git submodule update --init --recursive
 mkdir build && cd build
@@ -46,23 +52,19 @@ cmake -DCMAKE_BUILD_TYPE=Release .. && make
 ```
 
 ### Windows
-
+Note: Ensure ```bash cmake -G "Visual Studio 16 2019" -A x64 ..``` references the version of VS you have installed on your machine (e.g. Visual Studio 17 2022, or Visual Studio 18 2026) If this command produces a mismatch error, delete the cmake cache file and correct this command.
 ```bash
-git clone https://github.com/unveil/cartograph.git
+git clone https://github.com/unveil-gg/cartograph.git
 cd cartograph
 git submodule update --init --recursive
-mkdir build && cd build
+mkdir build
+cd build
 cmake -G "Visual Studio 16 2019" -A x64 ..
 cmake --build . --config Release
 .\Release\Cartograph.exe
 ```
 
 See [BUILDING.md](BUILDING.md) for detailed build instructions, options, and distribution setup.
-
-**Requirements:**
-- macOS 10.15+ or Windows 10+
-- CMake 3.16+
-- C++17 compiler
 
 ## Keyboard Shortcuts
 
