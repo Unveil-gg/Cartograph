@@ -961,7 +961,7 @@ void Modals::RenderSettingsModal(App& app, Model& model, KeymapManager& keymap) 
         if (ImGui::InputTextMultiline("##description", descBuf, 
                                       sizeof(descBuf),
                                       ImVec2(-1, 120.0f),
-                                      ImGuiInputTextFlags_AllowTabInput)) {
+                                      ImGuiInputTextFlags_WordWrap)) {
             model.meta.description = descBuf;
             model.MarkDirty();
         }
