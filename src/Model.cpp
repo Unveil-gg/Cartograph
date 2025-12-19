@@ -1,4 +1,5 @@
 #include "Model.h"
+#include "Config.h"
 #include <imgui.h>
 #include <algorithm>
 #include <sstream>
@@ -226,16 +227,11 @@ bool Model::HasDoorAt(const std::string& roomId, int x, int y) const {
 // ============================================================================
 
 int Model::AddPaletteColor(const std::string& name, const Color& color) {
-    // Check palette size limit (max 32 colors including Empty)
-    const size_t MAX_PALETTE_SIZE = 32;
-    if (palette.size() >= MAX_PALETTE_SIZE) {
+    if (palette.size() >= Limits::MAX_PALETTE_ENTRIES) {
         return -1;  // Palette full
     }
     
-    // Get next available tile ID
     int newId = GetNextPaletteTileId();
-    
-    // Add new tile type to palette
     palette.push_back({newId, name, color});
     MarkDirty();
     

@@ -111,4 +111,3 @@ echo "=== Notarization Complete ==="
 echo ""
 echo "The app is now ready for distribution!"
 echo "Users can download and run it without Gatekeeper warnings."
-

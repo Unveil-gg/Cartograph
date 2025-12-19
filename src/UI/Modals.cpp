@@ -1,4 +1,5 @@
 #include "Modals.h"
+#include "../Config.h"
 #include "../App.h"
 #include "../UI.h"
 #include "../Canvas.h"
@@ -2026,7 +2027,8 @@ void Modals::RenderColorPickerModal(Model& model, History& history,
         }
         
         // Check palette size limit
-        if (colorPickerEditingTileId == -1 && model.palette.size() >= 32) {
+        if (colorPickerEditingTileId == -1 && 
+            model.palette.size() >= Limits::MAX_PALETTE_ENTRIES) {
             ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f),
                 "Palette is full (max 32 colors)");
             canSave = false;

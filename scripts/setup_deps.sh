@@ -88,4 +88,3 @@ echo "1. Build: mkdir build && cd build && cmake .. && make"
 echo "2. Run: ./Cartograph.app/Contents/MacOS/Cartograph"
 echo ""
 echo "Note: All dependencies are vendored, no system packages needed!"
-

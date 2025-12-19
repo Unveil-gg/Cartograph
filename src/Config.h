@@ -27,7 +27,7 @@ constexpr size_t MAX_ROOMS = 10000;            // 10K rooms
 constexpr size_t MAX_REGION_GROUPS = 10000;    // 10K region groups
 constexpr size_t MAX_EDGES = 1000000;          // 1M edges
 constexpr size_t MAX_DOORS = 100000;           // 100K doors
-constexpr size_t MAX_PALETTE_ENTRIES = 10000;  // 10K palette colors
+constexpr size_t MAX_PALETTE_ENTRIES = 32;     // Max palette colors (2^5)
 constexpr size_t MAX_CELL_ASSIGNMENTS = 10000000;  // 10M cell assignments
 
 }  // namespace Limits

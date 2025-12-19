@@ -1,4 +1,5 @@
 #include "UI.h"
+#include "Config.h"
 #include "App.h"
 #include "Canvas.h"
 #include "History.h"
@@ -1586,7 +1587,7 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
         ImGui::Spacing();
         
         // Add Color button
-        bool canAddMore = model.palette.size() < 32;
+        bool canAddMore = model.palette.size() < Limits::MAX_PALETTE_ENTRIES;
         
         if (!canAddMore) {
             ImGui::BeginDisabled();

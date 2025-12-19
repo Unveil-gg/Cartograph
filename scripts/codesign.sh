@@ -98,4 +98,3 @@ spctl --assess --type exec --verbose "$APP_PATH" || {
 
 echo ""
 echo "=== Signing Complete ==="
-
