@@ -151,6 +151,15 @@ private:
     
     // Viewport state (set during Render)
     int m_vpX, m_vpY, m_vpW, m_vpH;
+    
+    // Pending focus request (applied on next render when viewport is known)
+    struct PendingFocus {
+        bool pending = false;
+        int minTx, minTy, maxTx, maxTy;
+        int tileWidth, tileHeight;
+        float padding;
+    };
+    PendingFocus m_pendingFocus;
 };
 
 } // namespace Cartograph

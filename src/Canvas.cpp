@@ -43,6 +43,17 @@ void Canvas::Render(
     m_vpW = viewportW;
     m_vpH = viewportH;
     
+    // Apply pending focus once viewport is properly initialized
+    // Require minimum 100x100 to avoid applying with placeholder/uninitialized size
+    // (when launched via Finder/open, first few renders may have tiny viewport)
+    if (m_pendingFocus.pending && m_vpW >= 100 && m_vpH >= 100) {
+        m_pendingFocus.pending = false;
+        FocusOnRect(m_pendingFocus.minTx, m_pendingFocus.minTy,
+                    m_pendingFocus.maxTx, m_pendingFocus.maxTy,
+                    m_pendingFocus.tileWidth, m_pendingFocus.tileHeight,
+                    m_pendingFocus.padding);
+    }
+    
     // Only use ImGui clip rect if not in export mode
     ImDrawList* dl = nullptr;
     if (!context || !context->skipImGui) {
@@ -110,7 +121,9 @@ void Canvas::ScreenToTile(
     float wx, wy;
     ScreenToWorld(sx, sy, &wx, &wy);
     *tx = static_cast<int>(std::floor(wx / tileWidth));
-    *ty = static_cast<int>(std::floor(wy / tileHeight));
+    // Y-up coordinate system: negate the floor result, not the input
+    // Note: floor(-x) != -floor(x) for non-integers
+    *ty = -static_cast<int>(std::floor(wy / tileHeight));
 }
 
 void Canvas::TileToWorld(
@@ -119,7 +132,8 @@ void Canvas::TileToWorld(
     float* wx, float* wy
 ) const {
     *wx = tx * tileWidth;
-    *wy = ty * tileHeight;
+    // Y-up coordinate system: negate tile Y for world coordinates
+    *wy = -ty * tileHeight;
 }
 
 void Canvas::SetZoom(float newZoom) {
@@ -150,28 +164,41 @@ void Canvas::Pan(float dx, float dy) {
 
 void Canvas::FocusOnTile(int tx, int ty, int tileWidth, int tileHeight) {
     offsetX = tx * tileWidth - m_vpW / (2.0f * zoom);
-    offsetY = ty * tileHeight - m_vpH / (2.0f * zoom);
+    // Y-up coordinate system: negate tile Y for world offset
+    offsetY = -ty * tileHeight - m_vpH / (2.0f * zoom);
 }
 
 void Canvas::FocusOnRect(int minTx, int minTy, int maxTx, int maxTy,
                          int tileWidth, int tileHeight, float padding) {
+    // If viewport not yet known, defer focus to first render
+    if (m_vpW <= 0 || m_vpH <= 0) {
+        m_pendingFocus.pending = true;
+        m_pendingFocus.minTx = minTx;
+        m_pendingFocus.minTy = minTy;
+        m_pendingFocus.maxTx = maxTx;
+        m_pendingFocus.maxTy = maxTy;
+        m_pendingFocus.tileWidth = tileWidth;
+        m_pendingFocus.tileHeight = tileHeight;
+        m_pendingFocus.padding = padding;
+        return;
+    }
+    
     // Calculate content dimensions in world pixels
     float contentW = (maxTx - minTx + 1) * tileWidth;
     float contentH = (maxTy - minTy + 1) * tileHeight;
     
     // Calculate center of content area in world pixels
+    // Y-up coordinate system: negate tile Y for world center
     float centerX = (minTx + maxTx + 1) * 0.5f * tileWidth;
-    float centerY = (minTy + maxTy + 1) * 0.5f * tileHeight;
+    float centerY = -(minTy + maxTy + 1) * 0.5f * tileHeight;
     
-    // Calculate zoom to fit content with padding (if viewport is valid)
-    if (m_vpW > 0 && m_vpH > 0) {
-        float zoomX = m_vpW / (contentW * padding);
-        float zoomY = m_vpH / (contentH * padding);
-        float fitZoom = std::min(zoomX, zoomY);
-        
-        // Clamp zoom to reasonable range (don't zoom out too far)
-        zoom = std::clamp(fitZoom, 0.5f, DEFAULT_ZOOM * 1.5f);
-    }
+    // Calculate zoom to fit content with padding
+    float zoomX = m_vpW / (contentW * padding);
+    float zoomY = m_vpH / (contentH * padding);
+    float fitZoom = std::min(zoomX, zoomY);
+    
+    // Clamp zoom to reasonable range
+    zoom = std::clamp(fitZoom, 0.5f, DEFAULT_ZOOM * 1.5f);
     
     // Center offset on the bounding box center
     offsetX = centerX - m_vpW / (2.0f * zoom);
@@ -183,10 +210,14 @@ bool Canvas::IsVisible(
     int tileWidth, int tileHeight
 ) const {
     // Convert tile rect to world space
+    // Y-up coordinate system: negate tile Y for world coordinates
     float wx1 = rect.x * tileWidth;
-    float wy1 = rect.y * tileHeight;
+    float wy1 = -rect.y * tileHeight;
     float wx2 = (rect.x + rect.w) * tileWidth;
-    float wy2 = (rect.y + rect.h) * tileHeight;
+    float wy2 = -(rect.y + rect.h) * tileHeight;
+    
+    // Ensure wy1 < wy2 for proper overlap check (since Y is negated)
+    if (wy1 > wy2) std::swap(wy1, wy2);
     
     // Convert to screen space
     float sx1, sy1, sx2, sy2;
@@ -204,10 +235,16 @@ void Canvas::RenderGrid(IRenderer& renderer, const GridConfig& grid) {
     const Color gridColor(0.2f, 0.2f, 0.2f, 0.5f);
     
     // Calculate visible tile range from viewport (infinite grid - no clamping)
-    int minTx, minTy, maxTx, maxTy;
-    ScreenToTile(m_vpX, m_vpY, tileWidth, tileHeight, &minTx, &minTy);
+    int tx1, ty1, tx2, ty2;
+    ScreenToTile(m_vpX, m_vpY, tileWidth, tileHeight, &tx1, &ty1);
     ScreenToTile(m_vpX + m_vpW, m_vpY + m_vpH, tileWidth, tileHeight, 
-                 &maxTx, &maxTy);
+                 &tx2, &ty2);
+    
+    // With Y-up coords, ty1 (top of screen) > ty2 (bottom), so swap if needed
+    int minTx = std::min(tx1, tx2);
+    int maxTx = std::max(tx1, tx2);
+    int minTy = std::min(ty1, ty2);
+    int maxTy = std::max(ty1, ty2);
     
     // Add padding for edge visibility
     minTx -= 1;
@@ -266,8 +303,9 @@ void Canvas::RenderRooms(IRenderer& renderer, const Model& model,
         }
         
         // Convert bounding box to world space
+        // Y-up coordinate system: negate tile Y and adjust for height
         float wx = bbox.x * tileWidth;
-        float wy = bbox.y * tileHeight;
+        float wy = -(bbox.y + bbox.h) * tileHeight;
         float ww = bbox.w * tileWidth;
         float wh = bbox.h * tileHeight;
         
@@ -352,23 +390,29 @@ void Canvas::RenderEdges(
         if (state == EdgeState::None) continue;
         
         // Calculate edge line endpoints in world coordinates
+        // Y-up coordinate system: negate tile Y for world coordinates
         float wx1 = edgeId.x1 * tileWidth;
-        float wy1 = edgeId.y1 * tileHeight;
+        float wy1 = -edgeId.y1 * tileHeight;
         float wx2 = edgeId.x2 * tileWidth;
-        float wy2 = edgeId.y2 * tileHeight;
+        float wy2 = -edgeId.y2 * tileHeight;
         
         // Determine which edge this is (horizontal or vertical)
         bool isVertical = (edgeId.x1 != edgeId.x2);
         
         if (isVertical) {
-            // Vertical edge - draw between x1 and x2
+            // Vertical edge - spans one tile height at the boundary between tiles
             wx1 = std::max(edgeId.x1, edgeId.x2) * tileWidth;
             wx2 = wx1;
-            wy1 = std::min(edgeId.y1, edgeId.y2) * tileHeight;
-            wy2 = wy1 + tileHeight;
+            // Edge spans from min tile Y to min tile Y + 1
+            // In world: from -minY*H (top) down to -minY*H + H (bottom on screen)
+            int minY = std::min(edgeId.y1, edgeId.y2);
+            wy1 = -minY * tileHeight;
+            wy2 = wy1 + tileHeight;  // + goes down on screen
         } else {
-            // Horizontal edge - draw between y1 and y2
-            wy1 = std::max(edgeId.y1, edgeId.y2) * tileHeight;
+            // Horizontal edge - spans one tile width at the boundary between tiles
+            // Y-up: boundary is at top of lower tile = -minY * tileHeight
+            int minY = std::min(edgeId.y1, edgeId.y2);
+            wy1 = -minY * tileHeight;
             wy2 = wy1;
             wx1 = std::min(edgeId.x1, edgeId.x2) * tileWidth;
             wx2 = wx1 + tileWidth;
@@ -466,8 +510,9 @@ void Canvas::RenderMarkers(IRenderer& renderer, const Model& model,
     for (const auto& marker : model.markers) {
         // Convert fractional tile coords to world coords
         // marker.x/y are now floats (e.g., 5.5 = center of tile 5)
+        // Y-up coordinate system: negate tile Y for world coordinates
         float wx = marker.x * tileWidth;
-        float wy = marker.y * tileHeight;
+        float wy = -marker.y * tileHeight;
         
         float sx, sy;
         WorldToScreen(wx, wy, &sx, &sy);

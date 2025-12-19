@@ -194,11 +194,12 @@ struct EdgeIdHash {
     }
 };
 
-// Helper to create EdgeId from cell and side
+// Helper to create EdgeId from cell and side (Y-up coordinate system)
 inline EdgeId MakeEdgeId(int cellX, int cellY, EdgeSide side) {
     switch (side) {
-        case EdgeSide::North: return EdgeId(cellX, cellY, cellX, cellY - 1);
-        case EdgeSide::South: return EdgeId(cellX, cellY, cellX, cellY + 1);
+        // Y-up: North (up) goes to higher Y, South (down) goes to lower Y
+        case EdgeSide::North: return EdgeId(cellX, cellY, cellX, cellY + 1);
+        case EdgeSide::South: return EdgeId(cellX, cellY, cellX, cellY - 1);
         case EdgeSide::East:  return EdgeId(cellX, cellY, cellX + 1, cellY);
         case EdgeSide::West:  return EdgeId(cellX, cellY, cellX - 1, cellY);
     }

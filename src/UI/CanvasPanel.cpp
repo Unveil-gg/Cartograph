@@ -273,13 +273,14 @@ bool CanvasPanel::DetectEdgeHover(
     float worldX, worldY;
     canvas.ScreenToWorld(mouseX, mouseY, &worldX, &worldY);
     
-    // Calculate which tile we're in (using floor for proper tile indexing)
+    // Calculate which tile we're in (Y-up coordinate system)
     int tx = static_cast<int>(std::floor(worldX / grid.tileWidth));
-    int ty = static_cast<int>(std::floor(worldY / grid.tileHeight));
+    int ty = -static_cast<int>(std::floor(worldY / grid.tileHeight));
     
     // Calculate position within the tile (0.0 to 1.0)
+    // For Y-up: use tile's world Y position (which is -ty * tileHeight)
     float tileWorldX = tx * grid.tileWidth;
-    float tileWorldY = ty * grid.tileHeight;
+    float tileWorldY = -ty * grid.tileHeight;
     float relX = (worldX - tileWorldX) / grid.tileWidth;
     float relY = (worldY - tileWorldY) / grid.tileHeight;
     
@@ -359,9 +360,9 @@ void CanvasPanel::Render(
             float wx, wy;
             canvas.ScreenToWorld(mousePos.x, mousePos.y, &wx, &wy);
             
-            // Convert to fractional tile coordinates
+            // Convert to fractional tile coordinates (Y-up: negate world Y)
             float tileX = wx / model.grid.tileWidth;
-            float tileY = wy / model.grid.tileHeight;
+            float tileY = -wy / model.grid.tileHeight;
             
             // Snap to nearest snap point based on grid preset
             auto snapPoints = model.GetMarkerSnapPoints();
@@ -1403,9 +1404,9 @@ void CanvasPanel::Render(
                 float wx, wy;
                 canvas.ScreenToWorld(mousePos.x, mousePos.y, &wx, &wy);
                 
-                // Convert to fractional tile coordinates
+                // Convert to fractional tile coordinates (Y-up: negate world Y)
                 float tileX = wx / model.grid.tileWidth;
-                float tileY = wy / model.grid.tileHeight;
+                float tileY = -wy / model.grid.tileHeight;
                 
                 // Snap to nearest snap point based on grid preset
                 auto snapPoints = model.GetMarkerSnapPoints();
@@ -1489,9 +1490,9 @@ void CanvasPanel::Render(
                 float wx, wy;
                 canvas.ScreenToWorld(mousePos.x, mousePos.y, &wx, &wy);
                 
-                // Convert to fractional tile coordinates
+                // Convert to fractional tile coordinates (Y-up: negate world Y)
                 float tileX = wx / model.grid.tileWidth;
-                float tileY = wy / model.grid.tileHeight;
+                float tileY = -wy / model.grid.tileHeight;
                 
                 // Check if we right-clicked near an existing marker
                 Marker* clickedMarker = 
@@ -1521,8 +1522,9 @@ void CanvasPanel::Render(
                     float wx, wy;
                     canvas.ScreenToWorld(mousePos.x, mousePos.y, &wx, &wy);
                     
+                    // Y-up: negate world Y for tile coordinates
                     float tileX = wx / model.grid.tileWidth;
-                    float tileY = wy / model.grid.tileHeight;
+                    float tileY = -wy / model.grid.tileHeight;
                     
                     // Snap to nearest snap point based on grid preset
                     auto snapPoints = model.GetMarkerSnapPoints();
@@ -1951,7 +1953,7 @@ void CanvasPanel::Render(
                                 EdgeSide::East, EdgeSide::West
                             };
                             int dx[] = {0, 0, 1, -1};
-                            int dy[] = {-1, 1, 0, 0};
+                            int dy[] = {1, -1, 0, 0};  // Y-up: North=+1, South=-1
                             
                             for (int i = 0; i < 4; ++i) {
                                 EdgeId edgeId = MakeEdgeId(x, y, sides[i]);
@@ -2299,8 +2301,9 @@ void CanvasPanel::Render(
                     float wx, wy;
                     canvas.ScreenToWorld(mousePos.x, mousePos.y, &wx, &wy);
                     
+                    // Y-up: negate world Y for tile coordinates
                     float tileX = wx / model.grid.tileWidth;
-                    float tileY = wy / model.grid.tileHeight;
+                    float tileY = -wy / model.grid.tileHeight;
                     
                     // Snap to nearest snap point based on grid preset
                     auto snapPoints = model.GetMarkerSnapPoints();
@@ -2393,8 +2396,9 @@ void CanvasPanel::Render(
         float wx, wy;
         canvas.ScreenToWorld(mousePos.x, mousePos.y, &wx, &wy);
         
+        // Y-up: negate world Y for tile coordinates
         float tileX = wx / model.grid.tileWidth;
-        float tileY = wy / model.grid.tileHeight;
+        float tileY = -wy / model.grid.tileHeight;
         
         Marker* hovered = model.FindMarkerNear(tileX, tileY, 0.5f);
         hoveredMarkerId = hovered ? hovered->id : "";
@@ -2861,14 +2865,16 @@ void CanvasPanel::Render(
             
             float wx1, wy1, wx2, wy2;
             if (isVertical) {
-                // Vertical edge
+                // Vertical edge (Y-up: negate Y for world coords)
                 wx1 = std::max(x1, x2) * model.grid.tileWidth;
                 wx2 = wx1;
-                wy1 = std::min(y1, y2) * model.grid.tileHeight;
+                int minY = std::min(y1, y2);
+                wy1 = -minY * model.grid.tileHeight;
                 wy2 = wy1 + model.grid.tileHeight;
             } else {
-                // Horizontal edge
-                wy1 = std::max(y1, y2) * model.grid.tileHeight;
+                // Horizontal edge (Y-up: boundary at -minY * tileHeight)
+                int minY = std::min(y1, y2);
+                wy1 = -minY * model.grid.tileHeight;
                 wy2 = wy1;
                 wx1 = std::min(x1, x2) * model.grid.tileWidth;
                 wx2 = wx1 + model.grid.tileWidth;
@@ -3088,9 +3094,9 @@ void CanvasPanel::Render(
         float wx, wy;
         canvas.ScreenToWorld(mousePos.x, mousePos.y, &wx, &wy);
         
-        // Convert to fractional tile coordinates
+        // Convert to fractional tile coordinates (Y-up: negate world Y)
         float tileX = wx / model.grid.tileWidth;
-        float tileY = wy / model.grid.tileHeight;
+        float tileY = -wy / model.grid.tileHeight;
         
         // Get base tile
         int baseTileX = static_cast<int>(std::floor(tileX));
@@ -3204,9 +3210,9 @@ void CanvasPanel::Render(
             float wx, wy;
             canvas.ScreenToWorld(mousePos.x, mousePos.y, &wx, &wy);
             
-            // Convert to fractional tile coordinates
+            // Convert to fractional tile coordinates (Y-up: negate world Y)
             float tileX = wx / model.grid.tileWidth;
-            float tileY = wy / model.grid.tileHeight;
+            float tileY = -wy / model.grid.tileHeight;
             
             // Snap to nearest snap point
             auto snapPoints = model.GetMarkerSnapPoints();
@@ -3391,17 +3397,23 @@ void CanvasPanel::PopulateSelectionFromRect(
     float maxScreenY = std::max(selectionStartY, selectionEndY);
     
     // Convert corners to tile coordinates
-    int minTileX, minTileY, maxTileX, maxTileY;
+    int tx1, ty1, tx2, ty2;
     canvas.ScreenToTile(
         minScreenX, minScreenY,
         model.grid.tileWidth, model.grid.tileHeight,
-        &minTileX, &minTileY
+        &tx1, &ty1
     );
     canvas.ScreenToTile(
         maxScreenX, maxScreenY,
         model.grid.tileWidth, model.grid.tileHeight,
-        &maxTileX, &maxTileY
+        &tx2, &ty2
     );
+    
+    // With Y-up coords, Y values may be inverted, so use min/max
+    int minTileX = std::min(tx1, tx2);
+    int maxTileX = std::max(tx1, tx2);
+    int minTileY = std::min(ty1, ty2);
+    int maxTileY = std::max(ty1, ty2);
     
     // Store bounding box
     currentSelection.bounds.x = minTileX;

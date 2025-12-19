@@ -261,9 +261,14 @@ bool ExportPng::Export(
     }
     
     // Helper to convert tile coordinates to pixel coordinates
+    // Y-up coordinate system: higher tile Y renders at lower pixel Y (top)
     auto tileToPixel = [&](int tileX, int tileY, int* px, int* py) {
-        *px = static_cast<int>((tileX - bounds.minX) * model.grid.tileWidth * scale + options.padding * scale);
-        *py = static_cast<int>((tileY - bounds.minY) * model.grid.tileHeight * scale + options.padding * scale);
+        *px = static_cast<int>(
+            (tileX - bounds.minX) * model.grid.tileWidth * scale + 
+            options.padding * scale);
+        *py = static_cast<int>(
+            (bounds.maxY - tileY) * model.grid.tileHeight * scale + 
+            options.padding * scale);
     };
     
     // Render tiles
@@ -325,9 +330,9 @@ bool ExportPng::Export(
                 
                 buffer.DrawVLine(px1, py1, py2, lineColor, thickness);
             } else {
-                // Horizontal edge
+                // Horizontal edge (Y-up: boundary at minY, not maxY)
                 int x = std::min(edgeId.x1, edgeId.x2);
-                int y = std::max(edgeId.y1, edgeId.y2);
+                int y = std::min(edgeId.y1, edgeId.y2);
                 
                 tileToPixel(x, y, &px1, &py1);
                 tileToPixel(x + 1, y, &px2, &py2);
@@ -374,12 +379,13 @@ bool ExportPng::Export(
     if (options.layerMarkers) {
         for (const auto& marker : model.markers) {
             // Calculate marker position in pixels
+            // Y-up coordinate system: higher tile Y renders at lower pixel Y
             int px = static_cast<int>(
                 (marker.x - bounds.minX) * model.grid.tileWidth * scale + 
                 options.padding * scale
             );
             int py = static_cast<int>(
-                (marker.y - bounds.minY) * model.grid.tileHeight * scale + 
+                (bounds.maxY - marker.y) * model.grid.tileHeight * scale + 
                 options.padding * scale
             );
             

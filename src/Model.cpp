@@ -488,7 +488,7 @@ void Model::ComputeInferredRegions() {
                     EdgeSide::East, EdgeSide::West
                 };
                 int dx[] = {0, 0, 1, -1};
-                int dy[] = {-1, 1, 0, 0};
+                int dy[] = {1, -1, 0, 0};  // Y-up: North=+1, South=-1
                 
                 for (int i = 0; i < 4; ++i) {
                     EdgeId edgeId = MakeEdgeId(cx, cy, sides[i]);
@@ -558,8 +558,9 @@ void Model::GenerateRegionPerimeterWalls(const Region& region) {
             int adjX = cx;
             int adjY = cy;
             switch (side) {
-                case EdgeSide::North: adjY = cy - 1; break;
-                case EdgeSide::South: adjY = cy + 1; break;
+                // Y-up: North (up) is higher Y, South (down) is lower Y
+                case EdgeSide::North: adjY = cy + 1; break;
+                case EdgeSide::South: adjY = cy - 1; break;
                 case EdgeSide::East:  adjX = cx + 1; break;
                 case EdgeSide::West:  adjX = cx - 1; break;
             }
@@ -1121,7 +1122,7 @@ Model::DetectedRoom Model::DetectEnclosedRoom(int x, int y) {
             EdgeSide::East, EdgeSide::West
         };
         int dx[] = {0, 0, 1, -1};
-        int dy[] = {-1, 1, 0, 0};
+        int dy[] = {1, -1, 0, 0};  // Y-up: North=+1, South=-1
         
         for (int i = 0; i < 4; ++i) {
             int nx = cx + dx[i];
@@ -1255,7 +1256,7 @@ std::vector<Model::DetectedRoom> Model::DetectAllEnclosedRooms() {
                 EdgeSide::East, EdgeSide::West
             };
             int dx[] = {0, 0, 1, -1};
-            int dy[] = {-1, 1, 0, 0};
+            int dy[] = {1, -1, 0, 0};  // Y-up: North=+1, South=-1
             
             for (int i = 0; i < 4; ++i) {
                 int nx = cx + dx[i];
@@ -1372,7 +1373,7 @@ Model::DetectedRoom Model::DetectColorRegion(int x, int y) {
             EdgeSide::East, EdgeSide::West
         };
         int dx[] = {0, 0, 1, -1};
-        int dy[] = {-1, 1, 0, 0};
+        int dy[] = {1, -1, 0, 0};  // Y-up: North=+1, South=-1
         
         for (int i = 0; i < 4; ++i) {
             int nx = cx + dx[i];
@@ -1497,7 +1498,7 @@ Model::FindContiguousRegions(
                 EdgeSide::East, EdgeSide::West
             };
             int dx[] = {0, 0, 1, -1};
-            int dy[] = {-1, 1, 0, 0};
+            int dy[] = {1, -1, 0, 0};  // Y-up: North=+1, South=-1
             
             for (int i = 0; i < 4; ++i) {
                 int nx = cx + dx[i];
@@ -1675,8 +1676,9 @@ void Model::GenerateRoomPerimeterWalls(
             int adjX = cx;
             int adjY = cy;
             switch (side) {
-                case EdgeSide::North: adjY = cy - 1; break;
-                case EdgeSide::South: adjY = cy + 1; break;
+                // Y-up: North (up) is higher Y, South (down) is lower Y
+                case EdgeSide::North: adjY = cy + 1; break;
+                case EdgeSide::South: adjY = cy - 1; break;
                 case EdgeSide::East:  adjX = cx + 1; break;
                 case EdgeSide::West:  adjX = cx - 1; break;
             }
@@ -1723,8 +1725,9 @@ Model::ComputeRoomPerimeterWallChanges(const std::string& roomId) {
             int adjX = cx;
             int adjY = cy;
             switch (side) {
-                case EdgeSide::North: adjY = cy - 1; break;
-                case EdgeSide::South: adjY = cy + 1; break;
+                // Y-up: North (up) is higher Y, South (down) is lower Y
+                case EdgeSide::North: adjY = cy + 1; break;
+                case EdgeSide::South: adjY = cy - 1; break;
                 case EdgeSide::East:  adjX = cx + 1; break;
                 case EdgeSide::West:  adjX = cx - 1; break;
             }
@@ -1813,7 +1816,7 @@ void Model::UpdateRoomConnections(const std::string& roomId) {
         };
         
         int dx[] = {0, 0, 1, -1};
-        int dy[] = {-1, 1, 0, 0};
+        int dy[] = {1, -1, 0, 0};  // Y-up: North=+1, South=-1
         
         for (int i = 0; i < 4; ++i) {
             EdgeId edgeId = MakeEdgeId(cx, cy, sides[i]);

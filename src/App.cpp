@@ -279,12 +279,6 @@ void App::ShowEditor() {
     
     // No need for world room anymore - regions are inferred from walls
     // Tiles can be painted anywhere on the grid
-    
-    // Only generate auto-walls if there are existing walls/edges
-    // (Skip on empty new projects to avoid performance issues)
-    if (!m_model.edges.empty()) {
-        m_model.UpdateAllAutoWalls();
-    }
 }
 
 
@@ -615,6 +609,15 @@ void App::OpenProject(const std::string& path) {
         
         // Load keymap bindings into keymap manager
         m_keymap.LoadBindings(m_model.keymap);
+        
+        // Focus canvas on content bounds
+        ContentBounds bounds = m_model.CalculateContentBounds();
+        if (!bounds.isEmpty) {
+            m_canvas.FocusOnRect(
+                bounds.minX, bounds.minY, bounds.maxX, bounds.maxY,
+                m_model.grid.tileWidth, m_model.grid.tileHeight
+            );
+        }
         
         // Extract project name from path for console message
         std::string projectName = std::filesystem::path(path)

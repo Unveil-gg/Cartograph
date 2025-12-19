@@ -161,8 +161,9 @@ bool Thumbnail::GenerateToMemory(
     fitZoom = std::clamp(fitZoom, 0.5f, 4.0f);
     
     // Calculate center of content area (in world pixels)
+    // Y-up coordinate system: negate tile Y for world coordinates
     float contentCenterX = (minX + maxX) * 0.5f * model.grid.tileWidth;
-    float contentCenterY = (minY + maxY) * 0.5f * model.grid.tileHeight;
+    float contentCenterY = -(minY + maxY) * 0.5f * model.grid.tileHeight;
     
     // Create a canvas configured for thumbnail rendering
     Canvas thumbCanvas = canvas;
