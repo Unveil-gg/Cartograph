@@ -2885,52 +2885,43 @@ void Modals::RenderWhatsNewPanel() {
     
     if (ImGui::BeginPopupModal("What's New in Cartograph", &showWhatsNew)) {
         ImGui::TextColored(ImVec4(0.4f, 0.7f, 1.0f, 1.0f), 
-            "Version 1.0.0");
+            "Version %s", CARTOGRAPH_VERSION);
         ImGui::Separator();
         ImGui::Spacing();
         
-        // Canvas & Navigation
-        ImGui::TextColored(ImVec4(0.6f, 0.8f, 0.6f, 1.0f), "Canvas & Navigation");
-        ImGui::BulletText("Infinite pan/zoom canvas with grid snapping");
-        ImGui::BulletText("Multiple grid presets (Square, Rectangle)");
+        // Version 1.1.0 features
+        ImGui::TextColored(ImVec4(0.6f, 0.8f, 0.6f, 1.0f), "New in 1.1.0");
+        ImGui::BulletText("Coordinates updated with auto-migration for old .cart files");
+        ImGui::BulletText("Proper multiline support in descriptions");
+        ImGui::Indent();
+        ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), 
+            "(Thanks to TomNaughton)");
+        ImGui::Unindent();
         ImGui::Spacing();
         
-        // Tools
-        ImGui::TextColored(ImVec4(0.6f, 0.8f, 0.6f, 1.0f), "Editing Tools");
-        ImGui::BulletText("Paint, Erase, Fill, and Eyedropper tools");
-        ImGui::BulletText("Room painting with auto-wall generation");
-        ImGui::BulletText("Walls and doors on cell edges");
-        ImGui::BulletText("Markers with custom icons");
+        ImGui::Separator();
         ImGui::Spacing();
         
-        // Organization
-        ImGui::TextColored(ImVec4(0.6f, 0.8f, 0.6f, 1.0f), "Organization");
-        ImGui::BulletText("Named rooms with metadata and tags");
-        ImGui::BulletText("Region groups for area organization");
-        ImGui::BulletText("Customizable tile palette");
-        ImGui::Spacing();
-        
-        // Project Management
-        ImGui::TextColored(ImVec4(0.6f, 0.8f, 0.6f, 1.0f), "Project Management");
-        ImGui::BulletText("Welcome screen with project templates");
-        ImGui::BulletText("Recent projects with thumbnails");
-        ImGui::BulletText("Drag & drop project import");
-        ImGui::BulletText("Autosave with recovery");
-        ImGui::Spacing();
-        
-        // Export & Customization
-        ImGui::TextColored(ImVec4(0.6f, 0.8f, 0.6f, 1.0f), "Export & Customization");
-        ImGui::BulletText("PNG export with configurable layers and scale");
-        ImGui::BulletText("Full undo/redo history");
-        ImGui::BulletText("Customizable keyboard shortcuts");
-        ImGui::BulletText("Dark and Light themes");
+        // Previous release summary
+        if (ImGui::CollapsingHeader("Version 1.0.0 - Initial Release")) {
+            ImGui::BulletText("Infinite pan/zoom canvas with grid snapping");
+            ImGui::BulletText("Paint, Erase, Fill, and Eyedropper tools");
+            ImGui::BulletText("Room painting with auto-wall generation");
+            ImGui::BulletText("Walls and doors on cell edges");
+            ImGui::BulletText("Named rooms with metadata and tags");
+            ImGui::BulletText("Region groups for area organization");
+            ImGui::BulletText("Welcome screen with project templates");
+            ImGui::BulletText("PNG export with configurable layers");
+            ImGui::BulletText("Full undo/redo history");
+            ImGui::BulletText("Dark and Light themes");
+        }
         
         ImGui::Spacing();
         ImGui::Separator();
         ImGui::Spacing();
         
         ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "What's Next:");
-        ImGui::TextWrapped("TBD - Have a feature request?");
+        ImGui::TextWrapped("Have a feature request?");
         ImGui::Spacing();
         
         if (ImGui::SmallButton("Submit a feature request on GitHub")) {
@@ -3538,7 +3529,8 @@ void Modals::RenderAboutModal() {
         }
         
         // Version (centered)
-        const char* versionText = "v1.0.0";
+        char versionText[32];
+        snprintf(versionText, sizeof(versionText), "v%s", CARTOGRAPH_VERSION);
         float textWidth = ImGui::CalcTextSize(versionText).x;
         float availWidth = ImGui::GetContentRegionAvail().x;
         float cursorX = (availWidth - textWidth) * 0.5f;
