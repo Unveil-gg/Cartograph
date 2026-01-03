@@ -34,7 +34,27 @@ set(CARTOGRAPH_SOURCES
     src/UI/WelcomeScreen.cpp
     src/Canvas.cpp
     src/Model.cpp
-    src/History.cpp
+    src/history/History.cpp
+    src/history/PaintTilesCommand.cpp
+    src/history/FillTilesCommand.cpp
+    src/history/CreateRoomCommand.cpp
+    src/history/DeleteRoomCommand.cpp
+    src/history/ModifyRoomPropertiesCommand.cpp
+    src/history/ModifyRoomAssignmentsCommand.cpp
+    src/history/CreateRegionCommand.cpp
+    src/history/DeleteRegionCommand.cpp
+    src/history/ModifyRegionPropertiesCommand.cpp
+    src/history/ModifyEdgesCommand.cpp
+    src/history/PlaceMarkerCommand.cpp
+    src/history/DeleteMarkerCommand.cpp
+    src/history/MoveMarkersCommand.cpp
+    src/history/ModifyMarkerPropertiesCommand.cpp
+    src/history/DeleteIconCommand.cpp
+    src/history/AddPaletteColorCommand.cpp
+    src/history/RemovePaletteColorCommand.cpp
+    src/history/UpdatePaletteColorCommand.cpp
+    src/history/SetZoomCommand.cpp
+    src/history/DetectRoomsCommand.cpp
     src/IOJson.cpp
     src/Package.cpp
     src/ProjectFolder.cpp
@@ -80,6 +100,33 @@ set(CARTOGRAPH_HEADERS
     src/Color.h
     src/Model.h
     src/History.h
+    src/history/ICommand.h
+    src/history/Constants.h
+    src/history/History.h
+    src/history/Commands.h
+    src/history/RoomPropertiesSnapshot.h
+    src/history/RegionPropertiesSnapshot.h
+    src/history/MarkerPropertiesSnapshot.h
+    src/history/PaintTilesCommand.h
+    src/history/FillTilesCommand.h
+    src/history/CreateRoomCommand.h
+    src/history/DeleteRoomCommand.h
+    src/history/ModifyRoomPropertiesCommand.h
+    src/history/ModifyRoomAssignmentsCommand.h
+    src/history/CreateRegionCommand.h
+    src/history/DeleteRegionCommand.h
+    src/history/ModifyRegionPropertiesCommand.h
+    src/history/ModifyEdgesCommand.h
+    src/history/PlaceMarkerCommand.h
+    src/history/DeleteMarkerCommand.h
+    src/history/MoveMarkersCommand.h
+    src/history/ModifyMarkerPropertiesCommand.h
+    src/history/DeleteIconCommand.h
+    src/history/AddPaletteColorCommand.h
+    src/history/RemovePaletteColorCommand.h
+    src/history/UpdatePaletteColorCommand.h
+    src/history/SetZoomCommand.h
+    src/history/DetectRoomsCommand.h
     src/IOJson.h
     src/Package.h
     src/ProjectFolder.h
