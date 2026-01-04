@@ -30,8 +30,15 @@ set(CARTOGRAPH_SOURCES
     src/UI.cpp
     src/UI/CanvasPanel.cpp
     src/UI/ImGuiHelpers.cpp
-    src/UI/Modals.cpp
     src/UI/WelcomeScreen.cpp
+    src/modals/Modals.cpp
+    src/modals/ProjectModals.cpp
+    src/modals/RoomRegionModals.cpp
+    src/modals/IconMarkerModals.cpp
+    src/modals/SettingsExportModals.cpp
+    src/modals/ConfirmationModals.cpp
+    src/modals/AboutWhatsNew.cpp
+    src/modals/RebindModal.cpp
     src/Canvas.cpp
     src/Model.cpp
     src/history/History.cpp
@@ -96,6 +103,8 @@ set(CARTOGRAPH_HEADERS
     src/UI/ImGuiHelpers.h
     src/UI/Modals.h
     src/UI/WelcomeScreen.h
+    src/modals/Modals.h
+    src/modals/ModalTypes.h
     src/Canvas.h
     src/Color.h
     src/Model.h
