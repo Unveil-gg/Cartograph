@@ -28,9 +28,9 @@ set(CARTOGRAPH_SOURCES
     src/main.cpp
     src/App.cpp
     src/UI.cpp
-    src/UI/CanvasPanel.cpp
-    src/UI/ImGuiHelpers.cpp
-    src/UI/WelcomeScreen.cpp
+    src/ui/CanvasPanel.cpp
+    src/ui/ImGuiHelpers.cpp
+    src/ui/WelcomeScreen.cpp
     src/modals/Modals.cpp
     src/modals/ProjectModals.cpp
     src/modals/RoomRegionModals.cpp
@@ -99,10 +99,10 @@ endif()
 set(CARTOGRAPH_HEADERS
     src/App.h
     src/UI.h
-    src/UI/CanvasPanel.h
-    src/UI/ImGuiHelpers.h
-    src/UI/Modals.h
-    src/UI/WelcomeScreen.h
+    src/ui/CanvasPanel.h
+    src/ui/ImGuiHelpers.h
+    src/ui/Modals.h
+    src/ui/WelcomeScreen.h
     src/modals/Modals.h
     src/modals/ModalTypes.h
     src/Canvas.h

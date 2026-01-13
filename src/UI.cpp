@@ -15,7 +15,7 @@
 #include "platform/System.h"
 #include "platform/NativeMenu.h"
 #include "platform/NativeMenu_imgui.h"
-#include "UI/ImGuiHelpers.h"
+#include "ui/ImGuiHelpers.h"
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <SDL3/SDL_dialog.h>

@@ -3,9 +3,9 @@
 #include "Model.h"
 #include "ExportPng.h"
 #include "History.h"
-#include "UI/CanvasPanel.h"
-#include "UI/Modals.h"
-#include "UI/WelcomeScreen.h"
+#include "ui/CanvasPanel.h"
+#include "ui/Modals.h"
+#include "ui/WelcomeScreen.h"
 #include <string>
 #include <vector>
 #include <atomic>

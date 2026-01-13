@@ -1,7 +1,7 @@
 #include "Modals.h"
 #include "../App.h"
 #include "../UI.h"
-#include "../UI/CanvasPanel.h"
+#include "../ui/CanvasPanel.h"
 #include "../Jobs.h"
 #include "../Icons.h"
 #include "../IOJson.h"
