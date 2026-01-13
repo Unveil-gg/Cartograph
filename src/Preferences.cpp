@@ -1,6 +1,7 @@
 #include "Preferences.h"
 #include "platform/Paths.h"
 #include "platform/Fs.h"
+#include "theme/Themes.h"
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <filesystem>
@@ -13,7 +14,7 @@ namespace Cartograph {
 
 // Initialize static members with defaults
 ProjectSortOrder Preferences::projectBrowserSortOrder = ProjectSortOrder::MostRecent;
-std::string Preferences::themeName = kDefaultThemeName;
+std::string Preferences::themeName = "Dark";  // See GetDefaultThemeName()
 float Preferences::uiScale = 1.0f;
 
 // RecentProjects static members
@@ -50,7 +51,9 @@ void Preferences::Load() {
         
         // Theme preferences
         if (j.contains("themeName")) {
-            themeName = j["themeName"].get<std::string>();
+            std::string loaded = j["themeName"].get<std::string>();
+            // Validate theme exists; fallback to default if invalid/removed
+            themeName = IsValidTheme(loaded) ? loaded : GetDefaultThemeName();
         }
         if (j.contains("uiScale")) {
             uiScale = j["uiScale"].get<float>();
