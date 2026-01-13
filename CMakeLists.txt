@@ -71,7 +71,7 @@ set(CARTOGRAPH_SOURCES
     src/Keymap.cpp
     src/Jobs.cpp
     src/Preferences.cpp
-    src/Theme/Themes.cpp
+    src/theme/Themes.cpp
     src/render/GlRenderer.cpp
     src/platform/Fs.cpp
     src/platform/Paths.cpp
@@ -145,7 +145,7 @@ set(CARTOGRAPH_HEADERS
     src/Keymap.h
     src/Jobs.h
     src/Preferences.h
-    src/Theme/Themes.h
+    src/theme/Themes.h
     src/render/Renderer.h
     src/render/GlRenderer.h
     src/platform/Fs.h

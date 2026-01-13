@@ -7,7 +7,7 @@
 #include <cstdint>
 
 #include "Color.h"
-#include "Theme/Themes.h"
+#include "theme/Themes.h"
 
 namespace Cartograph {
 

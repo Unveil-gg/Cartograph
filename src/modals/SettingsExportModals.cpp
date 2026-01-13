@@ -5,7 +5,7 @@
 #include "../Config.h"
 #include "../Preferences.h"
 #include "../ProjectFolder.h"
-#include "../Theme/Themes.h"
+#include "../theme/Themes.h"
 #include <imgui.h>
 #include <algorithm>
 #include <cstring>
