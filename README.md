@@ -4,6 +4,7 @@ A lightweight cross-platform tool for designing Metroidvania-style maps.
 
 [![Itch.io](https://img.shields.io/badge/Itch-%23FF0B34.svg?style=for-the-badge&logo=Itch.io&logoColor=white)](https://unveil-gg.itch.io/Cartograph)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
+[![Discord](https://img.shields.io/badge/discord-join%20server-5865F2.svg?logo=discord&logoColor=white)](https://discord.gg/gaZ5XuPhz)
 
 ![Example Map](assets/repo/example-map.png)
 
