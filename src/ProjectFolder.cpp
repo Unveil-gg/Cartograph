@@ -162,8 +162,15 @@ bool ProjectFolder::IsProjectFolder(const std::string& path) {
     try {
         auto j = nlohmann::json::parse(*content);
         
-        // Must have version == 1 (Cartograph format)
-        if (!j.contains("version") || j["version"] != 1) {
+        // Match IOJson: missing version is v1, current save is v2.
+        double version = 1.0;
+        if (j.contains("version")) {
+            if (!j["version"].is_number()) {
+                return false;
+            }
+            version = j["version"].get<double>();
+        }
+        if (version > 2.0) {
             return false;
         }
         

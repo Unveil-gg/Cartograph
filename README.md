@@ -43,24 +43,24 @@ Design interconnected game worlds with an intuitive canvas:
 
 ### macOS
 
+Dependencies live in `third_party/` (not git submodules). See [BUILDING.md](BUILDING.md) if a dependency is missing.
+
 ```bash
 git clone https://github.com/unveil-gg/cartograph.git
 cd cartograph
-git submodule update --init --recursive
 mkdir build && cd build
 cmake -DCMAKE_BUILD_TYPE=Release .. && make
 ./Cartograph.app/Contents/MacOS/Cartograph
 ```
 
 ### Windows
-Note: Ensure ```bash cmake -G "Visual Studio 16 2019" -A x64 ..``` references the version of VS you have installed on your machine (e.g. Visual Studio 17 2022, or Visual Studio 18 2026) If this command produces a mismatch error, delete the cmake cache file and correct this command.
+Use the Visual Studio generator that matches your install. CI uses Visual Studio 2022. If CMake reports a generator mismatch, delete the build directory and reconfigure.
 ```bash
 git clone https://github.com/unveil-gg/cartograph.git
 cd cartograph
-git submodule update --init --recursive
 mkdir build
 cd build
-cmake -G "Visual Studio 16 2019" -A x64 ..
+cmake -G "Visual Studio 17 2022" -A x64 ..
 cmake --build . --config Release
 .\Release\Cartograph.exe
 ```
@@ -119,8 +119,12 @@ See [BUILDING.md](BUILDING.md) for detailed build instructions, options, and dis
 ## File Format
 
 Projects are saved as `.cart` files — ZIP archives containing:
-- `project.json` — Project data, rooms, tiles, markers, settings
+- `manifest.json` — Package kind, version, and title
+- `project.json` — Project data, rooms, tiles, markers, settings (schema version 2)
 - `icons/` — Custom marker icons (PNG)
+- `thumb.png` — Optional preview
+
+Folder projects (`.cartproj`) store the same `project.json` plus `icons/` and `preview.png`. The extension check for `.cart` ignores case.
 
 ## Contributing
 

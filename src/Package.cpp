@@ -10,6 +10,8 @@
 #include "zip.h"
 #include "unzip.h"
 #include "mz.h"  // For MZ_COMPRESS_METHOD_DEFLATE, MZ_COMPRESS_LEVEL_DEFAULT
+#include <cctype>
+#include <filesystem>
 
 // stb_image_write for PNG encoding (implementation in ExportPng.cpp)
 #include <stb/stb_image_write.h>
@@ -25,20 +27,49 @@ namespace Cartograph {
  * @param path The path from a ZIP file entry
  * @return true if path is safe, false if it contains traversal sequences
  */
-static bool IsZipPathSafe(const std::string& path) {
-    // Reject empty paths
-    if (path.empty()) return false;
-    
-    // Reject paths with directory traversal
-    if (path.find("..") != std::string::npos) return false;
-    
-    // Reject absolute paths (Unix or Windows style)
-    if (path[0] == '/' || path[0] == '\\') return false;
-    if (path.length() >= 2 && path[1] == ':') return false;  // C:\...
-    
-    // Reject paths with null bytes
-    if (path.find('\0') != std::string::npos) return false;
-    
+bool Package::HasCartExtension(const std::string& path) {
+    constexpr size_t kExtLen = 5;
+    if (path.size() < kExtLen) {
+        return false;
+    }
+    std::string ext = path.substr(path.size() - kExtLen);
+    for (char& c : ext) {
+        c = static_cast<char>(std::tolower(
+            static_cast<unsigned char>(c)));
+    }
+    return ext == ".cart";
+}
+
+bool Package::IsEntryPathSafe(const std::string& path) {
+    if (path.empty() || path.find('\0') != std::string::npos) {
+        return false;
+    }
+
+    std::string norm = path;
+    for (char& c : norm) {
+        if (c == '\\') {
+            c = '/';
+        }
+    }
+    if (norm[0] == '/' || (norm.size() >= 2 && norm[1] == ':')) {
+        return false;
+    }
+
+    size_t start = 0;
+    while (start <= norm.size()) {
+        size_t slash = norm.find('/', start);
+        size_t len = (slash == std::string::npos)
+            ? std::string::npos
+            : slash - start;
+        std::string segment = norm.substr(start, len);
+        if (segment == "..") {
+            return false;
+        }
+        if (slash == std::string::npos) {
+            break;
+        }
+        start = slash + 1;
+    }
     return true;
 }
 
@@ -179,7 +210,12 @@ bool Package::Save(
     // Note: Theme is persisted through project.json (name and uiScale)
     
     zipClose(zf, nullptr);
-    return success;
+    if (!success) {
+        std::error_code ec;
+        std::filesystem::remove(path, ec);
+        return false;
+    }
+    return true;
 }
 
 bool Package::Load(
@@ -198,18 +234,19 @@ bool Package::Load(
     // Iterate through files
     if (unzGoToFirstFile(uf) == UNZ_OK) {
         do {
-            char filename[256];
+            char filename[512];
             unz_file_info fileInfo;
-            if (unzGetCurrentFileInfo(uf, &fileInfo, filename, 
+            if (unzGetCurrentFileInfo(uf, &fileInfo, filename,
                                      sizeof(filename),
                                      nullptr, 0, nullptr, 0) != UNZ_OK) {
                 continue;
             }
-            
+            filename[sizeof(filename) - 1] = '\0';
+
             std::string fname(filename);
-            
+
             // Security: validate path to prevent directory traversal attacks
-            if (!IsZipPathSafe(fname)) {
+            if (!IsEntryPathSafe(fname)) {
                 continue;  // Skip unsafe paths
             }
             
@@ -235,9 +272,13 @@ bool Package::Load(
                 }
             }
             // Look for custom icons (icons/*.png)
-            else if (icons && fname.substr(0, 6) == "icons/" && 
-                     fname.size() > 10 && 
+            else if (icons && fname.substr(0, 6) == "icons/" &&
+                     fname.size() > 10 &&
                      fname.substr(fname.size() - 4) == ".png") {
+                if (fileInfo.uncompressed_size == 0 ||
+                    fileInfo.uncompressed_size > Limits::MAX_ICON_FILE_SIZE) {
+                    continue;
+                }
                 if (unzOpenCurrentFile(uf) == UNZ_OK) {
                     std::vector<uint8_t> buffer(fileInfo.uncompressed_size);
                     int read = unzReadCurrentFile(uf, buffer.data(), 

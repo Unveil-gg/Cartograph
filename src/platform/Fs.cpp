@@ -1,4 +1,5 @@
 #include "Fs.h"
+#include "../Config.h"
 #include <SDL3/SDL.h>
 #include <fstream>
 #include <filesystem>
@@ -27,19 +28,24 @@ std::optional<std::string> ShowSaveFileDialog(
 }
 
 std::optional<std::vector<uint8_t>> ReadFile(const std::string& path) {
-    std::ifstream file(path, std::ios::binary | std::ios::ate);
+    std::error_code ec;
+    const auto fileSize = fs::file_size(path, ec);
+    if (ec || fileSize > Cartograph::Limits::MAX_PROJECT_JSON_SIZE) {
+        return std::nullopt;
+    }
+
+    std::ifstream file(path, std::ios::binary);
     if (!file.is_open()) {
         return std::nullopt;
     }
-    
-    std::streamsize size = file.tellg();
-    file.seekg(0, std::ios::beg);
-    
-    std::vector<uint8_t> buffer(size);
-    if (!file.read(reinterpret_cast<char*>(buffer.data()), size)) {
+
+    std::vector<uint8_t> buffer(static_cast<size_t>(fileSize));
+    if (fileSize > 0 &&
+        !file.read(reinterpret_cast<char*>(buffer.data()),
+                   static_cast<std::streamsize>(fileSize))) {
         return std::nullopt;
     }
-    
+
     return buffer;
 }
 
@@ -54,15 +60,23 @@ bool WriteFile(const std::string& path, const std::vector<uint8_t>& data) {
 }
 
 std::optional<std::string> ReadTextFile(const std::string& path) {
-    std::ifstream file(path);
+    std::error_code ec;
+    const auto fileSize = fs::file_size(path, ec);
+    if (ec || fileSize > Cartograph::Limits::MAX_PROJECT_JSON_SIZE) {
+        return std::nullopt;
+    }
+
+    std::ifstream file(path, std::ios::binary);
     if (!file.is_open()) {
         return std::nullopt;
     }
-    
-    std::string content(
-        (std::istreambuf_iterator<char>(file)),
-        std::istreambuf_iterator<char>()
-    );
+
+    std::string content(static_cast<size_t>(fileSize), '\0');
+    if (fileSize > 0 &&
+        !file.read(content.data(),
+                   static_cast<std::streamsize>(fileSize))) {
+        return std::nullopt;
+    }
     return content;
 }
 

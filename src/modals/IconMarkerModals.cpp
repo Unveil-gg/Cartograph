@@ -1,6 +1,6 @@
 #include "Modals.h"
 #include "../UI.h"
-#include "../ui/CanvasPanel.h"
+#include "../UI/CanvasPanel.h"
 #include "../Icons.h"
 #include <imgui.h>
 #include <algorithm>

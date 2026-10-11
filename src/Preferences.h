@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ui/Modals.h"  // For ProjectSortOrder enum
+#include "UI/Modals.h"  // For ProjectSortOrder enum
 #include <string>
 #include <vector>
 

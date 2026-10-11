@@ -146,6 +146,19 @@ public:
         int mapHeight = 0
     );
     void OpenProject(const std::string& path);
+
+    /**
+     * Install a project already loaded on a worker thread.
+     * Merges custom icons on the main thread, then finishes open.
+     * @param path Project path used for recents and the window title
+     * @param loadedModel Model produced by Package or ProjectFolder load
+     * @param loadedIcons Icons filled by that load (custom markers only)
+     */
+    void InstallLoadedProject(
+        const std::string& path,
+        Model loadedModel,
+        IconManager& loadedIcons
+    );
     void SaveProject();
     void SaveProjectAs(const std::string& path);
     void SaveProjectFolder(const std::string& folderPath);
@@ -183,6 +196,12 @@ public:
 private:
     void Update(float deltaTime);
     void Render();
+
+    /**
+     * Apply a model that is already in m_model (history, theme, view).
+     * @param path Project path to record
+     */
+    void FinishOpen(const std::string& path);
     
     void SetupImGui();
     void ShutdownImGui();

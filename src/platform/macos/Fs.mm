@@ -1,4 +1,5 @@
 #include "../Fs.h"
+#include "../../Package.h"
 #include "../../ProjectFolder.h"
 #include <filesystem>
 
@@ -18,7 +19,7 @@ static bool IsValidCartFile(const std::string& path) {
     namespace fs = std::filesystem;
     
     // Check extension
-    if (path.size() < 5 || path.substr(path.size() - 5) != ".cart") {
+    if (!Cartograph::Package::HasCartExtension(path)) {
         return false;
     }
     

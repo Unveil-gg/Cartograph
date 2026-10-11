@@ -57,6 +57,20 @@ public:
      * @return JSON string
      */
     static std::string CreateManifest(const Model& model);
+
+    /**
+     * True when path ends in .cart, ignoring case.
+     * @param path File path
+     * @return true if the extension is .cart
+     */
+    static bool HasCartExtension(const std::string& path);
+
+    /**
+     * True when a ZIP entry name cannot escape the archive.
+     * @param path Entry path from the ZIP central directory
+     * @return true if the entry is safe to read
+     */
+    static bool IsEntryPathSafe(const std::string& path);
 };
 
 } // namespace Cartograph

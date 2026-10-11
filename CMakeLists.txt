@@ -4,6 +4,7 @@ project(Cartograph VERSION 1.1.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Options
 option(BUILD_WEB "Build for Web (Emscripten)" OFF)
@@ -28,9 +29,74 @@ set(CARTOGRAPH_SOURCES
     src/main.cpp
     src/App.cpp
     src/UI.cpp
-    src/ui/CanvasPanel.cpp
-    src/ui/ImGuiHelpers.cpp
-    src/ui/WelcomeScreen.cpp
+    src/UI_RenderUnassignedRooms.cpp
+    src/UI_RenderRegionNodes.cpp
+    src/UI_RenderRoomDetails.cpp
+    src/UI_RenderRoomFields.cpp
+    src/UI_RenderRegionProperties.cpp
+    src/modals/Modals_RenderAppearanceSettings.cpp
+    src/modals/Modals_RenderKeybindingSettings.cpp
+    src/modals/Modals_RenderGridSettings.cpp
+    src/modals/Modals_RenderProjectSettings.cpp
+    src/IOJson_Migrate.cpp
+    src/UI_Render.cpp
+    src/UI_RenderMenuBar.cpp
+    src/UI_RenderToolsPanel.cpp
+    src/UI_RenderPropertiesPanel.cpp
+    src/UI_RenderStatusBar.cpp
+    src/UI_ImportIcon.cpp
+    src/UI_StartAsyncProjectLoad.cpp
+    src/Model_ExpandGridIfNeeded.cpp
+    src/Model_FindMarker.cpp
+    src/Model_InvalidateAllRoomCellCaches.cpp
+    src/Model_DetectedRoom.cpp
+    src/Model_GenerateRoomPerimeterWalls.cpp
+    src/App_ApplyTheme.cpp
+    src/App_SaveProjectAs.cpp
+    src/modals/Modals_RenderColorPickerModal.cpp
+    src/modals/Modals_RenderProjectBrowserModal.cpp
+    src/modals/Modals_RenderProjectActionModal.cpp
+    src/modals/Modals_ShowNewProjectFolderPicker.cpp
+    src/UI/WelcomeScreen_Render.cpp
+    src/UI/WelcomeScreen_LoadRecentProjects.cpp
+    src/App_SetupImGui.cpp
+    src/UI/WelcomeScreen_RenderRecentProjectsList.cpp
+    src/UI/WelcomeScreen_GeneratePlaceholderTexture.cpp
+    src/Canvas_RenderEdges.cpp
+    src/Canvas_RenderRoomOverlays.cpp
+    src/IOJson_LoadFromString.cpp
+    src/IconManager_ProcessIconFromFile.cpp
+    src/UI/CanvasPanel.cpp
+    src/UI/CanvasPanel_DrawEyedropperPreview.cpp
+    src/UI/CanvasPanel_DrawFillPreview.cpp
+    src/UI/CanvasPanel_DrawMarkerDropPreview.cpp
+    src/UI/CanvasPanel_DrawMarkerSnapPreview.cpp
+    src/UI/CanvasPanel_DrawPaintPreview.cpp
+    src/UI/CanvasPanel_DrawPastePreview.cpp
+    src/UI/CanvasPanel_DrawRoomSelectHover.cpp
+    src/UI/CanvasPanel_DrawSelectionDrag.cpp
+    src/UI/CanvasPanel_DrawSelectionHighlight.cpp
+    src/UI/CanvasPanel_HandleCanvasKeys.cpp
+    src/UI/CanvasPanel_HandleEraseInput.cpp
+    src/UI/CanvasPanel_HandleEyedropperInput.cpp
+    src/UI/CanvasPanel_HandleFillInput.cpp
+    src/UI/CanvasPanel_HandleMarkerInput.cpp
+    src/UI/CanvasPanel_HandlePaintInput.cpp
+    src/UI/CanvasPanel_HandlePaintRelease.cpp
+    src/UI/CanvasPanel_HandleRoomEraseInput.cpp
+    src/UI/CanvasPanel_HandleRoomFillInput.cpp
+    src/UI/CanvasPanel_HandleRoomPaintInput.cpp
+    src/UI/CanvasPanel_HandleRoomSelectDrag.cpp
+    src/UI/CanvasPanel_HandleRoomSelectInput.cpp
+    src/UI/CanvasPanel_HandleSelectInput.cpp
+    src/UI/CanvasPanel_HandleZoomInput.cpp
+    src/UI/CanvasPanel_HandleToolShortcuts.cpp
+    src/UI/CanvasPanel_Selection.cpp
+    src/UI/CanvasPanel_ClearSelection.cpp
+    src/UI/CanvasPanel_SelectionMove.cpp
+    src/UI/CanvasPanel_Cursors.cpp
+    src/UI/ImGuiHelpers.cpp
+    src/UI/WelcomeScreen.cpp
     src/modals/Modals.cpp
     src/modals/ProjectModals.cpp
     src/modals/RoomRegionModals.cpp
@@ -71,7 +137,7 @@ set(CARTOGRAPH_SOURCES
     src/Keymap.cpp
     src/Jobs.cpp
     src/Preferences.cpp
-    src/theme/Themes.cpp
+    src/Theme/Themes.cpp
     src/render/GlRenderer.cpp
     src/platform/Fs.cpp
     src/platform/Paths.cpp
@@ -79,6 +145,15 @@ set(CARTOGRAPH_SOURCES
     src/platform/System.cpp
     src/platform/NativeMenu.cpp
     src/platform/NativeMenu_imgui.cpp
+    src/UI_RenderEraseOptions.cpp
+    src/UI_RenderEyedropperOptions.cpp
+    src/UI_RenderMarkerIcons.cpp
+    src/UI_RenderMarkerSettings.cpp
+    src/UI_RenderPaintOptions.cpp
+    src/UI_RenderPlacedMarkers.cpp
+    src/UI_RenderRoomToolOptions.cpp
+    src/UI_RenderSelectOptions.cpp
+    src/UI_RenderToolButtons.cpp
 )
 
 # Platform-specific sources
@@ -86,6 +161,7 @@ if(APPLE)
     list(APPEND CARTOGRAPH_SOURCES
         src/platform/macos/Fs.mm
         src/platform/macos/NativeMenu.mm
+        src/platform/macos/NativeMenuMenus.mm
     )
 endif()
 
@@ -99,10 +175,10 @@ endif()
 set(CARTOGRAPH_HEADERS
     src/App.h
     src/UI.h
-    src/ui/CanvasPanel.h
-    src/ui/ImGuiHelpers.h
-    src/ui/Modals.h
-    src/ui/WelcomeScreen.h
+    src/UI/CanvasPanel.h
+    src/UI/ImGuiHelpers.h
+    src/UI/Modals.h
+    src/UI/WelcomeScreen.h
     src/modals/Modals.h
     src/modals/ModalTypes.h
     src/Canvas.h
@@ -145,7 +221,7 @@ set(CARTOGRAPH_HEADERS
     src/Keymap.h
     src/Jobs.h
     src/Preferences.h
-    src/theme/Themes.h
+    src/Theme/Themes.h
     src/render/Renderer.h
     src/render/GlRenderer.h
     src/platform/Fs.h
@@ -168,6 +244,12 @@ if(WIN32)
     add_executable(Cartograph WIN32 ${CARTOGRAPH_SOURCES} ${CARTOGRAPH_HEADERS})
 else()
     add_executable(Cartograph ${CARTOGRAPH_SOURCES} ${CARTOGRAPH_HEADERS})
+endif()
+
+if(MSVC)
+    target_compile_options(Cartograph PRIVATE /W4)
+else()
+    target_compile_options(Cartograph PRIVATE -Wall -Wextra)
 endif()
 
 # Include directories
@@ -308,4 +390,55 @@ if(NOT APPLE)
     install(DIRECTORY assets/icons assets/project assets/tools
             DESTINATION assets)
 endif()
+
+# Load-path tests. They link the persistence sources, not the UI.
+enable_testing()
+add_executable(cartograph_tests
+    tests/load_tests.cpp
+    src/Model.cpp
+    src/IconManager_ProcessIconFromFile.cpp
+    src/IOJson_Migrate.cpp
+    src/Model_ExpandGridIfNeeded.cpp
+    src/Model_FindMarker.cpp
+    src/Model_InvalidateAllRoomCellCaches.cpp
+    src/Model_DetectedRoom.cpp
+    src/Model_GenerateRoomPerimeterWalls.cpp
+    src/IOJson_LoadFromString.cpp
+    src/IOJson.cpp
+    src/ProjectFolder.cpp
+    src/Package.cpp
+    src/Icons.cpp
+    src/IconManager_ProcessIconFromFile.cpp
+    src/ExportPng.cpp
+    src/Theme/Themes.cpp
+    src/platform/Fs.cpp
+)
+target_include_directories(cartograph_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party
+)
+target_link_libraries(cartograph_tests PRIVATE
+    nlohmann_json::nlohmann_json
+    glad
+    imgui
+    SDL3-static
+)
+if(TARGET minizip)
+    target_link_libraries(cartograph_tests PRIVATE minizip)
+    target_include_directories(cartograph_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/third_party/minizip-ng
+        ${CMAKE_CURRENT_SOURCE_DIR}/third_party/minizip-ng/compat
+    )
+endif()
+if(APPLE)
+    target_link_libraries(cartograph_tests PRIVATE
+        "-framework OpenGL"
+    )
+endif()
+if(MSVC)
+    target_compile_options(cartograph_tests PRIVATE /W4)
+else()
+    target_compile_options(cartograph_tests PRIVATE -Wall -Wextra)
+endif()
+add_test(NAME load_tests COMMAND cartograph_tests)
 

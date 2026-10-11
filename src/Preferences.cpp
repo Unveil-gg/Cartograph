@@ -1,7 +1,8 @@
 #include "Preferences.h"
+#include "Package.h"
 #include "platform/Paths.h"
 #include "platform/Fs.h"
-#include "theme/Themes.h"
+#include "Theme/Themes.h"
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <filesystem>
@@ -124,8 +125,7 @@ static std::string GetCurrentTimestamp() {
  * @return "cart" for .cart files, "folder" for directories/.cartproj
  */
 static std::string GetProjectType(const std::string& path) {
-    if (path.size() >= 5 && 
-        path.substr(path.size() - 5) == ".cart") {
+    if (Package::HasCartExtension(path)) {
         return "cart";
     }
     // Both .cartproj and plain folders are "folder" type

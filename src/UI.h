@@ -3,9 +3,9 @@
 #include "Model.h"
 #include "ExportPng.h"
 #include "History.h"
-#include "ui/CanvasPanel.h"
-#include "ui/Modals.h"
-#include "ui/WelcomeScreen.h"
+#include "UI/CanvasPanel.h"
+#include "UI/Modals.h"
+#include "UI/WelcomeScreen.h"
 #include <string>
 #include <vector>
 #include <atomic>
@@ -21,6 +21,34 @@ struct SDL_CursorDeleter {
 };
 
 namespace Cartograph {
+
+struct Room;
+
+/**
+ * Make a string safe to use as a filename.
+ * @param input Raw title or name
+ * @return Dashed filename without an extension
+ */
+std::string SanitizeFilename(const std::string& input);
+
+/**
+ * Snapshot a room for property-edit commands.
+ * @param room Room to copy, or null
+ * @return Snapshot of name, color, notes, and tags
+ */
+RoomPropertiesSnapshot CaptureRoomProps(const Room* room);
+
+/**
+ * Case-insensitive substring test used by hierarchy search.
+ * @param haystack Text to search
+ * @param needle Query, empty matches everything
+ * @return true when needle occurs in haystack
+ */
+bool ContainsIgnoreCase(
+    const std::string& haystack,
+    const std::string& needle
+);
+
 
 class Canvas;
 class IconManager;
@@ -182,6 +210,18 @@ public:
      */
     void HandleDroppedFile(const std::string& filePath, App& app,
                           JobQueue& jobs, IconManager& icons);
+
+    /**
+     * Load a .cart or project folder on the worker, then install it.
+     * @param filePath Path chosen by the user
+     * @param app Application that receives the loaded project
+     * @param jobs Queue that runs the load
+     */
+    void StartAsyncProjectLoad(
+        const std::string& filePath,
+        App& app,
+        JobQueue& jobs
+    );
     
     /**
      * Render toast messages (called by WelcomeScreen).
@@ -214,6 +254,22 @@ public:
     std::unique_ptr<INativeMenu> m_nativeMenu;
     
 private:
+    /**
+     * Decode an icon on a worker, then add it on the main thread.
+     * @param ui UI that shows progress and the result toast
+     * @param icons Icon manager updated only from the callback
+     * @param jobs Queue that runs the decode
+     * @param path Source image path
+     * @param iconName Unique name to store
+     */
+    void EnqueueIconImport(
+        UI* ui,
+        IconManager& icons,
+        JobQueue& jobs,
+        const std::string& path,
+        const std::string& iconName
+    );
+
     void RenderMenuBar(
         App& app,
         Model& model,
@@ -242,6 +298,20 @@ private:
      */
     void BuildFixedLayout(ImGuiID dockspaceId);
     
+    void RenderToolButtons(IconManager& icons, Canvas& canvas);
+    void RenderSelectOptions(Model& model);
+    void RenderRoomToolOptions(Model& model, History& history);
+    void RenderEyedropperOptions(Model& model);
+    void RenderPaintOptions(Model& model, History& history);
+    void RenderEraseOptions();
+    void RenderMarkerSettings(Model& model, History& history);
+    void RenderMarkerIcons(Model& model, History& history, IconManager& icons, JobQueue& jobs);
+    void RenderPlacedMarkers(Model& model, History& history, IconManager& icons);
+    void RenderRegionNodes(Model& model, History& history, Canvas& canvas, const std::string& searchTerm, bool& hasAnyItems);
+    void RenderUnassignedRooms(Model& model, History& history, Canvas& canvas, const std::string& searchTerm, bool& hasAnyItems);
+    void RenderRoomFields(Model& model, History& history, Room* room);
+    void RenderRoomDetails(Model& model, History& history, Canvas& canvas, Room* room);
+    void RenderRegionProperties(Model& model, History& history, Canvas& canvas);
     std::vector<Toast> m_toasts;  // Legacy, will be removed
     std::vector<ConsoleMessage> m_consoleMessages;
     static constexpr size_t MAX_CONSOLE_MESSAGES = 100;

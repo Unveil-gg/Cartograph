@@ -10,6 +10,7 @@
 
 // Forward declarations
 struct SDL_Cursor;
+struct ImDrawList;
 
 namespace Cartograph {
 
@@ -301,6 +302,31 @@ private:
         EdgeSide* outEdgeSide
     );
     
+    void HandleSelectInput(Model& model, Canvas& canvas, History& history);
+    void HandlePaintInput(Model& model, Canvas& canvas, History& history);
+    void HandleEraseInput(Model& model, Canvas& canvas);
+    void HandleFillInput(Model& model, Canvas& canvas, History& history);
+    void HandleEyedropperInput(Model& model, Canvas& canvas);
+    void HandleMarkerInput(Model& model, Canvas& canvas, History& history);
+    void HandleZoomInput(Model& model, Canvas& canvas, History& history);
+    void HandleRoomPaintInput(Model& model, Canvas& canvas, History& history);
+    void HandleRoomEraseInput(Model& model, Canvas& canvas, History& history);
+    void HandleRoomFillInput(Model& model, Canvas& canvas, History& history);
+    void HandleRoomSelectInput(Model& model, Canvas& canvas);
+    void HandleRoomSelectDrag(
+        Model& model, Canvas& canvas, History& history);
+    void HandlePaintRelease(Model& model, History& history);
+    void HandleCanvasKeys(Model& model, Canvas& canvas, History& history, KeymapManager& keymap);
+    void DrawSelectionDrag(Model& model, ImDrawList* drawList);
+    void DrawSelectionHighlight(Model& model, Canvas& canvas, ImDrawList* drawList);
+    void DrawPastePreview(Model& model, Canvas& canvas, ImDrawList* drawList);
+    void DrawPaintPreview(Model& model, Canvas& canvas, ImDrawList* drawList);
+    void DrawFillPreview(Model& model, Canvas& canvas, ImDrawList* drawList);
+    void DrawEyedropperPreview(Model& model, Canvas& canvas, ImDrawList* drawList);
+    void DrawRoomSelectHover(Model& model, Canvas& canvas);
+    void DrawMarkerSnapPreview(Model& model, Canvas& canvas, ImDrawList* drawList);
+    void DrawMarkerDropPreview(Model& model, Canvas& canvas, ImDrawList* drawList);
+    void HandleToolShortcuts(KeymapManager& keymap);
     // Custom cursors for tools
     SDL_Cursor* m_eyedropperCursor = nullptr;
     SDL_Cursor* m_zoomCursor = nullptr;

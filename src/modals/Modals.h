@@ -239,6 +239,10 @@ private:
     
     // Settings/Export modals (SettingsExportModals.cpp)
     void RenderExportModal(Model& model, Canvas& canvas);
+    void RenderProjectSettings(App& app, Model& model);
+    void RenderGridSettings(Model& model);
+    void RenderKeybindingSettings(Model& model, KeymapManager& keymap);
+    void RenderAppearanceSettings(App& app, Model& model);
     void RenderSettingsModal(App& app, Model& model, KeymapManager& keymap);
     void RenderColorPickerModal(Model& model, History& history,
                                 int& selectedTileId);

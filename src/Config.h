@@ -14,6 +14,9 @@ namespace Limits {
 // Maximum JSON file size before parsing (50 MB)
 constexpr size_t MAX_PROJECT_JSON_SIZE = 50 * 1024 * 1024;
 
+// Maximum uncompressed size of one embedded icon (16 MB)
+constexpr size_t MAX_ICON_FILE_SIZE = 16 * 1024 * 1024;
+
 // Grid dimension limits (prevents integer overflow in pixel calculations)
 constexpr int MAX_GRID_DIMENSION = 10000;
 constexpr int MIN_GRID_DIMENSION = 1;

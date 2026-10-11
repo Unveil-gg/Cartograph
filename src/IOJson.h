@@ -42,6 +42,12 @@ public:
      * @param outModel Output model
      * @return true on success
      */
+    /**
+     * Flip v1 coordinates and shift content to the origin.
+     * @param outModel Model loaded from a version-1 file
+     */
+    static void MigrateV1(Model& outModel);
+
     static bool LoadFromFile(const std::string& path, Model& outModel);
 };
 
