@@ -165,7 +165,8 @@ void CanvasPanel::HandlePaintInput(
                 // First, check if we're hovering near an edge
                 EdgeId edgeId;
                 EdgeSide edgeSide;
-                isHoveringEdge = DetectEdgeHover(
+                // Skip edge detection mid-stroke so every frame paints.
+                isHoveringEdge = !isPainting && DetectEdgeHover(
                     mousePos.x, mousePos.y, canvas, model.grid,
                     &edgeId, &edgeSide
                 );
