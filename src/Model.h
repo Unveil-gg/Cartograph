@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ModelTypes.h"
+#include "InteriorTypes.h"
 
 namespace Cartograph {
 
@@ -16,6 +17,12 @@ public:
     TileData tiles;
     std::unordered_map<EdgeId, EdgeState, EdgeIdHash> edges;  // Cell edges
     std::vector<Door> doors;          // Legacy door connections
+    // Gate / one-way / spawn data for EdgeState::Door edges
+    std::unordered_map<EdgeId, DoorProps, EdgeIdHash> doorProps;
+    std::vector<Ability> abilities;   // Ordered ability registry
+    // Room interior sub-grids, one chunk per map cell
+    InteriorConfig interiorConfig;
+    std::unordered_map<std::pair<int, int>, InteriorChunk, PairHash> interior;
     std::vector<Marker> markers;
     Keymap keymap;
     Theme theme;
@@ -34,6 +41,7 @@ public:
     
     // Dirty tracking
     bool dirty = false;
+    uint64_t revision = 0;  // Bumped by every MarkDirty (staleness checks)
     void MarkDirty();
     void ClearDirty();
     
@@ -50,6 +58,19 @@ public:
     void SetEdgeState(const EdgeId& edgeId, EdgeState state);
     EdgeState CycleEdgeState(EdgeState current);  // Cycle through states
     
+    // Door props and abilities (Model_Extras.cpp)
+    const DoorProps* GetDoorProps(const EdgeId& edgeId) const;
+    void SetDoorProps(const EdgeId& edgeId, const DoorProps& props);
+    const Ability* FindAbility(const std::string& id) const;
+    std::string AbilityName(const std::string& id) const;
+
+    // Interior sub-grid (Model_Interior.cpp). Coordinates are global
+    // interior tiles, Y-up: cell = floor(i / size).
+    InteriorTile GetInteriorTile(int ix, int iy) const;
+    void SetInteriorTile(int ix, int iy, InteriorTile tile);
+    bool InteriorEmpty() const { return interior.empty(); }
+    bool SetInteriorSize(int width, int height);  // Only while empty
+
     // Grid expansion
     void ExpandGridIfNeeded(int cellX, int cellY);
     

@@ -14,3 +14,6 @@ To create a sample map:
 
 - `Castle-Bronte.cart` - Basic demo map with rooms, tiles, doors, and markers. Shown in promotional materials.
 - `SOTN.cart` - Dracula's Castle from Castlevania: Symphony of the Night.
+
+For a map that uses gates, spawns, props, marker kinds and interiors, see
+`docs/sample-map.json` (documented in `docs/format.md`).

@@ -60,8 +60,8 @@ void TestRoundTrip() {
 void TestLoadGuards() {
     Cartograph::Model model;
     Expect(!Cartograph::IOJson::LoadFromString(
-               "{\"version\":3,\"grid\":{\"cols\":4,\"rows\":4}}", model),
-           "version 3 is rejected");
+               "{\"version\":4,\"grid\":{\"cols\":4,\"rows\":4}}", model),
+           "version 4 is rejected");
 
     const char* badEdge =
         "{\"version\":2,\"edges\":[{\"x1\":0,\"y1\":0,\"x2\":1,\"y2\":0,"
@@ -150,9 +150,35 @@ void TestGridCap() {
            "grid does not pass the cap");
 }
 
+/**
+ * The shipped v2 samples load and re-save as the current version.
+ */
+void TestSamples() {
+    const char* names[] = {"Castle-Bronte.cart", "SOTN.cart"};
+    for (const char* name : names) {
+        std::string path =
+            std::string(CARTOGRAPH_SOURCE_DIR) + "/samples/" + name;
+        Cartograph::Model model;
+        bool ok = Cartograph::Package::Load(path, model, nullptr);
+        Expect(ok, std::string(name) + " loads");
+        if (!ok) continue;
+        std::string saved = Cartograph::IOJson::SaveToString(model);
+        Expect(saved.find("\"version\": 3") != std::string::npos,
+               std::string(name) + " saves as version 3");
+        Cartograph::Model again;
+        Expect(Cartograph::IOJson::LoadFromString(saved, again),
+               std::string(name) + " reloads");
+        Expect(again.rooms.size() == model.rooms.size(),
+               std::string(name) + " keeps its rooms");
+        Expect(again.edges.size() == model.edges.size(),
+               std::string(name) + " keeps its edges");
+    }
+}
+
 }  // namespace
 
 int main() {
+    TestSamples();
     TestRoundTrip();
     TestLoadGuards();
     TestV1Migration();

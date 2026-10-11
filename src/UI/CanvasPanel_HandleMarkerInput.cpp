@@ -78,6 +78,7 @@ void CanvasPanel::HandleMarkerInput(
                     dragStartY = clickedMarker->y;
                     
                     // Load marker properties into UI
+                    selectedMarkerKind = clickedMarker->kind;
                     selectedIconName = clickedMarker->icon;
                     markerLabel = clickedMarker->label;
                     markerColor = clickedMarker->color;
@@ -94,17 +95,14 @@ void CanvasPanel::HandleMarkerInput(
                     newMarker.roomId = "";  // Global for now
                     newMarker.x = tileX;
                     newMarker.y = tileY;
-                    newMarker.kind = "custom";
+                    newMarker.kind = selectedMarkerKind;
                     newMarker.label = markerLabel;
                     newMarker.icon = selectedIconName;
                     newMarker.color = markerColor;
                     newMarker.size = 0.6f;
                     newMarker.showLabel = !markerLabel.empty();
                     
-                    auto cmd = std::make_unique<PlaceMarkerCommand>(
-                        newMarker, true
-                    );
-                    history.AddCommand(std::move(cmd), model);
+                    PlaceNewMarker(model, history, newMarker);
                 }
             }
             

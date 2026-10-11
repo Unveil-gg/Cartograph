@@ -145,7 +145,7 @@ public:
     ExportOptions exportOptions;
     
     // Settings modal state
-    int settingsModalSelectedTab = 1;  // 0=Project, 1=Grid&Canvas, 2=Keybindings
+    int settingsModalSelectedTab = 1;  // 0=Project, 1=Grid&Canvas, 2=Keybindings, 4=GameData
     std::string settingsOriginalFolderName;  // Folder name when modal opened
     std::string settingsOriginalTitle;       // Title when modal opened
     
@@ -241,6 +241,7 @@ private:
     void RenderExportModal(Model& model, Canvas& canvas);
     void RenderProjectSettings(App& app, Model& model);
     void RenderGridSettings(Model& model);
+    void RenderGameDataSettings(Model& model);
     void RenderKeybindingSettings(Model& model, KeymapManager& keymap);
     void RenderAppearanceSettings(App& app, Model& model);
     void RenderSettingsModal(App& app, Model& model, KeymapManager& keymap);

@@ -123,9 +123,17 @@ void UI::Render(
     
     // Render all panels (they will dock into the dockspace)
     // Canvas first (background layer), then side panels (on top for tooltips)
+    RenderValidationWindow(model, canvas);
     m_canvasPanel.Render(renderer, model, canvas, history, icons, keymap);
     RenderStatusBar(model, canvas);
     RenderToolsPanel(model, history, icons, jobs, canvas);
+    if (m_canvasPanel.requestEditInterior) {
+        m_canvasPanel.requestEditInterior = false;
+        if (!m_canvasPanel.selectedRoomId.empty()) {
+            m_interiorEditor.Open(m_canvasPanel.selectedRoomId);
+        }
+    }
+    m_interiorEditor.Render(model, history);
     
     if (showPropertiesPanel) {
         RenderPropertiesPanel(model, icons, jobs, history, canvas);

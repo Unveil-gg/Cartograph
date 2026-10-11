@@ -4,7 +4,9 @@
 #include "ExportPng.h"
 #include "History.h"
 #include "UI/CanvasPanel.h"
+#include "UI/InteriorEditor.h"
 #include "UI/Modals.h"
+#include "UI/ValidationState.h"
 #include "UI/WelcomeScreen.h"
 #include <string>
 #include <vector>
@@ -310,6 +312,11 @@ private:
     void RenderRegionNodes(Model& model, History& history, Canvas& canvas, const std::string& searchTerm, bool& hasAnyItems);
     void RenderUnassignedRooms(Model& model, History& history, Canvas& canvas, const std::string& searchTerm, bool& hasAnyItems);
     void RenderRoomFields(Model& model, History& history, Room* room);
+    void RenderMarkerKindFields(Model& model, History& history);
+    void RenderValidationWindow(Model& model, Canvas& canvas);
+    void RenderDoorInspector(Model& model, History& history);
+    void RenderRoomProps(Model& model, History& history, Room* room);
+    void RenderRegionPropsTable(Model& model, History& history, RegionGroup* region);
     void RenderRoomDetails(Model& model, History& history, Canvas& canvas, Room* room);
     void RenderRegionProperties(Model& model, History& history, Canvas& canvas);
     std::vector<Toast> m_toasts;  // Legacy, will be removed
@@ -340,6 +347,10 @@ private:
     RoomPropertiesSnapshot m_roomEditStartState;
     bool m_roomColorPickerWasOpen = false;
     std::string m_editingRoomId;  // Track which room we're editing
+    
+    // Gate validation window state
+    ValidationState m_validation;
+    InteriorEditor m_interiorEditor;
     
     // Region property editing state (for undo/redo)
     RegionPropertiesSnapshot m_regionEditStartState;

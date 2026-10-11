@@ -11,13 +11,41 @@
 namespace Cartograph {
 
 
+void Canvas::EdgeToScreen(
+    const GridConfig& grid,
+    const EdgeId& edgeId,
+    float* sx1, float* sy1,
+    float* sx2, float* sy2
+) const {
+    const int tileWidth = grid.tileWidth;
+    const int tileHeight = grid.tileHeight;
+    float wx1, wy1, wx2, wy2;
+    int minY = std::min(edgeId.y1, edgeId.y2);
+    
+    // Y-up coordinate system: negate tile Y for world coordinates
+    if (edgeId.x1 != edgeId.x2) {
+        // Vertical edge: spans one tile height between two tiles
+        wx1 = std::max(edgeId.x1, edgeId.x2) * tileWidth;
+        wx2 = wx1;
+        wy1 = -minY * tileHeight;
+        wy2 = wy1 + tileHeight;  // + goes down on screen
+    } else {
+        // Horizontal edge: spans one tile width between two tiles
+        wy1 = -minY * tileHeight;
+        wy2 = wy1;
+        wx1 = std::min(edgeId.x1, edgeId.x2) * tileWidth;
+        wx2 = wx1 + tileWidth;
+    }
+    WorldToScreen(wx1, wy1, sx1, sy1);
+    WorldToScreen(wx2, wy2, sx2, sy2);
+}
+
+
 void Canvas::RenderEdges(
     IRenderer& renderer,
     const Model& model,
     const EdgeId* hoveredEdge
 ) {
-    const int tileWidth = model.grid.tileWidth;
-    const int tileHeight = model.grid.tileHeight;
     const Color wallColor = model.theme.wallColor;
     const Color doorColor = model.theme.doorColor;
     const Color hoverColor = model.theme.edgeHoverColor;
@@ -26,39 +54,9 @@ void Canvas::RenderEdges(
     for (const auto& [edgeId, state] : model.edges) {
         if (state == EdgeState::None) continue;
         
-        // Calculate edge line endpoints in world coordinates
-        // Y-up coordinate system: negate tile Y for world coordinates
-        float wx1 = edgeId.x1 * tileWidth;
-        float wy1 = -edgeId.y1 * tileHeight;
-        float wx2 = edgeId.x2 * tileWidth;
-        float wy2 = -edgeId.y2 * tileHeight;
-        
-        // Determine which edge this is (horizontal or vertical)
-        bool isVertical = (edgeId.x1 != edgeId.x2);
-        
-        if (isVertical) {
-            // Vertical edge - spans one tile height at the boundary between tiles
-            wx1 = std::max(edgeId.x1, edgeId.x2) * tileWidth;
-            wx2 = wx1;
-            // Edge spans from min tile Y to min tile Y + 1
-            // In world: from -minY*H (top) down to -minY*H + H (bottom on screen)
-            int minY = std::min(edgeId.y1, edgeId.y2);
-            wy1 = -minY * tileHeight;
-            wy2 = wy1 + tileHeight;  // + goes down on screen
-        } else {
-            // Horizontal edge - spans one tile width at the boundary between tiles
-            // Y-up: boundary is at top of lower tile = -minY * tileHeight
-            int minY = std::min(edgeId.y1, edgeId.y2);
-            wy1 = -minY * tileHeight;
-            wy2 = wy1;
-            wx1 = std::min(edgeId.x1, edgeId.x2) * tileWidth;
-            wx2 = wx1 + tileWidth;
-        }
-        
-        // Convert to screen coordinates
+        // Edge line endpoints in screen coordinates
         float sx1, sy1, sx2, sy2;
-        WorldToScreen(wx1, wy1, &sx1, &sy1);
-        WorldToScreen(wx2, wy2, &sx2, &sy2);
+        EdgeToScreen(model.grid, edgeId, &sx1, &sy1, &sx2, &sy2);
         
         // Determine color and style
         Color lineColor = (state == EdgeState::Wall) ? wallColor : doorColor;

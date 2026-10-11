@@ -7,6 +7,7 @@
 #include <cstdint>
 
 #include "Color.h"
+#include "ModelProps.h"
 #include "Theme/Themes.h"
 
 namespace Cartograph {
@@ -98,6 +99,7 @@ struct RegionGroup {
     std::string description;
     std::vector<std::string> tags;
     std::vector<std::string> roomIds;      // Child rooms in this group
+    Props props;                           // palette, music, ambience, ...
 };
 
 // ============================================================================
@@ -115,6 +117,7 @@ struct Room {
     std::string notes;
     std::vector<std::string> tags;         // User tags for categorization
     std::vector<std::string> imageAttachments;  // Design doc images
+    Props props;                           // kind, music, dark, ...
     
     // Cache for performance (computed from cellRoomAssignments)
     std::unordered_set<std::pair<int, int>, PairHash> cells;
@@ -248,6 +251,7 @@ struct Marker {
     Color color;
     float size = 0.6f;  // Size as fraction of tile (0.6 = 60%)
     bool showLabel = true;
+    Props props;        // Per-kind fields (ability, type, ...)
 };
 
 // ============================================================================
@@ -336,6 +340,7 @@ struct ClipboardData {
     struct RelativeEdge {
         int dx1, dy1, dx2, dy2;  // Relative to origin
         EdgeState state;
+        std::optional<DoorProps> doorProps;  // Spawns relative to origin
     };
     std::vector<RelativeEdge> edges;
     
@@ -348,6 +353,7 @@ struct ClipboardData {
         Color color;
         float size;
         bool showLabel;
+        Props props;
     };
     std::vector<RelativeMarker> markers;
     

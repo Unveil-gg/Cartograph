@@ -112,9 +112,18 @@ public:
     bool isModifyingEdges = false;
     std::vector<ModifyEdgesCommand::EdgeChange> currentEdgeChanges;
     
+    // Door selection (Select tool): click a door edge to inspect it
+    EdgeId selectedDoorEdge;
+    bool hasSelectedDoor = false;
+
+    // Set by the editInterior hotkey; UI opens the interior editor.
+    bool requestEditInterior = false;
+    int placingSpawn = 0;               // 0 none, 1 = door side A, 2 = B
+    
     // Marker tool state
     std::string selectedIconName = "dot";  // Default icon
     std::string markerLabel = "";
+    std::string selectedMarkerKind = "custom";  // Kind for new markers
     Color markerColor = Color(0.3f, 0.8f, 0.3f, 1.0f);  // Green
     char markerColorHex[16] = "#4dcc4d";  // Hex representation
     std::string selectedMarkerId = "";  // ID of selected marker (safe across vector realloc)
@@ -282,6 +291,37 @@ public:
      * @param dy Y offset in tiles
      */
     void MoveSelection(Model& model, History& history, int dx, int dy);
+    
+    /**
+     * Place a marker, keeping a single map-start marker.
+     * @param marker Marker to add
+     */
+    void PlaceNewMarker(Model& model, History& history, const Marker& marker);
+    
+    /**
+     * Select the door edge under a screen point, if any.
+     * @return true when a door edge was selected
+     */
+    bool TrySelectDoorAt(Model& model, const Canvas& canvas, float x, float y);
+    
+    /**
+     * Handle a click while placing a door spawn point.
+     * @return true while spawn placement is active (click consumed)
+     */
+    bool HandleDoorSpawnInput(Model& model, Canvas& canvas, History& history);
+    
+    /**
+     * Move door props along with moved edges (selection move/commit).
+     * @param edges Edges at their old positions
+     * @param dx, dy Shift in cells
+     */
+    void MoveDoorProps(
+        Model& model, History& history,
+        const std::unordered_map<EdgeId, EdgeState, EdgeIdHash>& edges,
+        int dx, int dy
+    );
+    
+    void DrawDoorSelection(Model& model, Canvas& canvas, ImDrawList* drawList);
     
 private:
     /**

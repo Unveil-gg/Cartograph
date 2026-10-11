@@ -1,5 +1,6 @@
 #include "ProjectFolder.h"
 #include "Model.h"
+#include "Config.h"
 #include "Icons.h"
 #include "IOJson.h"
 #include "platform/Fs.h"
@@ -162,7 +163,7 @@ bool ProjectFolder::IsProjectFolder(const std::string& path) {
     try {
         auto j = nlohmann::json::parse(*content);
         
-        // Match IOJson: missing version is v1, current save is v2.
+        // Match IOJson: missing version is v1, current save is v3.
         double version = 1.0;
         if (j.contains("version")) {
             if (!j["version"].is_number()) {
@@ -170,7 +171,7 @@ bool ProjectFolder::IsProjectFolder(const std::string& path) {
             }
             version = j["version"].get<double>();
         }
-        if (version > 2.0) {
+        if (version > kProjectVersion) {
             return false;
         }
         

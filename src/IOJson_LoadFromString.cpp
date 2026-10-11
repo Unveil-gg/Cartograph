@@ -1,5 +1,6 @@
 #include "IOJson.h"
 #include "IOJsonCodec.h"
+#include "IOJsonExtras.h"
 #include "Model.h"
 #include "Config.h"
 #include "platform/Fs.h"
@@ -21,10 +22,10 @@ bool IOJson::LoadFromString(const std::string& jsonStr, Model& outModel) {
     try {
         json j = json::parse(jsonStr);
         
-        // Version check - support v1/v1.1 (legacy) and v2 (current Y-up)
+        // Version check - v1/v1.1 (legacy), v2 (Y-up), v3 (current)
         double version = j.value("version", 1.0);
         bool needsMigration = (version < 2);
-        if (version > 2) {
+        if (version > kProjectVersion) {
             return false;  // Unsupported future version
         }
         
@@ -124,6 +125,7 @@ bool IOJson::LoadFromString(const std::string& jsonStr, Model& outModel) {
                 if (group.contains("rooms") && group["rooms"].is_array()) {
                     rg.roomIds = group["rooms"].get<std::vector<std::string>>();
                 }
+                rg.props = LoadPropsFrom(group);
                 
                 outModel.regionGroups.push_back(rg);
             }
@@ -152,6 +154,8 @@ bool IOJson::LoadFromString(const std::string& jsonStr, Model& outModel) {
                     r.imageAttachments = 
                         room["images"].get<std::vector<std::string>>();
                 }
+                
+                r.props = LoadPropsFrom(room);
                 
                 // Connected rooms will be recomputed, but load for reference
                 if (room.contains("connectedRooms") && 
@@ -303,14 +307,20 @@ bool IOJson::LoadFromString(const std::string& jsonStr, Model& outModel) {
                 // Optional fields with defaults
                 m.size = marker.value("size", 0.6f);
                 m.showLabel = marker.value("showLabel", true);
+                m.props = LoadPropsFrom(marker);
                 
                 outModel.markers.push_back(m);
             }
         }
         
+        // Version 3 sections: abilities, door props, interior
+        LoadExtras(j, outModel);
+        
         // Keymap
         if (j.contains("keymap")) {
             outModel.keymap = j["keymap"].get<std::unordered_map<std::string, std::string>>();
+            // Older files predate this action
+            outModel.keymap.emplace("editInterior", "Shift+I");
         }
         
         // Theme is global preference, applied after load in App::OpenProject

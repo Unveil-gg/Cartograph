@@ -294,6 +294,8 @@ void UI::RenderRegionProperties(
                     ImGui::Unindent();
                 }
                 
+                RenderRegionPropsTable(model, history, region);
+                
                 // Delete region button
                 ImGui::Spacing();
                 ImGui::Separator();

@@ -197,12 +197,21 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
         }
     }
     
+    if (ImGui::Button("Validate Gates", ImVec2(-1, 0))) {
+        m_validation.open = !m_validation.open;
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Check that every room can be reached with the\n"
+                          "ability order, and none is a softlock.");
+    }
+    
     ImGui::Spacing();
     ImGui::Separator();
     ImGui::Spacing();
     
     // Toggle room overlays (at top for easy access)
     ImGui::Checkbox("Show Room Overlays", &m_canvasPanel.showRoomOverlays);
+    ImGui::Checkbox("Show Interior", &canvas.showInterior);
     ImGui::Spacing();
     
     // Search/filter box
@@ -295,6 +304,7 @@ void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
             
             {
                 RenderRoomFields(model, history, room);
+                RenderRoomProps(model, history, room);
                 RenderRoomDetails(model, history, canvas, room);
             }
         }
