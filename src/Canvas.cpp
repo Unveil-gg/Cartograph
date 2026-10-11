@@ -85,15 +85,22 @@ void Canvas::Render(
     if (showTilesLayer) {
         RenderTiles(renderer, model);
     }
+    if (showTilesLayer) {
+        RenderInterior(renderer, model);
+    }
     if (showEdgesLayer) {
         RenderEdges(renderer, model, hoveredEdge);
         RenderDoors(renderer, model);
+        RenderDoorGates(renderer, model);
     }
     if (showMarkersLayer) {
         RenderMarkers(renderer, model, icons, selectedMarker, hoveredMarker);
     }
     if (showGridLayer) {
         RenderGrid(renderer, model.grid);
+    }
+    if (!context || !context->skipImGui) {
+        RenderValidationOverlay(renderer, model);
     }
     if (showRoomsLayer && showRoomOverlays) {
         RenderRoomOverlays(renderer, model, hoveredRoomId, selectedRoomId,

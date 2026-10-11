@@ -1,0 +1,444 @@
+{
+  "abilities": [
+    {
+      "color": "#ff5533",
+      "id": "dash",
+      "name": "Dash"
+    },
+    {
+      "color": "#33aaff",
+      "id": "double-jump",
+      "name": "Double Jump"
+    }
+  ],
+  "cellRooms": [
+    {
+      "roomId": "r4",
+      "x": 0,
+      "y": -1
+    },
+    {
+      "roomId": "r1",
+      "x": 0,
+      "y": 0
+    },
+    {
+      "roomId": "r3",
+      "x": 1,
+      "y": -1
+    },
+    {
+      "roomId": "r2",
+      "x": 1,
+      "y": 0
+    }
+  ],
+  "doorProps": [
+    {
+      "oneWay": "a-to-b",
+      "x1": 0,
+      "x2": 0,
+      "y1": -1,
+      "y2": 0
+    },
+    {
+      "gate": "dash",
+      "props": {
+        "sound": "heavy"
+      },
+      "spawnA": [
+        0.8999999761581421,
+        0.5
+      ],
+      "spawnB": [
+        1.100000023841858,
+        0.5
+      ],
+      "x1": 0,
+      "x2": 1,
+      "y1": 0,
+      "y2": 0
+    },
+    {
+      "gate": "double-jump",
+      "x1": 1,
+      "x2": 1,
+      "y1": -1,
+      "y2": 0
+    }
+  ],
+  "doors": [
+    {
+      "a": {
+        "pos": [
+          0,
+          0
+        ],
+        "room": "r1",
+        "side": "N"
+      },
+      "b": {
+        "pos": [
+          0,
+          -1
+        ],
+        "room": "r4",
+        "side": "S"
+      },
+      "gate": [],
+      "id": "d1",
+      "type": "elevator"
+    }
+  ],
+  "edges": [
+    {
+      "state": 2,
+      "x1": 0,
+      "x2": 0,
+      "y1": -1,
+      "y2": 0
+    },
+    {
+      "state": 2,
+      "x1": 0,
+      "x2": 1,
+      "y1": -1,
+      "y2": -1
+    },
+    {
+      "state": 1,
+      "x1": 0,
+      "x2": 0,
+      "y1": 0,
+      "y2": 1
+    },
+    {
+      "state": 2,
+      "x1": 0,
+      "x2": 1,
+      "y1": 0,
+      "y2": 0
+    },
+    {
+      "state": 2,
+      "x1": 1,
+      "x2": 1,
+      "y1": -1,
+      "y2": 0
+    }
+  ],
+  "grid": {
+    "autoExpandGrid": true,
+    "cols": 16,
+    "edgeHoverThreshold": 0.20000000298023224,
+    "expansionFactor": 1.5,
+    "expansionThreshold": 3,
+    "locked": true,
+    "minCol": 0,
+    "minRow": -2,
+    "preset": "rectangle",
+    "rows": 8,
+    "tileHeight": 16,
+    "tileWidth": 32
+  },
+  "interior": {
+    "chunks": [
+      {
+        "cell": [
+          0,
+          0
+        ],
+        "rows": [
+          "################",
+          "#..............#",
+          "#..............#",
+          "#..............#",
+          "#..........====#",
+          "#..............#",
+          "#..H...........#",
+          "#..H...^^^.....#",
+          "################"
+        ]
+      },
+      {
+        "cell": [
+          1,
+          0
+        ],
+        "rows": [
+          "################",
+          "#..............#",
+          "#.....bb.......#",
+          "#..............#",
+          "#..............#",
+          "#..............#",
+          "#..............#",
+          "#~~~~~~~~......#",
+          "################"
+        ]
+      }
+    ],
+    "height": 9,
+    "width": 16
+  },
+  "keymap": {
+    "copy": "Cmd+C",
+    "cut": "Cmd+X",
+    "delete": "Delete",
+    "deleteAlt": "Backspace",
+    "detectRooms": "Shift+D",
+    "editInterior": "Shift+I",
+    "erase": "Mouse2",
+    "eraseAlt": "E+Mouse1",
+    "export": "Cmd+E",
+    "exportPackage": "Cmd+Shift+E",
+    "new": "Cmd+N",
+    "open": "Cmd+O",
+    "paint": "Mouse1",
+    "pan": "Space+Drag",
+    "paste": "Cmd+V",
+    "placeDoor": "D",
+    "placeWall": "W",
+    "redo": "Cmd+Shift+Z",
+    "save": "Cmd+S",
+    "saveAs": "Cmd+Shift+S",
+    "selectAll": "Ctrl+A",
+    "toggleGrid": "G",
+    "togglePropertiesPanel": "Cmd+P",
+    "toggleRoomOverlays": "O",
+    "toolErase": "E",
+    "toolEyedropper": "I",
+    "toolFill": "F",
+    "toolMarker": "M",
+    "toolMove": "V",
+    "toolPaint": "B",
+    "toolRoomErase": "Shift+E",
+    "toolRoomFill": "Shift+F",
+    "toolRoomPaint": "Shift+R",
+    "toolRoomSelect": "Shift+S",
+    "toolSelect": "S",
+    "toolZoom": "Z",
+    "undo": "Cmd+Z",
+    "zoomIn": "=",
+    "zoomOut": "-"
+  },
+  "markers": [
+    {
+      "color": "#33ff66",
+      "icon": "dot",
+      "id": "m1",
+      "kind": "start",
+      "label": "Start",
+      "pos": [
+        0.5,
+        0.5
+      ],
+      "room": "r1"
+    },
+    {
+      "color": "#66aaff",
+      "icon": "bench",
+      "id": "m2",
+      "kind": "bench",
+      "label": "Bench",
+      "pos": [
+        0.25,
+        0.5
+      ],
+      "room": "r1"
+    },
+    {
+      "color": "#ffcc33",
+      "icon": "dot",
+      "id": "m3",
+      "kind": "ability-pickup",
+      "label": "Dash",
+      "pos": [
+        0.75,
+        0.5
+      ],
+      "props": {
+        "ability": "dash"
+      },
+      "room": "r1"
+    },
+    {
+      "color": "#ffcc33",
+      "icon": "dot",
+      "id": "m4",
+      "kind": "ability-pickup",
+      "label": "Double Jump",
+      "pos": [
+        1.5,
+        0.5
+      ],
+      "props": {
+        "ability": "double-jump"
+      },
+      "room": "r2"
+    },
+    {
+      "color": "#e6b333",
+      "icon": "chest",
+      "id": "m5",
+      "kind": "chest",
+      "label": "Chest",
+      "pos": [
+        1.25,
+        0.5
+      ],
+      "props": {
+        "contents": "map-fragment"
+      },
+      "room": "r2"
+    },
+    {
+      "color": "#e63333",
+      "icon": "Skull",
+      "id": "m6",
+      "kind": "boss",
+      "label": "Warden",
+      "pos": [
+        1.5,
+        -0.5
+      ],
+      "props": {
+        "name": "Cave Warden"
+      },
+      "room": "r3"
+    },
+    {
+      "color": "#e66650",
+      "icon": "dot",
+      "id": "m7",
+      "kind": "enemy",
+      "label": "Bat",
+      "pos": [
+        0.5,
+        -0.5
+      ],
+      "props": {
+        "type": "bat"
+      },
+      "room": "r4",
+      "showLabel": false,
+      "size": 0.4000000059604645
+    }
+  ],
+  "meta": {
+    "author": "Cartograph",
+    "description": "Four rooms in a ring: dash and double-jump gates plus a one-way return.",
+    "title": "Sample Cave"
+  },
+  "palette": [
+    {
+      "color": "#00000000",
+      "id": 0,
+      "name": "Empty"
+    },
+    {
+      "color": "#6b5b4bff",
+      "id": 1,
+      "name": "Cave"
+    }
+  ],
+  "regionGroups": [
+    {
+      "description": "Starting caves",
+      "id": "g1",
+      "name": "Caves",
+      "props": {
+        "ambience": "drips",
+        "music": "tunnel",
+        "palette": "cave",
+        "parallaxLayers": "bg_far,bg_near"
+      },
+      "rooms": [
+        "r1",
+        "r2",
+        "r3",
+        "r4"
+      ],
+      "tags": [
+        "start-area"
+      ]
+    }
+  ],
+  "rooms": [
+    {
+      "color": "#4488cc",
+      "id": "r1",
+      "images": [
+        "design/hub.png"
+      ],
+      "name": "Hub",
+      "notes": "Start room, bench here.",
+      "parentRegionGroupId": "g1",
+      "props": {
+        "kind": "hub",
+        "music": "tunnel"
+      },
+      "regionId": -1,
+      "tags": [
+        "hub"
+      ]
+    },
+    {
+      "color": "#cc8844",
+      "id": "r2",
+      "name": "Chasm",
+      "notes": "Needs dash to enter.",
+      "parentRegionGroupId": "g1",
+      "props": {
+        "dark": "true",
+        "kind": "platforming"
+      },
+      "regionId": -1,
+      "tags": [
+        "platforming"
+      ]
+    },
+    {
+      "color": "#cc4444",
+      "id": "r3",
+      "name": "Arena",
+      "notes": "Boss fight.",
+      "parentRegionGroupId": "g1",
+      "props": {
+        "kind": "arena"
+      },
+      "regionId": -1,
+      "tags": [
+        "boss"
+      ]
+    },
+    {
+      "color": "#44cc88",
+      "id": "r4",
+      "name": "Return Hall",
+      "notes": "One-way shortcut back to the hub.",
+      "parentRegionGroupId": "g1",
+      "props": {
+        "kind": "corridor"
+      },
+      "regionId": -1
+    }
+  ],
+  "settings": {
+    "autoGenerateRoomWalls": true
+  },
+  "tiles": [
+    {
+      "room": "",
+      "runs": [
+        [
+          0,
+          2,
+          1
+        ]
+      ],
+      "y": 0
+    }
+  ],
+  "version": 3
+}

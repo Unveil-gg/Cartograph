@@ -50,6 +50,9 @@ jobs:
       - name: Build
         run: cmake --build build --config Release
 
+      - name: Test
+        run: ctest --test-dir build -C Release --output-on-failure
+
       - name: Prepare artifact
         run: |
           mkdir artifact
@@ -89,6 +92,9 @@ jobs:
         run: |
           cd build
           make -j$(sysctl -n hw.ncpu)
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
 
       - name: Import signing certificate
         if: >

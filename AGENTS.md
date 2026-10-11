@@ -17,7 +17,8 @@ call `App`. Do not edit `third_party/`.
 
 ## File format
 
-Saves write `project.json` version 2. Load accepts versions through 2,
+Saves write `project.json` version 3 (`kProjectVersion` in `Config.h`).
+Load accepts versions through 3,
 including the v1 Y-flip migration. `ProjectFolder::IsProjectFolder` must
 accept the same versions. `.cart` extension checks go through
 `Package::HasCartExtension` (case-insensitive).

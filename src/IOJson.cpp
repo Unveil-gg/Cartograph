@@ -1,11 +1,14 @@
 #include "IOJson.h"
 #include "IOJsonCodec.h"
+#include "IOJsonExtras.h"
 #include "Model.h"
 #include "Config.h"
 #include "platform/Fs.h"
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <algorithm>
+#include <tuple>
+#include <vector>
 
 using json = nlohmann::json;
 
@@ -16,7 +19,7 @@ namespace Cartograph {
 std::string IOJson::SaveToString(const Model& model) {
     json j;
     
-    j["version"] = 2;
+    j["version"] = kProjectVersion;
     
     // Grid
     j["grid"] = {
@@ -54,6 +57,7 @@ std::string IOJson::SaveToString(const Model& model) {
             {"tags", group.tags},
             {"rooms", group.roomIds}
         };
+        SavePropsInto(jGroup, group.props);
         j["regionGroups"].push_back(jGroup);
     }
     
@@ -81,6 +85,8 @@ std::string IOJson::SaveToString(const Model& model) {
         if (!room.imageAttachments.empty()) {
             jRoom["images"] = room.imageAttachments;
         }
+        
+        SavePropsInto(jRoom, room.props);
         
         // Save connected rooms if present (for reference, recomputed on load)
         if (!room.connectedRoomIds.empty()) {
@@ -110,7 +116,17 @@ std::string IOJson::SaveToString(const Model& model) {
     
     // Edges
     j["edges"] = json::array();
-    for (const auto& [edgeId, state] : model.edges) {
+    // Sorted so saves are deterministic and diff cleanly.
+    std::vector<std::pair<EdgeId, EdgeState>> sortedEdges(
+        model.edges.begin(), model.edges.end());
+    std::sort(sortedEdges.begin(), sortedEdges.end(),
+              [](const auto& a, const auto& b) {
+                  return std::tie(a.first.x1, a.first.y1, a.first.x2,
+                                  a.first.y2) <
+                         std::tie(b.first.x1, b.first.y1, b.first.x2,
+                                  b.first.y2);
+              });
+    for (const auto& [edgeId, state] : sortedEdges) {
         if (state == EdgeState::None) continue;  // Skip empty edges
         j["edges"].push_back({
             {"x1", edgeId.x1},
@@ -123,7 +139,10 @@ std::string IOJson::SaveToString(const Model& model) {
     
     // Cell room assignments
     j["cellRooms"] = json::array();
-    for (const auto& [cell, roomId] : model.cellRoomAssignments) {
+    std::vector<std::pair<std::pair<int, int>, std::string>> sortedCells(
+        model.cellRoomAssignments.begin(), model.cellRoomAssignments.end());
+    std::sort(sortedCells.begin(), sortedCells.end());
+    for (const auto& [cell, roomId] : sortedCells) {
         j["cellRooms"].push_back({
             {"x", cell.first},
             {"y", cell.second},
@@ -171,9 +190,13 @@ std::string IOJson::SaveToString(const Model& model) {
         if (!marker.showLabel) {
             markerJson["showLabel"] = false;
         }
+        SavePropsInto(markerJson, marker.props);
         
         j["markers"].push_back(markerJson);
     }
+    
+    // Version 3 sections: abilities, door props, interior
+    SaveExtras(model, j);
     
     // Keymap
     j["keymap"] = model.keymap;

@@ -132,6 +132,8 @@ void CanvasPanel::MoveSelection(
         history.AddCommand(std::move(cmd), model, false);
     }
     
+    MoveDoorProps(model, history, edgesToMove, dx, dy);
+    
     // Step 5: Update selection bounds
     currentSelection.bounds.x += dx;
     currentSelection.bounds.y += dy;
@@ -280,6 +282,9 @@ void CanvasPanel::CommitFloatingSelection(Model& model, History& history) {
         auto cmd = std::make_unique<ModifyEdgesCommand>(placeEdgeChanges);
         history.AddCommand(std::move(cmd), model, false);
     }
+    
+    MoveDoorProps(model, history, floatingContent.edges,
+                  dragOffsetX, dragOffsetY);
     
     // Update selection to new position
     currentSelection.bounds.x = finalX;

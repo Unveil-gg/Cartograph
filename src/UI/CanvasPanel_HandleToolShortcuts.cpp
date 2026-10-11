@@ -26,6 +26,10 @@ void CanvasPanel::HandleToolShortcuts(
             *layoutInitialized = false;  // Trigger layout rebuild
         }
         
+        if (keymap.IsActionTriggered("editInterior")) {
+            requestEditInterior = true;
+        }
+
         // Tool switching shortcuts
         Tool prevTool = currentTool;
         

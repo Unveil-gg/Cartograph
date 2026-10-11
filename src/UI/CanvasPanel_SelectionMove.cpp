@@ -198,6 +198,12 @@ void CanvasPanel::CopySelection(const Model& model) {
         relEdge.dx2 = edgePair.first.x2 - originX;
         relEdge.dy2 = edgePair.first.y2 - originY;
         relEdge.state = edgePair.second;
+        const DoorProps* dp = model.GetDoorProps(edgePair.first);
+        if (dp && edgePair.second == EdgeState::Door) {
+            relEdge.doorProps = ShiftedDoorProps(
+                *dp, static_cast<float>(-originX),
+                static_cast<float>(-originY));
+        }
         clipboard.edges.push_back(relEdge);
     }
     
@@ -214,6 +220,7 @@ void CanvasPanel::CopySelection(const Model& model) {
             relMarker.color = marker->color;
             relMarker.size = marker->size;
             relMarker.showLabel = marker->showLabel;
+            relMarker.props = marker->props;
             clipboard.markers.push_back(relMarker);
         }
     }
@@ -283,6 +290,22 @@ void CanvasPanel::PasteClipboard(
         history.AddCommand(std::move(cmd), model, false);
     }
     
+    // Paste door props (gates, one-way, spawns) with the door edges
+    for (const auto& relEdge : clipboard.edges) {
+        if (!relEdge.doorProps) continue;
+        EdgeId edgeId(
+            targetX + relEdge.dx1, targetY + relEdge.dy1,
+            targetX + relEdge.dx2, targetY + relEdge.dy2
+        );
+        const DoorProps* existing = model.GetDoorProps(edgeId);
+        auto cmd = std::make_unique<ModifyDoorPropsCommand>(
+            edgeId, existing ? *existing : DoorProps(),
+            ShiftedDoorProps(*relEdge.doorProps,
+                             static_cast<float>(targetX),
+                             static_cast<float>(targetY)));
+        history.AddCommand(std::move(cmd), model, true);
+    }
+    
     // Paste markers (create new markers with new IDs)
     for (const auto& relMarker : clipboard.markers) {
         Marker newMarker;
@@ -296,6 +319,7 @@ void CanvasPanel::PasteClipboard(
         newMarker.color = relMarker.color;
         newMarker.size = relMarker.size;
         newMarker.showLabel = relMarker.showLabel;
+        newMarker.props = relMarker.props;
         
         auto cmd = std::make_unique<PlaceMarkerCommand>(newMarker, true);
         history.AddCommand(std::move(cmd), model, false);

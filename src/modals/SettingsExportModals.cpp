@@ -233,6 +233,13 @@ void Modals::RenderSettingsModal(App& app, Model& model,
                 RenderAppearanceSettings(app, model);
             }
             
+            // ============================================================
+            // TAB 5: GAME DATA (abilities, interior grid)
+            // ============================================================
+            if (ImGui::BeginTabItem("Game Data")) {
+                RenderGameDataSettings(model);
+            }
+            
             ImGui::EndTabBar();
         }
         

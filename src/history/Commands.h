@@ -31,12 +31,18 @@
 
 // Edge commands
 #include "ModifyEdgesCommand.h"
+#include "ModifyDoorPropsCommand.h"
+
+// Props commands
+#include "ModifyPropsCommand.h"
+#include "PaintInteriorCommand.h"
 
 // Marker commands
 #include "PlaceMarkerCommand.h"
 #include "DeleteMarkerCommand.h"
 #include "MoveMarkersCommand.h"
 #include "ModifyMarkerPropertiesCommand.h"
+#include "SetMarkerKindCommand.h"
 
 // Icon commands
 #include "DeleteIconCommand.h"

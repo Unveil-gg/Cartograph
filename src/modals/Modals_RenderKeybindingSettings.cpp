@@ -99,6 +99,7 @@ void Modals::RenderKeybindingSettings(
                     renderBinding("Tool: Eyedropper", "toolEyedropper");
                     renderBinding("Tool: Zoom", "toolZoom");
                     renderBinding("Tool: Room Select", "toolRoomSelect");
+                    renderBinding("Edit Room Interior", "editInterior");
                     renderBinding("Tool: Room Paint", "toolRoomPaint");
                     renderBinding("Tool: Room Fill", "toolRoomFill");
                     renderBinding("Tool: Room Erase", "toolRoomErase");

@@ -9,6 +9,7 @@ namespace Cartograph {
 class IRenderer;
 class IconManager;
 class GlRenderer;
+struct ValidationReport;
 
 /**
  * Marker label display mode.
@@ -55,6 +56,12 @@ public:
     static constexpr float DEFAULT_ZOOM = 2.5f;
     
     bool showGrid = true;
+
+    // Read-only miniature of the interior tile layer.
+    bool showInterior = false;
+    
+    // Gate validation tint; null hides it. Not owned.
+    const ValidationReport* validationOverlay = nullptr;
     
     // Marker label display mode (default: hover only for cleaner canvas)
     MarkerLabelMode markerLabelMode = MarkerLabelMode::HoverOnly;
@@ -100,6 +107,17 @@ public:
         float* wx, float* wy
     ) const;
     
+    /**
+     * Screen-space endpoints of a cell edge.
+     * @param grid Grid config (tile size)
+     * @param edgeId Edge to place
+     * @param sx1, sy1, sx2, sy2 Output endpoints
+     */
+    void EdgeToScreen(
+        const GridConfig& grid, const EdgeId& edgeId,
+        float* sx1, float* sy1, float* sx2, float* sy2
+    ) const;
+    
     // View manipulation
     void SetZoom(float newZoom);
     void ZoomToPoint(float newZoom, float screenX, float screenY);
@@ -141,6 +159,9 @@ private:
     void RenderEdges(IRenderer& renderer, const Model& model,
                     const EdgeId* hoveredEdge);
     void RenderDoors(IRenderer& renderer, const Model& model);
+    void RenderDoorGates(IRenderer& renderer, const Model& model);
+    void RenderValidationOverlay(IRenderer& renderer, const Model& model);
+    void RenderInterior(IRenderer& renderer, const Model& model);
     void RenderMarkers(IRenderer& renderer, const Model& model,
                       IconManager* icons, const Marker* selectedMarker,
                       const Marker* hoveredMarker);

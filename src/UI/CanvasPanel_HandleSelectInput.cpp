@@ -24,6 +24,11 @@ void CanvasPanel::HandleSelectInput(
 ) {
             ImVec2 mousePos = ImGui::GetMousePos();
             
+            // Door spawn placement owns the click while it is active
+            if (HandleDoorSpawnInput(model, canvas, history)) {
+                return;
+            }
+            
             // Update paste preview position
             if (isPasteMode) {
                 canvas.ScreenToTile(
@@ -86,6 +91,18 @@ void CanvasPanel::HandleSelectInput(
                 selectionEndX = mousePos.x;
                 selectionEndY = mousePos.y;
                 isSelecting = false;
+                
+                // A click (not a drag) on a door edge inspects that door
+                float dragX = selectionEndX - selectionStartX;
+                float dragY = selectionEndY - selectionStartY;
+                bool isClick = dragX * dragX + dragY * dragY < 9.0f;
+                hasSelectedDoor = false;
+                if (isClick && TrySelectDoorAt(model, canvas,
+                                               mousePos.x, mousePos.y)) {
+                    currentSelection.Clear();
+                    hasSelection = false;
+                    return;
+                }
                 
                 // Populate selection with content from the rectangle
                 PopulateSelectionFromRect(model, canvas);

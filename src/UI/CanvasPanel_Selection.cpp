@@ -87,15 +87,14 @@ void CanvasPanel::Render(
             newMarker.roomId = "";
             newMarker.x = tileX;
             newMarker.y = tileY;
-            newMarker.kind = "custom";
+            newMarker.kind = selectedMarkerKind;
             newMarker.label = markerLabel;
             newMarker.icon = droppedIconName;
             newMarker.color = markerColor;
             newMarker.size = 0.6f;
             newMarker.showLabel = !markerLabel.empty();
             
-            auto cmd = std::make_unique<PlaceMarkerCommand>(newMarker, true);
-            history.AddCommand(std::move(cmd), model);
+            PlaceNewMarker(model, history, newMarker);
         }
         ImGui::EndDragDropTarget();
     }
@@ -283,6 +282,11 @@ void CanvasPanel::Render(
     // Draw selection rectangle while dragging
     if (currentTool == Tool::Select && isSelecting) {
         DrawSelectionDrag(model, drawList);
+    }
+    
+    // Highlight the door selected for inspection
+    if (currentTool == Tool::Select && hasSelectedDoor) {
+        DrawDoorSelection(model, canvas, drawList);
     }
     
     // Draw selection highlight for completed selection

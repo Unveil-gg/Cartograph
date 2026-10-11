@@ -160,6 +160,16 @@ void UI::RenderRoomDetails(
                 ImGui::Separator();
                 ImGui::Spacing();
                 
+                if (ImGui::Button("Edit Interior", ImVec2(-1, 0))) {
+                    m_interiorEditor.Open(room->id);
+                }
+                if (ImGui::IsItemHovered()) {
+                    ImGui::SetTooltip(
+                        "Paint solid, platform, hazard, water,\n"
+                        "breakable and ladder tiles inside this room.");
+                }
+                ImGui::Spacing();
+
                 // Add Perimeter Walls button
                 if (ImGui::Button("Add Perimeter Walls", ImVec2(-1, 0))) {
                     auto changes = model.ComputeRoomPerimeterWallChanges(

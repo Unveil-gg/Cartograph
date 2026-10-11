@@ -88,6 +88,7 @@ Model::Model() {
 
 void Model::MarkDirty() {
     dirty = true;
+    ++revision;
 }
 
 

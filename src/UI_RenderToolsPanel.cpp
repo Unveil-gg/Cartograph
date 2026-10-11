@@ -60,6 +60,9 @@ void UI::RenderToolsPanel(Model& model, History& history, IconManager& icons,
     // Show tool options for Select tool
     if (m_canvasPanel.currentTool == CanvasPanel::Tool::Select) {
         RenderSelectOptions(model);
+        if (m_canvasPanel.hasSelectedDoor) {
+            RenderDoorInspector(model, history);
+        }
     }
     
     // Show tool options for Zoom tool

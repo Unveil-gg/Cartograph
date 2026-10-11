@@ -210,6 +210,7 @@ void Model::InitDefaultKeymap() {
     
     // Room actions
     keymap["detectRooms"] = "Shift+D";
+    keymap["editInterior"] = "Shift+I";
     
     // Platform-specific shortcuts (File/Edit)
 #ifdef __APPLE__

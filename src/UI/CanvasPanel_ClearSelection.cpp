@@ -20,6 +20,8 @@ namespace Cartograph {
 void CanvasPanel::ClearSelection() {
     currentSelection.Clear();
     hasSelection = false;
+    hasSelectedDoor = false;
+    placingSpawn = 0;
     // Keep screen coordinates but mark selection as inactive
     isSelecting = false;
 }

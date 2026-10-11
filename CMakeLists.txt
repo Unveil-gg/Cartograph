@@ -24,6 +24,62 @@ endif()
 # Third-party dependencies
 add_subdirectory(third_party)
 
+# Core library: model, persistence, and reachability. No window or UI.
+# Shared by the app, the CLI, and the tests.
+set(CARTOGRAPH_CORE_SOURCES
+    src/Model.cpp
+    src/Model_Extras.cpp
+    src/Model_Interior.cpp
+    src/MarkerKinds.cpp
+    src/Reachability.cpp
+    src/ProjectLoad.cpp
+    src/cli/Cli.cpp
+    src/Reachability_Describe.cpp
+    src/IOJson_Extras.cpp
+    src/IOJson_Interior.cpp
+    src/Model_ExpandGridIfNeeded.cpp
+    src/Model_FindMarker.cpp
+    src/Model_InvalidateAllRoomCellCaches.cpp
+    src/Model_DetectedRoom.cpp
+    src/Model_GenerateRoomPerimeterWalls.cpp
+    src/IOJson.cpp
+    src/IOJson_LoadFromString.cpp
+    src/IOJson_Migrate.cpp
+    src/ProjectFolder.cpp
+    src/Package.cpp
+    src/Icons.cpp
+    src/IconManager_ProcessIconFromFile.cpp
+    src/ExportPng.cpp
+    src/Theme/Themes.cpp
+    src/platform/Fs.cpp
+)
+add_library(cartograph_core STATIC ${CARTOGRAPH_CORE_SOURCES})
+target_include_directories(cartograph_core PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party
+)
+target_link_libraries(cartograph_core PUBLIC
+    nlohmann_json::nlohmann_json
+    glad
+    imgui
+    SDL3-static
+)
+if(TARGET minizip)
+    target_link_libraries(cartograph_core PUBLIC minizip)
+    target_include_directories(cartograph_core PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/third_party/minizip-ng
+        ${CMAKE_CURRENT_SOURCE_DIR}/third_party/minizip-ng/compat
+    )
+endif()
+if(APPLE)
+    target_link_libraries(cartograph_core PUBLIC "-framework OpenGL")
+endif()
+if(MSVC)
+    target_compile_options(cartograph_core PRIVATE /W4)
+else()
+    target_compile_options(cartograph_core PRIVATE -Wall -Wextra)
+endif()
+
 # Source files
 set(CARTOGRAPH_SOURCES
     src/main.cpp
@@ -34,11 +90,19 @@ set(CARTOGRAPH_SOURCES
     src/UI_RenderRoomDetails.cpp
     src/UI_RenderRoomFields.cpp
     src/UI_RenderRegionProperties.cpp
+    src/UI_RenderPropsSections.cpp
+    src/UI_RenderDoorInspector.cpp
+    src/UI_RenderValidationPanel.cpp
+    src/UI/InteriorEditor.cpp
+    src/UI/InteriorEditor_Tools.cpp
+    src/UI/InteriorEditor_Toolbar.cpp
+    src/Canvas_RenderInterior.cpp
+    src/history/PaintInteriorCommand.cpp
     src/modals/Modals_RenderAppearanceSettings.cpp
     src/modals/Modals_RenderKeybindingSettings.cpp
     src/modals/Modals_RenderGridSettings.cpp
+    src/modals/Modals_RenderGameDataSettings.cpp
     src/modals/Modals_RenderProjectSettings.cpp
-    src/IOJson_Migrate.cpp
     src/UI_Render.cpp
     src/UI_RenderMenuBar.cpp
     src/UI_RenderToolsPanel.cpp
@@ -46,11 +110,6 @@ set(CARTOGRAPH_SOURCES
     src/UI_RenderStatusBar.cpp
     src/UI_ImportIcon.cpp
     src/UI_StartAsyncProjectLoad.cpp
-    src/Model_ExpandGridIfNeeded.cpp
-    src/Model_FindMarker.cpp
-    src/Model_InvalidateAllRoomCellCaches.cpp
-    src/Model_DetectedRoom.cpp
-    src/Model_GenerateRoomPerimeterWalls.cpp
     src/App_ApplyTheme.cpp
     src/App_SaveProjectAs.cpp
     src/modals/Modals_RenderColorPickerModal.cpp
@@ -63,9 +122,9 @@ set(CARTOGRAPH_SOURCES
     src/UI/WelcomeScreen_RenderRecentProjectsList.cpp
     src/UI/WelcomeScreen_GeneratePlaceholderTexture.cpp
     src/Canvas_RenderEdges.cpp
+    src/Canvas_RenderDoorGates.cpp
+    src/Canvas_RenderValidationOverlay.cpp
     src/Canvas_RenderRoomOverlays.cpp
-    src/IOJson_LoadFromString.cpp
-    src/IconManager_ProcessIconFromFile.cpp
     src/UI/CanvasPanel.cpp
     src/UI/CanvasPanel_DrawEyedropperPreview.cpp
     src/UI/CanvasPanel_DrawFillPreview.cpp
@@ -95,6 +154,7 @@ set(CARTOGRAPH_SOURCES
     src/UI/CanvasPanel_ClearSelection.cpp
     src/UI/CanvasPanel_SelectionMove.cpp
     src/UI/CanvasPanel_Cursors.cpp
+    src/UI/CanvasPanel_DoorSelection.cpp
     src/UI/ImGuiHelpers.cpp
     src/UI/WelcomeScreen.cpp
     src/modals/Modals.cpp
@@ -106,8 +166,8 @@ set(CARTOGRAPH_SOURCES
     src/modals/AboutWhatsNew.cpp
     src/modals/RebindModal.cpp
     src/Canvas.cpp
-    src/Model.cpp
     src/history/History.cpp
+    src/platform/Time.cpp
     src/history/PaintTilesCommand.cpp
     src/history/FillTilesCommand.cpp
     src/history/CreateRoomCommand.cpp
@@ -118,6 +178,12 @@ set(CARTOGRAPH_SOURCES
     src/history/DeleteRegionCommand.cpp
     src/history/ModifyRegionPropertiesCommand.cpp
     src/history/ModifyEdgesCommand.cpp
+    src/history/ModifyDoorPropsCommand.cpp
+    src/history/ModifyPropsCommand.cpp
+    src/history/SetMarkerKindCommand.cpp
+    src/UI/CanvasPanel_PlaceMarker.cpp
+    src/UI_RenderMarkerKind.cpp
+    src/UI/PropsTable.cpp
     src/history/PlaceMarkerCommand.cpp
     src/history/DeleteMarkerCommand.cpp
     src/history/MoveMarkersCommand.cpp
@@ -128,18 +194,11 @@ set(CARTOGRAPH_SOURCES
     src/history/UpdatePaletteColorCommand.cpp
     src/history/SetZoomCommand.cpp
     src/history/DetectRoomsCommand.cpp
-    src/IOJson.cpp
-    src/Package.cpp
-    src/ProjectFolder.cpp
-    src/ExportPng.cpp
     src/Thumbnail.cpp
-    src/Icons.cpp
     src/Keymap.cpp
     src/Jobs.cpp
     src/Preferences.cpp
-    src/Theme/Themes.cpp
     src/render/GlRenderer.cpp
-    src/platform/Fs.cpp
     src/platform/Paths.cpp
     src/platform/Time.cpp
     src/platform/System.cpp
@@ -202,6 +261,14 @@ set(CARTOGRAPH_HEADERS
     src/history/DeleteRegionCommand.h
     src/history/ModifyRegionPropertiesCommand.h
     src/history/ModifyEdgesCommand.h
+    src/history/ModifyDoorPropsCommand.h
+    src/history/ModifyPropsCommand.h
+    src/history/PaintInteriorCommand.h
+    src/InteriorColors.h
+    src/UI/InteriorEditor.h
+    src/history/SetMarkerKindCommand.h
+    src/MarkerKinds.h
+    src/UI/PropsTable.h
     src/history/PlaceMarkerCommand.h
     src/history/DeleteMarkerCommand.h
     src/history/MoveMarkersCommand.h
@@ -260,6 +327,7 @@ target_include_directories(Cartograph PRIVATE
 
 # Link libraries
 target_link_libraries(Cartograph PRIVATE
+    cartograph_core
     imgui
     glad
     nlohmann_json::nlohmann_json
@@ -278,7 +346,9 @@ endif()
 
 if(USE_SVG_ICONS)
     target_compile_definitions(Cartograph PRIVATE CARTOGRAPH_USE_SVG)
+    target_compile_definitions(cartograph_core PRIVATE CARTOGRAPH_USE_SVG)
     target_link_libraries(Cartograph PRIVATE nanosvg)
+    target_link_libraries(cartograph_core PUBLIC nanosvg)
 endif()
 
 # Version string for runtime display
@@ -391,50 +461,14 @@ if(NOT APPLE)
             DESTINATION assets)
 endif()
 
-# Load-path tests. They link the persistence sources, not the UI.
+# Tests. They link the core library, not the UI.
 enable_testing()
 add_executable(cartograph_tests
     tests/load_tests.cpp
-    src/Model.cpp
-    src/IconManager_ProcessIconFromFile.cpp
-    src/IOJson_Migrate.cpp
-    src/Model_ExpandGridIfNeeded.cpp
-    src/Model_FindMarker.cpp
-    src/Model_InvalidateAllRoomCellCaches.cpp
-    src/Model_DetectedRoom.cpp
-    src/Model_GenerateRoomPerimeterWalls.cpp
-    src/IOJson_LoadFromString.cpp
-    src/IOJson.cpp
-    src/ProjectFolder.cpp
-    src/Package.cpp
-    src/Icons.cpp
-    src/IconManager_ProcessIconFromFile.cpp
-    src/ExportPng.cpp
-    src/Theme/Themes.cpp
-    src/platform/Fs.cpp
 )
-target_include_directories(cartograph_tests PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${CMAKE_CURRENT_SOURCE_DIR}/third_party
-)
-target_link_libraries(cartograph_tests PRIVATE
-    nlohmann_json::nlohmann_json
-    glad
-    imgui
-    SDL3-static
-)
-if(TARGET minizip)
-    target_link_libraries(cartograph_tests PRIVATE minizip)
-    target_include_directories(cartograph_tests PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/third_party/minizip-ng
-        ${CMAKE_CURRENT_SOURCE_DIR}/third_party/minizip-ng/compat
-    )
-endif()
-if(APPLE)
-    target_link_libraries(cartograph_tests PRIVATE
-        "-framework OpenGL"
-    )
-endif()
+target_link_libraries(cartograph_tests PRIVATE cartograph_core)
+target_compile_definitions(cartograph_tests PRIVATE
+    CARTOGRAPH_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 if(MSVC)
     target_compile_options(cartograph_tests PRIVATE /W4)
 else()
@@ -442,3 +476,33 @@ else()
 endif()
 add_test(NAME load_tests COMMAND cartograph_tests)
 
+# Extra test executables: one source file each.
+foreach(test_name format_tests reachability_tests cli_tests
+        interior_tests)
+    add_executable(${test_name} tests/${test_name}.cpp)
+    target_link_libraries(${test_name} PRIVATE cartograph_core)
+    target_compile_definitions(${test_name} PRIVATE
+        CARTOGRAPH_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
+    if(MSVC)
+        target_compile_options(${test_name} PRIVATE /W4)
+    else()
+        target_compile_options(${test_name} PRIVATE -Wall -Wextra)
+    endif()
+    add_test(NAME ${test_name} COMMAND ${test_name})
+endforeach()
+
+# The undo history is app code but only needs the model.
+target_sources(interior_tests PRIVATE
+    src/history/History.cpp
+    src/platform/Time.cpp
+    src/history/PaintInteriorCommand.cpp)
+
+# Headless command line tool: export and validate without a window.
+add_executable(cartograph-cli src/cli/main.cpp)
+target_link_libraries(cartograph-cli PRIVATE cartograph_core)
+if(MSVC)
+    target_compile_options(cartograph-cli PRIVATE /W4)
+else()
+    target_compile_options(cartograph-cli PRIVATE -Wall -Wextra)
+endif()
+install(TARGETS cartograph-cli RUNTIME DESTINATION bin)

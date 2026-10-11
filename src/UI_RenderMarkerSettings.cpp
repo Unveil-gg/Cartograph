@@ -51,6 +51,7 @@ void UI::RenderMarkerSettings(
 ) {
         ImGui::Text("Marker Settings");
         ImGui::Separator();
+        RenderMarkerKindFields(model, history);
         
         // Helper lambda to capture current marker properties
         auto captureMarkerProps = [](const Marker* m) -> MarkerPropertiesSnapshot {

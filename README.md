@@ -120,11 +120,26 @@ See [BUILDING.md](BUILDING.md) for detailed build instructions, options, and dis
 
 Projects are saved as `.cart` files — ZIP archives containing:
 - `manifest.json` — Package kind, version, and title
-- `project.json` — Project data, rooms, tiles, markers, settings (schema version 2)
+- `project.json` — Project data, rooms, tiles, markers, settings (schema version 3, see docs/format.md)
 - `icons/` — Custom marker icons (PNG)
 - `thumb.png` — Optional preview
 
 Folder projects (`.cartproj`) store the same `project.json` plus `icons/` and `preview.png`. The extension check for `.cart` ignores case.
+
+## Use with a game generator
+
+Maps can carry ability gates, one-way doors, door spawns, room and region
+properties, typed markers and a per-cell interior tile layer. The headless
+`cartograph-cli` (built next to the app) turns a map into plain JSON and
+checks that the gates are beatable:
+
+```bash
+cartograph-cli export map.cart -o map.json
+cartograph-cli validate map.cart --order dash,double-jump
+```
+
+The schema, conventions and a small sample map are in
+[docs/format.md](docs/format.md) and [docs/sample-map.json](docs/sample-map.json).
 
 ## Contributing
 
