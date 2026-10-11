@@ -86,7 +86,11 @@ void Modals::RenderAppearanceSettings(
                 float uiScale = model.theme.uiScale;
                 if (ImGui::SliderFloat("##UIScale", &uiScale, 0.8f, 1.5f, 
                                        "%.1fx")) {
+                    // Only store while dragging. Rescaling the UI live
+                    // moves the slider under the cursor.
                     model.theme.uiScale = uiScale;
+                }
+                if (ImGui::IsItemDeactivatedAfterEdit()) {
                     app.ApplyTheme(model.theme);
                     // Save to global preferences (not project)
                     Preferences::uiScale = uiScale;

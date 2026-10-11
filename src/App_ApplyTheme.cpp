@@ -26,6 +26,10 @@ namespace Cartograph {
 
 void App::ApplyTheme(const Theme& theme) {
     ImGuiStyle& style = ImGui::GetStyle();
+
+    // Reset sizes to defaults first: ScaleAllSizes() is cumulative, so
+    // reapplying it on an already-scaled style compounds the scale.
+    style = ImGuiStyle();
     
     // Apply base ImGui theme based on brightness
     if (theme.name == "Print-Light") {
@@ -135,6 +139,7 @@ void App::ApplyTheme(const Theme& theme) {
     
     // Apply UI scale
     style.ScaleAllSizes(theme.uiScale);
+    style.FontScaleMain = theme.uiScale;
 }
 
 
