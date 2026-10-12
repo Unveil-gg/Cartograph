@@ -47,13 +47,21 @@ jobs:
           submodules: recursive
 
       - name: Install zlib
-        run: vcpkg install zlib:x64-windows-static
+        run: |
+          # The runner sets VCPKG_INSTALLATION_ROOT, not VCPKG_ROOT.
+          $root = if ($env:VCPKG_INSTALLATION_ROOT) {
+            $env:VCPKG_INSTALLATION_ROOT } else { "C:\vcpkg" }
+          & "$root\vcpkg.exe" install zlib:x64-windows-static
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $prefix = "$root\installed\x64-windows-static" -replace '\\', '/'
+          Get-ChildItem "$prefix/lib", "$prefix/include/zlib.h"
+          "ZLIB_PREFIX=$prefix" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
 
       - name: Configure CMake
         run: |
           mkdir build
           cd build
-          cmake -G "Visual Studio 18 2026" -A x64 -DUSE_STATIC_CRT=ON -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON -DZLIB_USE_STATIC_LIBS=ON -DZLIB_ROOT="$env:VCPKG_ROOT/installed/x64-windows-static" ..
+          cmake -G "Visual Studio 18 2026" -A x64 -DUSE_STATIC_CRT=ON -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON -DZLIB_USE_STATIC_LIBS=ON "-DZLIB_ROOT=$env:ZLIB_PREFIX" ..
 
       - name: Build
         run: cmake --build build --config Release
