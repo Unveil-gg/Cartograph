@@ -38,7 +38,6 @@ Model::DetectedRoom Model::DetectColorRegion(int x, int y) {
     
     int minX = x, minY = y, maxX = x, maxY = y;
     bool touchesBorder = false;
-    bool hasOpenEdgeToEmpty = false;  // Track if region bleeds into empty
     
     while (!stack.empty()) {
         auto [cx, cy] = stack.back();
@@ -115,13 +114,9 @@ Model::DetectedRoom Model::DetectColorRegion(int x, int y) {
             if (neighborRoom == sourceRoomId) {
                 // Same color, continue flood-fill
                 stack.push_back({nx, ny});
-            } else if (neighborRoom.empty()) {
-                // Uncolored neighbor with no wall = open edge
-                // This doesn't make it non-enclosed if there's a physical
-                // boundary (wall/door), but if no wall, it's open
-                hasOpenEdgeToEmpty = true;
             }
-            // Different color = implicit boundary (don't traverse)
+            // Empty or a different color is a boundary. Color regions stay
+            // enclosed when they open onto empty cells.
         }
     }
     

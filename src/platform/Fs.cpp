@@ -9,8 +9,8 @@ namespace fs = std::filesystem;
 namespace Platform {
 
 std::optional<std::string> ShowOpenFileDialog(
-    const std::string& title,
-    const std::vector<std::pair<std::string, std::string>>& filters
+    const std::string& /*title*/,
+    const std::vector<std::pair<std::string, std::string>>& /*filters*/
 ) {
     // Fallback stub - platform-specific implementations in:
     // - platform/macos/Fs.mm (macOS)
@@ -19,9 +19,9 @@ std::optional<std::string> ShowOpenFileDialog(
 }
 
 std::optional<std::string> ShowSaveFileDialog(
-    const std::string& title,
-    const std::string& defaultName,
-    const std::vector<std::pair<std::string, std::string>>& filters
+    const std::string& /*title*/,
+    const std::string& /*defaultName*/,
+    const std::vector<std::pair<std::string, std::string>>& /*filters*/
 ) {
     // Fallback stub - see platform-specific implementations
     return std::nullopt;

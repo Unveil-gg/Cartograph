@@ -26,7 +26,7 @@ void Modals::ShowNewProjectFolderPicker() {
     // Show native folder picker dialog
     SDL_ShowOpenFolderDialog(
         // Callback
-        [](void* userdata, const char* const* filelist, int filter) {
+        [](void* userdata, const char* const* filelist, int /*filter*/) {
             // Take ownership of callback data (automatic cleanup on exit)
             std::unique_ptr<CallbackData> data(
                 static_cast<CallbackData*>(userdata)

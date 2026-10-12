@@ -232,8 +232,9 @@ void Modals::RenderAutosaveRecoveryModal(App& app, Model& model) {
     }
 }
 
-void Modals::RenderLoadingModal(App& app, Model& model, JobQueue& jobs, 
-                            IconManager& icons) {
+void Modals::RenderLoadingModal(App& /*app*/, Model& /*model*/,
+                            JobQueue& /*jobs*/,
+                            IconManager& /*icons*/) {
     if (!showLoadingModal) {
         loadingModalOpened = false;
         return;

@@ -47,7 +47,7 @@ namespace Cartograph {
 
 void UI::RenderToolButtons(
     IconManager& icons,
-    Canvas& canvas
+    Canvas& /*canvas*/
 ) {
     const char* toolNames[] = {
         "Move", "Select", "Paint", "Erase", "Fill", 
@@ -57,10 +57,6 @@ void UI::RenderToolButtons(
     const char* toolIconNames[] = {
         "move", "square-dashed", "paintbrush", "paint-bucket", "eraser",
         "map-pinned", "pipette", "zoom-in"
-    };
-    
-    const char* toolShortcuts[] = {
-        "V", "S", "B", "E", "F", "M", "I", "Z"
     };
     
     // Icon button size and spacing
@@ -213,10 +209,6 @@ void UI::RenderToolButtons(
     
     const char* roomToolIconNames[] = {
         "mouse-pointer-2", "paintbrush", "paint-bucket", "eraser"
-    };
-    
-    const char* roomToolShortcuts[] = {
-        "Shift+S", "Shift+R", "Shift+F", "Shift+E"
     };
     
     const ImVec4 maroonBg(0.55f, 0.1f, 0.1f, 1.0f);

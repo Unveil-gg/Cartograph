@@ -26,7 +26,7 @@ std::string ModifyEdgesCommand::GetDescription() const {
 bool ModifyEdgesCommand::TryCoalesce(
     ICommand* other,
     uint64_t timeDelta,
-    float distanceSq
+    float /*distanceSq*/
 ) {
     // Only coalesce if within time threshold
     if (timeDelta > COALESCE_TIME_MS) {

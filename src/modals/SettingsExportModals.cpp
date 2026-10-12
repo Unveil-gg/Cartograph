@@ -14,7 +14,7 @@
 namespace Cartograph {
 
 
-void Modals::RenderExportModal(Model& model, Canvas& canvas) {
+void Modals::RenderExportModal(Model& model, Canvas& /*canvas*/) {
     // Only call OpenPopup once when modal is first shown
     if (!exportModalOpened) {
         ImGui::OpenPopup("Export PNG");

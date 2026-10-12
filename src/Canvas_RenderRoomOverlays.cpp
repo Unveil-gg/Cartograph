@@ -163,7 +163,7 @@ void Canvas::RenderRoomOverlays(IRenderer& renderer, const Model& model,
 }
 
 
-void Canvas::CaptureThumbnail(IRenderer& renderer, const Model& model,
+void Canvas::CaptureThumbnail(IRenderer& renderer, const Model& /*model*/,
                               int viewportX, int viewportY,
                               int viewportW, int viewportH) {
     // Guard: viewport must be valid

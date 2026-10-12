@@ -267,7 +267,8 @@ void Modals::RenderDeleteIconModal(Model& model, IconManager& icons,
     }
 }
 
-void Modals::RenderMarkerLabelRenameModal(Model& model, History& history) {
+void Modals::RenderMarkerLabelRenameModal(Model& model,
+                                       History& /*history*/) {
     static bool modalOpened = false;
     
     if (!modalOpened) {

@@ -36,9 +36,9 @@ public:
      * @return true if coalesced successfully
      */
     virtual bool TryCoalesce(
-        ICommand* other, 
-        uint64_t timeDelta, 
-        float distanceSq
+        ICommand* /*other*/,
+        uint64_t /*timeDelta*/,
+        float /*distanceSq*/
     ) {
         return false;  // By default, no coalescing
     }

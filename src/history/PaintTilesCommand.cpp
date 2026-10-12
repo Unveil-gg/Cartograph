@@ -25,7 +25,7 @@ std::string PaintTilesCommand::GetDescription() const {
 bool PaintTilesCommand::TryCoalesce(
     ICommand* other, 
     uint64_t timeDelta, 
-    float distanceSq
+    float /*distanceSq*/
 ) {
     // Only coalesce if within time/distance thresholds
     if (timeDelta > COALESCE_TIME_MS) {

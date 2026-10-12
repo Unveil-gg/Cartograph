@@ -37,14 +37,14 @@ namespace Cartograph {
 App::App()
     : m_running(false)
     , m_appState(AppState::Welcome)
+    , m_lastDirtyState(false)
     , m_lastEditTime(0)
     , m_lastAutosaveTime(0)
+    , m_hasAutosaveRecovery(false)
+    , m_autosaveEnabled(true)
     , m_lastFrameTime(0)
     , m_hasDroppedFile(false)
     , m_isDragging(false)
-    , m_hasAutosaveRecovery(false)
-    , m_autosaveEnabled(true)
-    , m_lastDirtyState(false)
 {
 }
 

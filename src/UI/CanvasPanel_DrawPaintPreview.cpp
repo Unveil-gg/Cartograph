@@ -56,8 +56,6 @@ void CanvasPanel::DrawPaintPreview(
             int halfBrush = eraserBrushSize / 2;
             int startTileX = tx - halfBrush;
             int startTileY = ty - halfBrush;
-            int endTileX = tx + halfBrush;
-            int endTileY = ty + halfBrush;
             
             // Convert start tile to screen coords
             float startWx, startWy;

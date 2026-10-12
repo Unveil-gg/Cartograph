@@ -103,7 +103,7 @@ void UI::StartAsyncProjectLoad(
 
 
 void UI::HandleDroppedFile(const std::string& filePath, App& app,
-                           JobQueue& jobs, IconManager& icons) {
+                           JobQueue& jobs, IconManager& /*icons*/) {
     // Check if we're in Welcome Screen
     if (app.GetState() == AppState::Welcome) {
         // Try to import as project

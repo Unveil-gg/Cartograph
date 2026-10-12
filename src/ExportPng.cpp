@@ -6,9 +6,23 @@
 #include <cmath>
 #include <cstring>
 
-// stb_image_write for PNG export
+// stb_image_write for PNG export. Silence warnings in the vendored header.
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-field-initializers"
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#elif defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <stb/stb_image_write.h>
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
 
 namespace Cartograph {
 
@@ -71,8 +85,8 @@ void ExportPng::CalculateDimensions(
 
 bool ExportPng::Export(
     const Model& model,
-    Canvas& canvas,
-    IRenderer& renderer,
+    Canvas& /*canvas*/,
+    IRenderer& /*renderer*/,
     IconManager* icons,
     const std::string& path,
     const ExportOptions& options
@@ -91,7 +105,6 @@ bool ExportPng::Export(
     
     // Calculate effective scale
     int contentWidthTiles = bounds.maxX - bounds.minX + 1;
-    int contentHeightTiles = bounds.maxY - bounds.minY + 1;
     int contentWidthPx = contentWidthTiles * model.grid.tileWidth + 
                         options.padding * 2;
     float scale = (float)width / contentWidthPx;

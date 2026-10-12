@@ -13,14 +13,14 @@ namespace Cartograph {
 
 Canvas::Canvas()
     : offsetX(0.0f), offsetY(0.0f), zoom(2.5f), showGrid(true),
-      m_vpX(0), m_vpY(0), m_vpW(0), m_vpH(0),
       cachedThumbnailWidth(0), cachedThumbnailHeight(0),
-      hasCachedThumbnail(false)
+      hasCachedThumbnail(false),
+      m_vpX(0), m_vpY(0), m_vpW(0), m_vpH(0)
 {
 }
 
 
-void Canvas::Update(Model& model, float deltaTime) {
+void Canvas::Update(Model& /*model*/, float /*deltaTime*/) {
     // Input handling will be managed by UI layer
     // This is just a placeholder for any canvas-specific updates
 }

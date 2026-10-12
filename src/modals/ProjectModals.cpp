@@ -13,7 +13,7 @@
 namespace Cartograph {
 
 
-void Modals::RenderNewProjectModal(App& app, Model& model) {
+void Modals::RenderNewProjectModal(App& app, Model& /*model*/) {
     // Only call OpenPopup once when modal is first shown
     if (!newProjectModalOpened) {
         ImGui::OpenPopup("New Project");

@@ -45,7 +45,8 @@
 namespace Cartograph {
 
 
-void UI::RenderPropertiesPanel(Model& model, IconManager& icons, JobQueue& jobs,
+void UI::RenderPropertiesPanel(Model& model, IconManager& /*icons*/,
+                               JobQueue& /*jobs*/,
                                History& history, Canvas& canvas) {
     ImGuiWindowFlags flags = 
         ImGuiWindowFlags_NoMove | 

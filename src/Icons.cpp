@@ -181,7 +181,8 @@ void IconManager::BuildAtlas() {
                 int srcIdx = (y * iconData.width + x) * 4;
                 int dstIdx = ((atlasY + y) * m_atlasWidth + (atlasX + x)) * 4;
                 
-                if (dstIdx + 3 < atlasPixels.size()) {
+                if (static_cast<size_t>(dstIdx) + 3 <
+                    atlasPixels.size()) {
                     atlasPixels[dstIdx + 0] = iconData.pixels[srcIdx + 0];
                     atlasPixels[dstIdx + 1] = iconData.pixels[srcIdx + 1];
                     atlasPixels[dstIdx + 2] = iconData.pixels[srcIdx + 2];

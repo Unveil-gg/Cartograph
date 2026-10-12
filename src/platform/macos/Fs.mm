@@ -58,7 +58,7 @@ static bool IsValidProjectFolder(const std::string& path) {
  * @param allowFiles Whether files were allowed
  * @param allowFolders Whether folders were allowed
  */
-static void ShowInvalidSelectionAlert(const std::string& path,
+static void ShowInvalidSelectionAlert(const std::string& /*path*/,
                                       bool allowFiles,
                                       bool allowFolders) {
     @autoreleasepool {

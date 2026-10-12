@@ -23,9 +23,6 @@ void CanvasPanel::DrawPastePreview(
     ImDrawList* drawList
 ) {
         // Paste preview colors (using theme)
-        ImU32 previewFillColor = ImGui::GetColorU32(
-            model.theme.pastePreviewFill.ToImVec4()
-        );
         ImU32 previewBorderColor = ImGui::GetColorU32(
             model.theme.pastePreviewBorder.ToImVec4()
         );

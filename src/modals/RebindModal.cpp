@@ -43,19 +43,15 @@ void Modals::RenderRebindModal(Model& model, KeymapManager& keymap) {
             
             // Build binding string based on current input
             std::string binding = "";
-            bool hasModifier = false;
-            
+
             if (io.KeyCtrl) {
                 binding += "Ctrl+";
-                hasModifier = true;
             }
             if (io.KeyAlt) {
                 binding += "Alt+";
-                hasModifier = true;
             }
             if (io.KeyShift) {
                 binding += "Shift+";
-                hasModifier = true;
             }
             if (io.KeySuper) {
 #ifdef __APPLE__
@@ -63,7 +59,6 @@ void Modals::RenderRebindModal(Model& model, KeymapManager& keymap) {
 #else
                 binding += "Super+";
 #endif
-                hasModifier = true;
             }
             
             // Check for key press (A-Z, 0-9, special keys)

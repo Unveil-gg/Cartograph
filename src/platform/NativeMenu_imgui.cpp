@@ -71,7 +71,7 @@ void NativeMenuImGui::Update(
         canvas.SetZoom(2.5f);
     };
     
-    m_callbacks["assets.import_icon"] = [this]() {
+    m_callbacks["assets.import_icon"] = []() {
         // Placeholder - actual callback set via SetCallback() in UI.cpp
     };
 }

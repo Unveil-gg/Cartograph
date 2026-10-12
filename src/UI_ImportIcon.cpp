@@ -75,7 +75,7 @@ void UI::ImportIcon(IconManager& iconManager, JobQueue& jobs) {
     // Show native file dialog
     SDL_ShowOpenFileDialog(
         // Callback
-        [](void* userdata, const char* const* filelist, int filter) {
+        [](void* userdata, const char* const* filelist, int /*filter*/) {
             // Take ownership of callback data (automatic cleanup on exit)
             std::unique_ptr<CallbackData> data(
                 static_cast<CallbackData*>(userdata)
@@ -138,7 +138,7 @@ void UI::ShowSaveProjectDialog(App& app) {
     // Show native folder picker dialog
     SDL_ShowOpenFolderDialog(
         // Callback
-        [](void* userdata, const char* const* filelist, int filter) {
+        [](void* userdata, const char* const* filelist, int /*filter*/) {
             // Take ownership of callback data (automatic cleanup on exit)
             std::unique_ptr<CallbackData> data(
                 static_cast<CallbackData*>(userdata)
@@ -209,7 +209,8 @@ void UI::ShowExportPackageDialog(App& app) {
     // Show native save file dialog
     SDL_ShowSaveFileDialog(
         // Callback
-        [](void* userdata, const char* const* filelist, int filterIndex) {
+        [](void* userdata, const char* const* filelist,
+           int /*filterIndex*/) {
             // Take ownership of callback data (automatic cleanup on exit)
             std::unique_ptr<CallbackData> data(
                 static_cast<CallbackData*>(userdata)
@@ -288,7 +289,8 @@ void UI::ShowExportPngDialog(App& app) {
     // Show native save file dialog
     SDL_ShowSaveFileDialog(
         // Callback
-        [](void* userdata, const char* const* filelist, int filterIndex) {
+        [](void* userdata, const char* const* filelist,
+           int /*filterIndex*/) {
             // Take ownership of callback data (automatic cleanup on exit)
             std::unique_ptr<CallbackData> data(
                 static_cast<CallbackData*>(userdata)

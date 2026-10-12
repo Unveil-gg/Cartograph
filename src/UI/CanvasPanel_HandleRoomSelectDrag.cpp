@@ -19,7 +19,7 @@ namespace Cartograph {
 
 void CanvasPanel::HandleRoomSelectDrag(
     Model& model,
-    Canvas& canvas,
+    Canvas& /*canvas*/,
     History& history
 ) {
         // Handle drag: initiate drag-drop to hierarchy

@@ -185,7 +185,7 @@ void NativeMenuMacOS::Update(
         canvas.SetZoom(2.5f);
     };
     
-    m_callbacks["assets.import_icon"] = [this]() {
+    m_callbacks["assets.import_icon"] = []() {
         // Placeholder - actual callback set via SetCallback() in UI.cpp
     };
 }
@@ -221,8 +221,7 @@ void NativeMenuMacOS::BuildMenuBar() {
     [appMenu setAutoenablesItems:NO];
     
     // About
-    NSMenuItem* aboutItem = CreateMenuItem(appMenu, "About Cartograph", 
-                                           "help.about", "", 0);
+    CreateMenuItem(appMenu, "About Cartograph", "help.about", "", 0);
     
     [appMenu addItem:[NSMenuItem separatorItem]];
     
@@ -280,9 +279,8 @@ void NativeMenuMacOS::BuildMenuBar() {
     [appMenu addItem:[NSMenuItem separatorItem]];
     
     // Quit
-    NSMenuItem* quitItem = CreateMenuItem(appMenu, "Quit Cartograph",
-                                         "file.quit", "q",
-                                         NSEventModifierFlagCommand);
+    CreateMenuItem(appMenu, "Quit Cartograph", "file.quit", "q",
+                   NSEventModifierFlagCommand);
     
     [appMenuItem setSubmenu:appMenu];
     [menuBar addItem:appMenuItem];

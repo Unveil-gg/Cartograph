@@ -47,7 +47,7 @@ namespace Cartograph {
 
 
 
-void UI::RenderStatusBar(Model& model, Canvas& canvas) {
+void UI::RenderStatusBar(Model& /*model*/, Canvas& canvas) {
     ImGuiWindowFlags flags = 
         ImGuiWindowFlags_NoMove | 
         ImGuiWindowFlags_NoCollapse |

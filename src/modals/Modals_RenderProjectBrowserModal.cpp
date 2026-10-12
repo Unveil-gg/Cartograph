@@ -89,7 +89,6 @@ void Modals::RenderProjectBrowserModal(App& app,
         
         // Card dimensions for modal view (sized to fit 3 per row snugly)
         const float cardWidth = 265.0f;
-        const float cardHeight = 190.0f;
         const float thumbnailHeight = 149.0f;  // 265*9/16
         const float titleHeight = 25.0f;
         const float cardSpacing = 12.0f;

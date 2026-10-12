@@ -45,7 +45,6 @@ void WelcomeScreen::RenderRecentProjectsList(App& app) {
     
     // Card dimensions (16:9 aspect ratio thumbnails)
     const float cardWidth = 260.0f;
-    const float cardHeight = 174.0f;
     const float thumbnailHeight = 146.0f;  // 260*9/16 = 146.25
     const float cardSpacing = 16.0f;
     const float titleHeight = 28.0f;
