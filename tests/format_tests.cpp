@@ -2,8 +2,10 @@
 
 #include "TestUtil.h"
 
+#include "Config.h"
 #include "IOJson.h"
 #include "Model.h"
+#include <nlohmann/json.hpp>
 
 using testutil::Expect;
 using namespace Cartograph;
@@ -145,6 +147,17 @@ void TestV2Compat() {
            "v3 sections default to empty");
 }
 
+/** Saving a v2 file writes the current schema without extra migration. */
+void TestV2SaveUpgradesSchema() {
+    Model m;
+    Expect(IOJson::LoadFromString(
+               "{\"version\":2,\"grid\":{\"cols\":4,\"rows\":4}}", m),
+           "v2 loads for upgrade");
+    const auto saved = nlohmann::json::parse(IOJson::SaveToString(m));
+    Expect(saved.value("version", 0) == kProjectVersion,
+           "save bumps project.json to v3");
+}
+
 }  // namespace
 
 int main() {
@@ -155,5 +168,6 @@ int main() {
     TestInteriorSize();
     TestInteriorGuards();
     TestV2Compat();
+    TestV2SaveUpgradesSchema();
     return testutil::Finish("format_tests");
 }

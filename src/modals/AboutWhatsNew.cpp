@@ -26,21 +26,33 @@ void Modals::RenderWhatsNewPanel() {
         ImGui::Separator();
         ImGui::Spacing();
         
-        // Version 1.1.0 features
-        ImGui::TextColored(ImVec4(0.6f, 0.8f, 0.6f, 1.0f), "New in 1.1.0");
+        ImGui::TextColored(ImVec4(0.6f, 0.8f, 0.6f, 1.0f), "New in 2.0.0");
         ImGui::BulletText(
-            "Coordinates updated with auto-migration for old .cart files");
-        ImGui::BulletText("Proper multiline support in descriptions");
-        ImGui::Indent();
-        ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), 
-            "(Thanks to TomNaughton)");
-        ImGui::Unindent();
+            "Play Cartograph in your browser (save, open, export .cart/PNG)");
+        ImGui::BulletText(
+            "Interior room layout editor for per-cell room design");
+        ImGui::BulletText("Stability fixes and polish across the editor");
+        ImGui::BulletText(
+            "Older .cart files still open; v1 maps auto-migrate on load");
         ImGui::Spacing();
-        
+
         ImGui::Separator();
         ImGui::Spacing();
-        
-        // Previous release summary
+
+        if (ImGui::CollapsingHeader("Version 1.1.0")) {
+            ImGui::BulletText(
+                "Coordinates updated with auto-migration for old .cart files");
+            ImGui::BulletText("Proper multiline support in descriptions");
+            ImGui::Indent();
+            ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f),
+                "(Thanks to TomNaughton)");
+            ImGui::Unindent();
+        }
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
         if (ImGui::CollapsingHeader("Version 1.0.0 - Initial Release")) {
             ImGui::BulletText("Infinite pan/zoom canvas with grid snapping");
             ImGui::BulletText("Paint, Erase, Fill, and Eyedropper tools");

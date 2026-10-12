@@ -59,9 +59,18 @@ python3 -m http.server -d build-web 8080   # open http://localhost:8080
 The first configure runs `embuilder build zlib` (needed for `.cart`
 export). Passing `-DBUILD_WEB=ON` without `emcmake` is an error.
 
-Output is `index.html`, `index.js`, `index.wasm` and `index.data`. For
-itch.io, zip those four files, upload as "HTML", and tick "This file will
-be played in the browser".
+Output is `index.html`, `index.js`, `index.wasm` and `index.data`.
+
+### itch.io
+
+Tag releases (`git push origin v2.0.0`) run the **Deploy to itch.io** job,
+which uses [butler](https://itch.io/docs/butler/) to push to
+[unveil-gg/cartograph](https://unveil-gg.itch.io/cartograph). Add a
+repository secret **`BUTLER_API_KEY`** (itch.io → profile → API keys).
+
+On the itch project, create butler channels **`html`** (play in browser),
+**`windows`**, and **`osx`** for desktop downloads. Manual upload: zip the
+four web files, choose HTML, tick “This file will be played in the browser”.
 
 How I/O works in the browser:
 

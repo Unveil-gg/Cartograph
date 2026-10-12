@@ -334,7 +334,7 @@ bool IOJson::LoadFromString(const std::string& jsonStr, Model& outModel) {
             outModel.meta.description = meta.value("description", "");
         }
         
-        // TODO(v3+): Remove v1 migration after 2026-06-01 or next major release
+        // Migrate v1/v1.1 in-memory only; save writes v3 (no batch rewrite).
         // Migrate v1/v1.1 files to v2: flip Y coords and shift to positive space
         if (needsMigration) {
             MigrateV1(outModel);
