@@ -26,7 +26,8 @@ The cache default for `CMAKE_OSX_DEPLOYMENT_TARGET` is 10.15. Release CI
 passes 11.0.
 
 On Windows, pick a Visual Studio generator that matches the installed toolset.
-CI uses `cmake -G "Visual Studio 17 2022" -A x64`.
+`windows-latest` ships Visual Studio 2026, so CI uses
+`cmake -G "Visual Studio 18 2026" -A x64`.
 
 ## Tests
 
