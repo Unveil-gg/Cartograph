@@ -1,0 +1,6 @@
+# Windows Git turns LF into CRLF by default. That corrupts zip data.
+*.cart binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary

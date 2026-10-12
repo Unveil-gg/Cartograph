@@ -27,7 +27,8 @@ passes 11.0.
 
 On Windows, pick a Visual Studio generator that matches the installed toolset.
 `windows-latest` ships Visual Studio 2026, so CI uses
-`cmake -G "Visual Studio 18 2026" -A x64`.
+`cmake -G "Visual Studio 18 2026" -A x64`. `.cart` files need zlib;
+CI installs the static vcpkg build and passes `ZLIB_ROOT`.
 
 ## Tests
 

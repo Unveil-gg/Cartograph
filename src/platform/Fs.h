@@ -71,7 +71,7 @@ bool WriteFile(const std::string& path, const std::vector<uint8_t>& data);
 std::optional<std::string> ReadTextFile(const std::string& path);
 
 /**
- * Write text file.
+ * Write text unchanged, including line endings.
  * @param path File path
  * @param text Text to write
  * @return true on success

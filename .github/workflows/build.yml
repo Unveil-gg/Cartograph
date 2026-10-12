@@ -46,11 +46,14 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Install zlib
+        run: vcpkg install zlib:x64-windows-static
+
       - name: Configure CMake
         run: |
           mkdir build
           cd build
-          cmake -G "Visual Studio 18 2026" -A x64 -DUSE_STATIC_CRT=ON -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON ..
+          cmake -G "Visual Studio 18 2026" -A x64 -DUSE_STATIC_CRT=ON -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON -DZLIB_USE_STATIC_LIBS=ON -DZLIB_ROOT="$env:VCPKG_ROOT/installed/x64-windows-static" ..
 
       - name: Build
         run: cmake --build build --config Release

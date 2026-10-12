@@ -81,7 +81,8 @@ std::optional<std::string> ReadTextFile(const std::string& path) {
 }
 
 bool WriteTextFile(const std::string& path, const std::string& text) {
-    std::ofstream file(path);
+    // Binary keeps LF as LF. Text mode on Windows would write CRLF.
+    std::ofstream file(path, std::ios::binary);
     if (!file.is_open()) {
         return false;
     }

@@ -44,6 +44,17 @@ endif()
 # Third-party dependencies
 add_subdirectory(third_party)
 
+# Apple uses libcompression. Other platforms need zlib or .cart
+# files silently fail to open (minizip disables deflate).
+if(WIN32 AND NOT BUILD_WEB AND TARGET minizip)
+    get_target_property(_mz_defs minizip COMPILE_DEFINITIONS)
+    if(NOT _mz_defs MATCHES "HAVE_ZLIB")
+        message(FATAL_ERROR
+            "zlib is required to read and write .cart files. "
+            "Install it, set ZLIB_ROOT, and reconfigure.")
+    endif()
+endif()
+
 # Core library: model, persistence, and reachability. No window or UI.
 # Shared by the app, the CLI, and the tests.
 set(CARTOGRAPH_CORE_SOURCES
