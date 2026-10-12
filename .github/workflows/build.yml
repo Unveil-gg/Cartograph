@@ -1,5 +1,5 @@
 # Cartograph Build Workflow
-# Builds for Windows and macOS with optional signing/notarization
+# Builds for Windows, macOS and Web with optional signing/notarization
 #
 # Triggers:
 #   - Manual: Actions tab → "Build" → "Run workflow"
@@ -185,11 +185,48 @@ jobs:
           retention-days: 30
 
   # ===========================================================================
+  # Web Build (Emscripten, zip uploads straight to itch.io HTML5)
+  # ===========================================================================
+  build-web:
+    name: Web
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: latest
+
+      - name: Configure CMake
+        run: emcmake cmake -S . -B build-web -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build-web --target Cartograph -j$(nproc)
+
+      - name: Prepare artifact
+        run: |
+          mkdir artifact
+          cp build-web/index.html build-web/index.js build-web/index.wasm \
+             build-web/index.data artifact/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cartograph-Web
+          path: artifact/
+          retention-days: 30
+
+  # ===========================================================================
   # Create Release (only on tag push)
   # ===========================================================================
   release:
     name: Create Release
-    needs: [build-windows, build-macos]
+    needs: [build-windows, build-macos, build-web]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
     permissions:
@@ -208,10 +245,17 @@ jobs:
           name: Cartograph-macOS
           path: macos
 
+      - name: Download Web artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: Cartograph-Web
+          path: web
+
       - name: Create release zips
         run: |
           cd windows && zip -9 -r ../Cartograph-Windows.zip . && cd ..
           cd macos && zip -9 -r ../Cartograph-macOS.zip . && cd ..
+          cd web && zip -9 -r ../Cartograph-Web.zip . && cd ..
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
@@ -219,5 +263,6 @@ jobs:
           files: |
             Cartograph-Windows.zip
             Cartograph-macOS.zip
+            Cartograph-Web.zip
           draft: true
           generate_release_notes: true

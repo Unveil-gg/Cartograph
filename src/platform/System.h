@@ -29,7 +29,7 @@ bool OpenURL(const std::string& url);
 
 /**
  * Get the platform name for display purposes.
- * @return "macOS", "Windows", or "Linux"
+ * @return "macOS", "Windows", "Linux", or "Web"
  */
 std::string GetPlatformName();
 

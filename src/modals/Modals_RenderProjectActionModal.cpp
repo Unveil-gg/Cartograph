@@ -6,6 +6,7 @@
 #include "../platform/Paths.h"
 #include <imgui.h>
 #include <SDL3/SDL.h>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <algorithm>
@@ -328,6 +329,26 @@ void Modals::ApplyTemplate(ProjectTemplate tmpl) {
             // Keep current settings
             break;
     }
+}
+
+
+void Modals::BeginNewProject() {
+    showNewProjectModal = true;
+    // Reset config to defaults
+    std::strncpy(newProjectConfig.projectName, "New Map",
+                 sizeof(newProjectConfig.projectName) - 1);
+    newProjectConfig.projectName[
+        sizeof(newProjectConfig.projectName) - 1] = '\0';
+    newProjectConfig.gridPreset = GridPreset::Square;
+    newProjectConfig.mapWidth = 100;
+    newProjectConfig.mapHeight = 100;
+    
+    // Initialize default save path
+    newProjectConfig.saveDirectory = Platform::GetDefaultProjectsDir();
+    UpdateNewProjectPath();
+    
+    // Ensure default directory exists
+    Platform::EnsureDirectoryExists(newProjectConfig.saveDirectory);
 }
 
 

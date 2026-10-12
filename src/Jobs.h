@@ -28,7 +28,7 @@ using JobCallback = std::function<void(bool success, const std::string& error)>;
 /**
  * Job queue for background tasks.
  * Desktop: Uses a worker thread.
- * Web: Falls back to synchronous execution (Web Workers support possible later).
+ * Web: Runs work on the main thread inside ProcessCallbacks().
  */
 class JobQueue {
 public:
@@ -78,6 +78,7 @@ private:
     };
     
     void WorkerThread();
+    static void RunJob(Job& job);
     
     std::thread m_worker;
     std::atomic<bool> m_running;

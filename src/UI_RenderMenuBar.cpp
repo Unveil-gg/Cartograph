@@ -100,6 +100,7 @@ void UI::RenderMenuBar(
                 m_modals.showExportModal = true;
             }
             
+#ifndef __EMSCRIPTEN__
             ImGui::Separator();
             
             // Quit (platform-specific label)
@@ -112,6 +113,7 @@ void UI::RenderMenuBar(
             if (ImGui::MenuItem(quitLabel.c_str(), quitShortcut.c_str())) {
                 app.RequestQuit();
             }
+#endif
             
             ImGui::EndMenu();
         }

@@ -7,7 +7,10 @@ namespace fs = std::filesystem;
 namespace Platform {
 
 std::string GetUserDataDir() {
-#ifdef __APPLE__
+#ifdef __EMSCRIPTEN__
+    // /persist is mounted from IndexedDB (see platform/web/pre.js)
+    return "/persist/userdata/";
+#elif defined(__APPLE__)
     const char* home = getenv("HOME");
     if (home) {
         return std::string(home) + 
@@ -32,7 +35,9 @@ std::string GetAutosaveDir() {
 }
 
 std::string GetDefaultProjectsDir() {
-#ifdef __APPLE__
+#ifdef __EMSCRIPTEN__
+    return "/persist/projects/";
+#elif defined(__APPLE__)
     const char* home = getenv("HOME");
     if (home) {
         return std::string(home) + "/Documents/Cartograph/";
@@ -52,6 +57,10 @@ std::string GetDefaultProjectsDir() {
 }
 
 std::string GetAssetsDir() {
+#ifdef __EMSCRIPTEN__
+    // Preloaded into the virtual file system at link time
+    return "/assets/";
+#endif
 #ifdef __APPLE__
     // When running as .app bundle, assets are in Resources/
     const char* base = SDL_GetBasePath();

@@ -15,6 +15,9 @@
 #include "platform/System.h"
 #include "platform/NativeMenu.h"
 #include "platform/NativeMenu_imgui.h"
+#ifdef __EMSCRIPTEN__
+#include "platform/web/Web.h"
+#endif
 #include "UI/ImGuiHelpers.h"
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -46,6 +49,22 @@ namespace Cartograph {
 
 
 void UI::ImportIcon(IconManager& iconManager, JobQueue& jobs) {
+#ifdef __EMSCRIPTEN__
+    // Browsers use their own file picker, which returns an uploaded copy.
+    Platform::Web::PickFile(
+        ".png,.jpg,.jpeg,.bmp,.gif,.tga,.webp",
+        [this, &iconManager, &jobs](const std::string& path) {
+            if (path.empty()) {
+                return;
+            }
+            std::string baseName =
+                std::filesystem::path(path).stem().string();
+            EnqueueIconImport(
+                this, iconManager, jobs, path,
+                iconManager.GenerateUniqueName(baseName));
+        });
+    return;
+#endif
     // Use SDL3 native file dialog
     
     // Setup filters for image files
@@ -124,6 +143,14 @@ void UI::ImportIcon(IconManager& iconManager, JobQueue& jobs) {
 
 
 void UI::ShowSaveProjectDialog(App& app) {
+#ifdef __EMSCRIPTEN__
+    // Browsers have no folder picker. Keep the project in browser storage.
+    // Use Export Package to download a .cart file.
+    app.SaveProjectFolder(
+        Platform::GetDefaultProjectsDir() +
+        SanitizeFilename(app.GetModel().meta.title) + CARTPROJ_EXTENSION);
+    return;
+#endif
     // Callback struct
     struct CallbackData {
         UI* ui;
@@ -177,6 +204,16 @@ void UI::ShowSaveProjectDialog(App& app) {
 
 
 void UI::ShowExportPackageDialog(App& app) {
+#ifdef __EMSCRIPTEN__
+    // Write to a temp file, then hand it to the browser as a download.
+    std::string path = Platform::Web::GetExportDir() +
+        SanitizeFilename(app.GetModel().meta.title) + ".cart";
+    app.ExportPackage(path);
+    if (Platform::FileExists(path)) {
+        Platform::Web::DownloadFile(path);
+    }
+    return;
+#endif
     // Callback struct
     struct CallbackData {
         UI* ui;
@@ -256,6 +293,21 @@ void UI::ShowExportPackageDialog(App& app) {
 
 
 void UI::ShowExportPngDialog(App& app) {
+#ifdef __EMSCRIPTEN__
+    // Write to a temp file, then hand it to the browser as a download.
+    if (app.GetModel().CalculateContentBounds().isEmpty) {
+        ShowToast("Cannot export: No content drawn yet",
+                  Toast::Type::Error);
+        return;
+    }
+    std::string path = Platform::Web::GetExportDir() +
+        SanitizeFilename(app.GetModel().meta.title) + ".png";
+    app.ExportPng(path);
+    if (Platform::FileExists(path)) {
+        Platform::Web::DownloadFile(path);
+    }
+    return;
+#endif
     // Callback struct
     struct CallbackData {
         UI* ui;

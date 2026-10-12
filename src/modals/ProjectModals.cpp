@@ -58,10 +58,16 @@ void Modals::RenderNewProjectModal(App& app, Model& /*model*/) {
         ImGui::PopStyleVar();
         ImGui::PopStyleColor();
         
+#ifdef __EMSCRIPTEN__
+        // Browsers have no folder picker; projects live in browser storage.
+        ImGui::TextDisabled("Saved in your browser. Use File > Export "
+                            "Package to download a .cart file.");
+#else
         if (ImGui::Button("Choose Different Location...", 
                          ImVec2(240, 0))) {
             ShowNewProjectFolderPicker();
         }
+#endif
         
         ImGui::Spacing();
         ImGui::Separator();

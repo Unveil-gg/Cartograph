@@ -9,6 +9,9 @@
 #include "ExportPng.h"
 #include "Thumbnail.h"
 #include "Preferences.h"
+#ifdef __EMSCRIPTEN__
+#include "platform/web/Web.h"
+#endif
 #include <algorithm>
 #include <glad/gl.h>
 #include <SDL3/SDL.h>
@@ -59,11 +62,20 @@ bool App::Init(const std::string& title, int width, int height) {
         return false;
     }
     
+#ifdef __EMSCRIPTEN__
+    // WebGL2 is OpenGL ES 3.0. The canvas follows the browser window.
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK,
+        SDL_GL_CONTEXT_PROFILE_ES);
+    SDL_SetHint(SDL_HINT_EMSCRIPTEN_FILL_DOCUMENT, "1");
+#else
     // OpenGL 3.3 Core Profile
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, 
         SDL_GL_CONTEXT_PROFILE_CORE);
+#endif
     
     // HiDPI support
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
@@ -81,12 +93,14 @@ bool App::Init(const std::string& title, int width, int height) {
         return false;
     }
     
+#ifndef __EMSCRIPTEN__
     // Lock aspect ratio to 16:9 to prevent warping during resize
     float aspectRatio = 16.0f / 9.0f;
     SDL_SetWindowAspectRatio(m_window.get(), aspectRatio, aspectRatio);
     
     // Minimum size to prevent unusably small UI (maintains 16:9)
     SDL_SetWindowMinimumSize(m_window.get(), 1152, 648);
+#endif
     
     // Create OpenGL context
     m_glContext.reset(SDL_GL_CreateContext(m_window.get()));
@@ -97,12 +111,14 @@ bool App::Init(const std::string& title, int width, int height) {
     SDL_GL_MakeCurrent(m_window.get(), m_glContext.get());
     SDL_GL_SetSwapInterval(1);  // Enable VSync
     
+#ifndef __EMSCRIPTEN__
     // Initialize GLAD (cross-platform OpenGL loader)
     int gladVersion = gladLoadGL((GLADloadfunc)SDL_GL_GetProcAddress);
     if (gladVersion == 0) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to initialize GLAD");
         return false;
     }
+#endif
     
     // Initialize renderer (passes non-owning pointer)
     m_renderer = std::make_unique<GlRenderer>(m_window.get());
@@ -176,6 +192,10 @@ SDL_AppResult App::Iterate() {
     
     // Autosave check
     DoAutosave();
+
+#ifdef __EMSCRIPTEN__
+    Platform::Web::UpdateStorage();
+#endif
     
     return SDL_APP_CONTINUE;
 }

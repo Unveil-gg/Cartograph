@@ -15,6 +15,9 @@
 #include "platform/System.h"
 #include "platform/NativeMenu.h"
 #include "platform/NativeMenu_imgui.h"
+#ifdef __EMSCRIPTEN__
+#include "platform/web/Web.h"
+#endif
 #include "UI/ImGuiHelpers.h"
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -123,7 +126,14 @@ void UI::HandleDroppedFile(const std::string& filePath, App& app,
         }
         
         if (isValidProject) {
+#ifdef __EMSCRIPTEN__
+            // Dropped files are temporary. Keep a copy in browser storage.
+            std::string stored = Platform::Web::ImportProject(filePath);
+            StartAsyncProjectLoad(stored.empty() ? filePath : stored, app,
+                                  jobs);
+#else
             StartAsyncProjectLoad(filePath, app, jobs);
+#endif
         } else {
             // Invalid format
             ShowToast(

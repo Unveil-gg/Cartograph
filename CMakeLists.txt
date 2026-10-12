@@ -11,6 +11,26 @@ option(BUILD_WEB "Build for Web (Emscripten)" OFF)
 option(USE_STATIC_CRT "Use static CRT on Windows" OFF)
 option(USE_SVG_ICONS "Enable SVG icon support via NanoSVG" OFF)
 
+# Web build: configure with `emcmake cmake -DBUILD_WEB=ON ...`
+if(EMSCRIPTEN)
+    set(BUILD_WEB ON)
+elseif(BUILD_WEB)
+    message(FATAL_ERROR "BUILD_WEB needs Emscripten: use emcmake cmake")
+endif()
+
+if(BUILD_WEB)
+    # nlohmann/json and the job queue throw. Every object must match.
+    add_compile_options(-fwasm-exceptions)
+    add_link_options(-fwasm-exceptions)
+    # minizip-ng needs zlib from the Emscripten port cache.
+    find_program(EMBUILDER NAMES embuilder embuilder.py
+        HINTS "${EMSCRIPTEN_ROOT_PATH}")
+    if(EMBUILDER)
+        execute_process(COMMAND ${EMBUILDER} build zlib
+            RESULT_VARIABLE EMBUILDER_RESULT OUTPUT_QUIET ERROR_QUIET)
+    endif()
+endif()
+
 # Platform-specific settings
 if(APPLE)
     set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "Minimum macOS version")
@@ -73,6 +93,13 @@ if(TARGET minizip)
 endif()
 if(APPLE)
     target_link_libraries(cartograph_core PUBLIC "-framework OpenGL")
+endif()
+if(BUILD_WEB)
+    # WebGL2 is OpenGL ES 3.0. This dir holds a <glad/gl.h> that maps to
+    # <GLES3/gl3.h>, so GL code builds unchanged. It must precede glad's.
+    target_include_directories(cartograph_core BEFORE PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/web/include)
+    target_compile_definitions(imgui PUBLIC IMGUI_IMPL_OPENGL_ES3)
 endif()
 if(MSVC)
     target_compile_options(cartograph_core PRIVATE /W4)
@@ -231,6 +258,10 @@ if(WIN32)
     )
 endif()
 
+if(BUILD_WEB)
+    list(APPEND CARTOGRAPH_SOURCES src/platform/web/Web.cpp)
+endif()
+
 set(CARTOGRAPH_HEADERS
     src/App.h
     src/UI.h
@@ -357,7 +388,35 @@ target_compile_definitions(Cartograph PRIVATE
 )
 
 # Platform-specific linking
-if(APPLE)
+if(BUILD_WEB)
+    # index.html + index.js/.wasm/.data zips straight into an itch.io
+    # HTML5 upload. Assets are preloaded into the virtual file system.
+    set_target_properties(Cartograph PROPERTIES
+        OUTPUT_NAME "index"
+        SUFFIX ".html"
+    )
+    set(WEB_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/web)
+    target_link_options(Cartograph PRIVATE
+        -sMIN_WEBGL_VERSION=2
+        -sMAX_WEBGL_VERSION=2
+        -sFULL_ES3=1
+        -sALLOW_MEMORY_GROWTH=1
+        -sINITIAL_MEMORY=64MB
+        -sSTACK_SIZE=1MB
+        -sFORCE_FILESYSTEM=1
+        -sEXPORTED_RUNTIME_METHODS=ccall
+        -lidbfs.js
+        "SHELL:--pre-js ${WEB_DIR}/pre.js"
+        "SHELL:--js-library ${WEB_DIR}/library.js"
+        "SHELL:--shell-file ${WEB_DIR}/shell.html"
+        "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/assets/icons@/assets/icons"
+        "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/assets/tools@/assets/tools"
+        "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/assets/project/cartograph-logo.png@/assets/project/cartograph-logo.png"
+        "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/assets/project/unveil-logo.png@/assets/project/unveil-logo.png"
+    )
+    set_target_properties(Cartograph PROPERTIES LINK_DEPENDS
+        "${WEB_DIR}/pre.js;${WEB_DIR}/library.js;${WEB_DIR}/shell.html")
+elseif(APPLE)
     target_link_libraries(Cartograph PRIVATE
         "-framework OpenGL"
         "-framework Cocoa"
@@ -459,6 +518,11 @@ if(NOT APPLE)
     # Install assets excluding repo/ (GitHub-only assets)
     install(DIRECTORY assets/icons assets/project assets/tools
             DESTINATION assets)
+endif()
+
+# The web build only produces the app. Tests and the CLI are native.
+if(BUILD_WEB)
+    return()
 endif()
 
 # Tests. They link the core library, not the UI.

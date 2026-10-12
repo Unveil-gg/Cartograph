@@ -21,7 +21,9 @@ bool OpenURL(const std::string& url) {
 }
 
 std::string GetPlatformName() {
-#ifdef __APPLE__
+#ifdef __EMSCRIPTEN__
+    return "Web";
+#elif defined(__APPLE__)
     return "macOS";
 #elif defined(_WIN32)
     return "Windows";

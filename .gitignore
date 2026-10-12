@@ -27,3 +27,4 @@ autosave/
 
 # ImGui
 imgui.ini
+build-web/

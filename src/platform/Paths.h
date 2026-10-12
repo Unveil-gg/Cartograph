@@ -8,6 +8,7 @@ namespace Platform {
  * Get the user data directory for persistent storage.
  * macOS: ~/Library/Application Support/Unveil Cartograph/
  * Windows: %APPDATA%\Unveil\Cartograph\
+ * Web: /persist/userdata/ (browser storage)
  * @return Path to user data directory
  */
 std::string GetUserDataDir();
@@ -23,6 +24,7 @@ std::string GetAutosaveDir();
  * macOS: ~/Documents/Cartograph/
  * Windows: %USERPROFILE%\Documents\Cartograph\
  * Linux: ~/Documents/Cartograph/
+ * Web: /persist/projects/ (browser storage)
  * @return Path to default projects directory
  */
 std::string GetDefaultProjectsDir();

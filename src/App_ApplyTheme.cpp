@@ -9,6 +9,9 @@
 #include "ExportPng.h"
 #include "Thumbnail.h"
 #include "Preferences.h"
+#ifdef __EMSCRIPTEN__
+#include "platform/web/Web.h"
+#endif
 #include <algorithm>
 #include <glad/gl.h>
 #include <SDL3/SDL.h>
@@ -313,6 +316,11 @@ void App::FinishOpen(const std::string& path) {
 
 
 void App::ShowNewProjectDialog() {
+#ifdef __EMSCRIPTEN__
+    // No folder picker in browsers: the modal saves to browser storage.
+    m_ui.m_modals.BeginNewProject();
+    return;
+#endif
     // Callback struct
     struct CallbackData {
         App* app;
@@ -359,6 +367,18 @@ void App::ShowNewProjectDialog() {
 
 
 void App::ShowOpenProjectDialog() {
+#ifdef __EMSCRIPTEN__
+    // Browser file picker; the upload is copied into browser storage.
+    Platform::Web::PickFile(".cart", [this](const std::string& upload) {
+        std::string path = upload.empty()
+            ? upload : Platform::Web::ImportProject(upload);
+        if (!path.empty()) {
+            OpenProject(path);
+            ShowEditor();
+        }
+    });
+    return;
+#endif
     // Use platform-native dialog that supports both files and folders
     auto result = Platform::ShowOpenDialogForImport(
         "Open Cartograph Project",

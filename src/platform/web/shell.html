@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Cartograph</title>
+    <style>
+        html, body {
+            margin: 0;
+            height: 100%;
+            overflow: hidden;
+            background: #1a1a1f;
+            color: #ccc;
+            font-family: sans-serif;
+        }
+        #canvas {
+            display: block;
+            outline: none;
+        }
+        #status {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas" tabindex="-1"
+            oncontextmenu="event.preventDefault()"></canvas>
+    <div id="status">Loading Cartograph...</div>
+    <script>
+        var statusEl = document.getElementById('status');
+        var Module = {
+            canvas: document.getElementById('canvas'),
+            print: function (text) { console.log(text); },
+            printErr: function (text) { console.error(text); },
+            setStatus: function (text) {
+                statusEl.textContent = text;
+                statusEl.style.display = text ? 'flex' : 'none';
+            },
+            onAbort: function () {
+                statusEl.textContent =
+                    'Cartograph crashed. Reload the page to restart.';
+                statusEl.style.display = 'flex';
+            }
+        };
+    </script>
+    {{{ SCRIPT }}}
+</body>
+</html>

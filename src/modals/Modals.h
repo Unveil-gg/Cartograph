@@ -218,6 +218,7 @@ public:
     // Public helpers (called from UI)
     void UpdateNewProjectPath();
     void ShowNewProjectFolderPicker();
+    void BeginNewProject();
     
     // Get UI reference (for modal implementations)
     UI& GetUI() { return m_ui; }

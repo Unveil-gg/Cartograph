@@ -150,9 +150,12 @@ void NativeMenuImGui::RenderMenuBar() {
                     if (it != m_callbacks.end()) it->second();
                 }
                 
+#ifndef __EMSCRIPTEN__
                 ImGui::Separator();
+#endif
             }
             
+#ifndef __EMSCRIPTEN__
             // Exit (Windows/Linux uses "Exit" instead of "Quit")
 #ifdef _WIN32
             std::string quitLabel = "Exit";
@@ -164,6 +167,7 @@ void NativeMenuImGui::RenderMenuBar() {
                 auto it = m_callbacks.find("file.quit");
                 if (it != m_callbacks.end()) it->second();
             }
+#endif
             
             ImGui::EndMenu();
         }

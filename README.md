@@ -65,6 +65,8 @@ cmake --build . --config Release
 .\Release\Cartograph.exe
 ```
 
+A WebAssembly build for the browser is also supported; see the Web section of [BUILDING.md](BUILDING.md).
+
 See [BUILDING.md](BUILDING.md) for detailed build instructions, options, and distribution setup.
 
 ## Keyboard Shortcuts

@@ -15,7 +15,9 @@ void JobQueue::Start() {
     if (m_running) return;
     
     m_running = true;
+#ifndef __EMSCRIPTEN__
     m_worker = std::thread(&JobQueue::WorkerThread, this);
+#endif
 }
 
 void JobQueue::Stop() {
@@ -48,7 +50,36 @@ void JobQueue::Enqueue(
     m_condition.notify_one();
 }
 
+void JobQueue::RunJob(Job& job) {
+    try {
+        job.work();
+        job.success = true;
+    } catch (const std::exception& e) {
+        job.success = false;
+        job.error = e.what();
+    } catch (...) {
+        job.success = false;
+        job.error = "Unknown error";
+    }
+}
+
 void JobQueue::ProcessCallbacks() {
+#ifdef __EMSCRIPTEN__
+    // No worker thread in the browser: run queued work here, one frame
+    // after it was enqueued, then deliver the callbacks below.
+    std::queue<Job> pending;
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        pending.swap(m_pendingJobs);
+    }
+    while (!pending.empty()) {
+        RunJob(pending.front());
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_completedJobs.push(std::move(pending.front()));
+        pending.pop();
+    }
+#endif
+
     std::queue<Job> completed;
     
     {
@@ -91,16 +122,7 @@ void JobQueue::WorkerThread() {
         }
         
         // Execute the work
-        try {
-            job.work();
-            job.success = true;
-        } catch (const std::exception& e) {
-            job.success = false;
-            job.error = e.what();
-        } catch (...) {
-            job.success = false;
-            job.error = "Unknown error";
-        }
+        RunJob(job);
         
         // Move to completed queue
         {

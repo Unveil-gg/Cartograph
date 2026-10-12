@@ -13,6 +13,9 @@
 #include "../platform/Paths.h"
 #include "../platform/Fs.h"
 #include "../platform/Time.h"
+#ifdef __EMSCRIPTEN__
+#include "../platform/web/Web.h"
+#endif
 #include <imgui.h>
 #include <filesystem>
 #include <algorithm>
@@ -177,27 +180,24 @@ void WelcomeScreen::Render(
     ImGui::SetCursorPosX(buttonsStartX);
     if (ImGui::Button("Create New Project", ImVec2(buttonWidth, 
                                                     buttonHeight))) {
-        m_ui.m_modals.showNewProjectModal = true;
-        // Reset config to defaults
-        std::strncpy(m_ui.m_modals.newProjectConfig.projectName, "New Map",
-                     sizeof(m_ui.m_modals.newProjectConfig.projectName) - 1);
-        m_ui.m_modals.newProjectConfig.projectName[
-            sizeof(m_ui.m_modals.newProjectConfig.projectName) - 1] = '\0';
-        m_ui.m_modals.newProjectConfig.gridPreset = GridPreset::Square;
-        m_ui.m_modals.newProjectConfig.mapWidth = 100;
-        m_ui.m_modals.newProjectConfig.mapHeight = 100;
-        
-        // Initialize default save path
-        m_ui.m_modals.newProjectConfig.saveDirectory = Platform::GetDefaultProjectsDir();
-        m_ui.m_modals.UpdateNewProjectPath();
-        
-        // Ensure default directory exists
-        Platform::EnsureDirectoryExists(m_ui.m_modals.newProjectConfig.saveDirectory);
+        m_ui.m_modals.BeginNewProject();
     }
     
     ImGui::SameLine(0.0f, buttonSpacing);
     if (ImGui::Button("Import Project", ImVec2(buttonWidth, 
                                                 buttonHeight))) {
+#ifdef __EMSCRIPTEN__
+        // Browser file picker; the upload is copied into browser storage.
+        Platform::Web::PickFile(
+            ".cart",
+            [this, &app, &jobs](const std::string& upload) {
+                std::string path = upload.empty()
+                    ? upload : Platform::Web::ImportProject(upload);
+                if (!path.empty()) {
+                    m_ui.StartAsyncProjectLoad(path, app, jobs);
+                }
+            });
+#else
         // Show native file picker
         auto result = Platform::ShowOpenDialogForImport(
             "Import Cartograph Project",
@@ -211,6 +211,7 @@ void WelcomeScreen::Render(
             m_ui.StartAsyncProjectLoad(*result, app, jobs);
         }
         // If result is nullopt, user cancelled - no action needed
+#endif
     }
     
     // Hover tooltip

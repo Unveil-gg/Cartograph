@@ -33,7 +33,11 @@ void App::SetupImGui() {
     
     // Setup platform/renderer backends
     ImGui_ImplSDL3_InitForOpenGL(m_window.get(), m_glContext.get());
+#ifdef __EMSCRIPTEN__
+    ImGui_ImplOpenGL3_Init("#version 300 es");
+#else
     ImGui_ImplOpenGL3_Init("#version 330");
+#endif
     
     // Apply theme
     ApplyTheme(m_model.theme);
